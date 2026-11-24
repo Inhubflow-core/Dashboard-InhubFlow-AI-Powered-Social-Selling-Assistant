@@ -13,6 +13,7 @@ import "swiper/css/bundle";
 import "../globals.css";
 
 import type { Metadata } from "next";
+import { PwaRegister } from "@/components/common/PwaRegister";
 
 export const metadata: Metadata = {
   title: {
@@ -21,6 +22,12 @@ export const metadata: Metadata = {
   },
   description:
     "Construye tu marca personal y escala tus ventas B2B con tu Asistente SDR IA de Social Selling en LinkedIn.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "InhubBot",
+  },
   icons: {
     icon: [
       { url: "/images/logo/inhubflow-icon-dark.png", type: "image/png" },
@@ -65,6 +72,7 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         <NextIntlClientProvider messages={messages}>
+          <PwaRegister />
           <ThemeProvider>
             <AuthProvider>
               <SidebarProvider>{children}</SidebarProvider>

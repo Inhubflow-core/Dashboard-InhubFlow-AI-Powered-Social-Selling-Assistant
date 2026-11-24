@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { useState } from "react";
 import PlanHeaderBadge from "@/components/header/PlanHeaderBadge";
+import { InstallBotAppButton } from "@/components/common/InstallBotAppModal";
 
 const AppHeader: React.FC = () => {
   const t = useTranslations("header");
@@ -122,6 +123,7 @@ const AppHeader: React.FC = () => {
           )}
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
+            <InstallBotAppButton />
             <PlanHeaderBadge />
             <LanguageSwitcher />
 
