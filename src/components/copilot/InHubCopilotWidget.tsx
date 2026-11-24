@@ -393,14 +393,14 @@ export default function InHubCopilotWidget() {
     : [];
 
   return (
-    <div className="fixed bottom-4 right-4 z-[999999] flex flex-col items-end">
+    <div className="fixed bottom-3 right-3 z-[999999] flex flex-col items-end">
       {/* ===================================================================== */}
       {/* 1. CLEAN MINIMAL CHAT PANEL                                           */}
       {/* ===================================================================== */}
       {isOpen && (
-        <div className="mb-3 w-[360px] sm:w-[410px] max-h-[min(570px,calc(100dvh-220px))] rounded-2xl border border-slate-200/90 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-2xl shadow-slate-900/20 overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-3 duration-200">
+        <div className="mb-2.5 w-[310px] sm:w-[340px] max-h-[min(490px,calc(100dvh-180px))] rounded-2xl border border-slate-200/90 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-2xl shadow-slate-900/20 overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-3 duration-200">
           {/* Clean Light Header */}
-          <div className="px-4 py-3 bg-white dark:bg-gray-900 border-b border-slate-100 dark:border-gray-800 shrink-0">
+          <div className="px-3.5 py-2.5 bg-white dark:bg-gray-900 border-b border-slate-100 dark:border-gray-800 shrink-0">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="shrink-0">
@@ -578,21 +578,21 @@ export default function InHubCopilotWidget() {
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") proactiveConfig.onCta();
             }}
-            className="relative max-w-[260px] rounded-2xl rounded-br-sm bg-white dark:bg-gray-900 border border-slate-200/80 dark:border-gray-800 px-3.5 py-3 shadow-lg shadow-slate-900/10 cursor-pointer hover:border-[#0099ff]/40 transition animate-in fade-in slide-in-from-bottom-2 duration-200"
+            className="relative max-w-[200px] rounded-xl rounded-br-sm bg-white dark:bg-gray-900 border border-slate-200/80 dark:border-gray-800 px-3 py-2 shadow-md shadow-slate-900/10 cursor-pointer hover:border-[#0099ff]/40 transition animate-in fade-in slide-in-from-bottom-2 duration-200"
           >
             <button
               type="button"
               onClick={handleDismissBubble}
               aria-label="Cerrar"
-              className="absolute top-2 right-2 p-0.5 rounded-md text-slate-300 hover:text-slate-600 dark:hover:text-white transition cursor-pointer"
+              className="absolute top-1.5 right-1.5 p-0.5 rounded-md text-slate-300 hover:text-slate-600 dark:hover:text-white transition cursor-pointer"
             >
               <X className="w-3 h-3" />
             </button>
 
-            <p className="text-xs text-slate-600 dark:text-gray-300 leading-snug pr-4">
+            <p className="text-[11px] text-slate-600 dark:text-gray-300 leading-snug pr-3.5">
               {proactiveConfig.text}
             </p>
-            <span className="mt-1.5 inline-block text-[11px] font-semibold text-[#0099ff]">
+            <span className="mt-1 inline-block text-[10px] font-semibold text-[#0099ff]">
               {proactiveConfig.ctaLabel}
             </span>
           </div>
