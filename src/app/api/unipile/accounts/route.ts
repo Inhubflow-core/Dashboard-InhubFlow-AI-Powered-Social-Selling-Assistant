@@ -32,7 +32,7 @@ async function fetchLiveAccountsPayload() {
         let email = im?.username && im.username.includes('@') ? im.username : undefined;
         let headline = 'Perfil LinkedIn Conectado';
         let publicProfileUrl = im?.publicIdentifier ? `https://www.linkedin.com/in/${im.publicIdentifier}` : undefined;
-        let profilePictureUrl = '/images/user/owner.png';
+        let profilePictureUrl = '';
 
         try {
           const profile = await unipile.getOwnProfile(acc.id);

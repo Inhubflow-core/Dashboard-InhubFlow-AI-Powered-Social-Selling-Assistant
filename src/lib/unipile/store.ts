@@ -44,7 +44,7 @@ export const initialLinkedInAccounts: ConnectedLinkedInAccount[] = [
     email: "jimmyrafael310@gmail.com",
     headline: "Perfil LinkedIn Conectado",
     publicProfileUrl: "https://www.linkedin.com",
-    profilePictureUrl: "/images/user/owner.png",
+    profilePictureUrl: "",
     status: "OK",
     authMode: "hosted",
     connectedAt: "2026-11-24T18:16:28.502Z",

@@ -122,6 +122,8 @@ export default function UserDropdown() {
         photo = linkedInPhoto;
       } else if (isRoberto && (!photo || photo.includes("owner.png"))) {
         photo = "https://media.licdn.com/dms/image/v2/D4E03AQETqM_x3Dg7UA/profile-displayphoto-shrink_800_800/B4EZkzyXuFGwAc-/0/1757510466710?e=1794441600&v=beta&t=xum439MlKzB0k_HVMYYLyiSO61_WdqVb8ZRXBmTfuVY";
+      } else if (!photo || photo.includes("owner.png")) {
+        photo = undefined;
       }
     }
 
