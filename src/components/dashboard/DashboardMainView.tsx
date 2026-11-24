@@ -21,42 +21,42 @@ export default function DashboardMainView() {
       desc: t("modules.viralPostsDesc"),
       link: "/viral-posts/radar",
       action: t("modules.viralPostsAction"),
-      tag: `${analytics.overview.queuedPosts} publicaciones listas`,
+      tag: t("modules.queuedPostsTag", { count: analytics.overview.queuedPosts }),
     },
     {
       name: t("modules.signalsName"),
       desc: t("modules.signalsDesc"),
       link: "/signals/my-posts",
       action: t("modules.signalsAction"),
-      tag: `${analytics.signalDistribution.total} señales captadas`,
+      tag: t("modules.signalsCapturedTag", { count: analytics.signalDistribution.total }),
     },
     {
       name: t("modules.campaignsName"),
       desc: t("modules.campaignsDesc"),
       link: "/campaigns",
       action: t("modules.campaignsAction"),
-      tag: `${analytics.overview.activeCampaigns} secuencias activas`,
+      tag: t("modules.activeCampaignsTag", { count: analytics.overview.activeCampaigns }),
     },
     {
       name: t("modules.leadsName"),
       desc: t("modules.leadsDesc"),
       link: "/leads",
       action: t("modules.leadsAction"),
-      tag: `${analytics.overview.totalLeads} prospectos 360`,
+      tag: t("modules.totalLeadsTag", { count: analytics.overview.totalLeads }),
     },
     {
       name: t("modules.inboxName"),
       desc: t("modules.inboxDesc"),
       link: "/inbox",
       action: t("modules.inboxAction"),
-      tag: "SDR Co-Pilot activo",
+      tag: t("modules.sdrCopilotActiveTag"),
     },
     {
       name: t("modules.pipelineName"),
       desc: t("modules.pipelineDesc"),
       link: "/pipeline",
       action: t("modules.pipelineAction"),
-      tag: `${analytics.overview.activeDeals} deals en embudo`,
+      tag: t("modules.activeDealsTag", { count: analytics.overview.activeDeals }),
     },
   ];
 
@@ -75,7 +75,7 @@ export default function DashboardMainView() {
             <>
               <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-100 dark:ring-emerald-950/60"></span>
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                LinkedIn Cloud Sincronizado ({analytics.overview.connectedAccounts})
+                {t("headerStatus.synced", { count: analytics.overview.connectedAccounts })}
               </span>
             </>
           ) : (
@@ -84,7 +84,7 @@ export default function DashboardMainView() {
               className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-500/20 dark:text-amber-300"
             >
               <span className="flex h-2 w-2 rounded-full bg-amber-500"></span>
-              <span>Conectar cuenta de LinkedIn</span>
+              <span>{t("headerStatus.connect")}</span>
             </Link>
           )}
         </div>
@@ -128,7 +128,7 @@ export default function DashboardMainView() {
             </p>
           </div>
           <span className="text-xs text-brand-600 dark:text-brand-400 font-semibold">
-            6 Módulos Operativos al 100%
+            {t("modules.operatingCount")}
           </span>
         </div>
 

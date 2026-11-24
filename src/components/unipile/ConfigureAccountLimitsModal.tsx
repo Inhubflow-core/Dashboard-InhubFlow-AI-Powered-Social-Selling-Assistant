@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import type { ConnectedLinkedInAccount } from "@/lib/unipile/types";
+import { useTranslations } from "next-intl";
 
 interface ConfigureAccountLimitsModalProps {
   isOpen: boolean;
@@ -39,16 +40,6 @@ const TIMEZONES = [
   { value: "Pacific/Auckland", label: "UTC+12/+13 — Auckland" },
 ];
 
-const WEEKDAYS = [
-  { iso: 1, short: "Lun" },
-  { iso: 2, short: "Mar" },
-  { iso: 3, short: "Mié" },
-  { iso: 4, short: "Jue" },
-  { iso: 5, short: "Vie" },
-  { iso: 6, short: "Sáb" },
-  { iso: 7, short: "Dom" },
-];
-
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 function fmtHour(h: number) {
@@ -64,6 +55,7 @@ export default function ConfigureAccountLimitsModal({
   onClose,
   onSave,
 }: ConfigureAccountLimitsModalProps) {
+  const t = useTranslations("accounts.modalLimits");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [targetLanguage, setTargetLanguage] = useState<"es" | "pt" | "en">("es");
@@ -75,6 +67,16 @@ export default function ConfigureAccountLimitsModal({
   const [timezone, setTimezone] = useState("America/Sao_Paulo");
   const [workingDays, setWorkingDays] = useState("1,2,3,4,5");
   const [error, setError] = useState<string | null>(null);
+
+  const WEEKDAYS = [
+    { iso: 1, short: t("weekdays.mon") },
+    { iso: 2, short: t("weekdays.tue") },
+    { iso: 3, short: t("weekdays.wed") },
+    { iso: 4, short: t("weekdays.thu") },
+    { iso: 5, short: t("weekdays.fri") },
+    { iso: 6, short: t("weekdays.sat") },
+    { iso: 7, short: t("weekdays.sun") },
+  ];
 
   useEffect(() => {
     if (account && isOpen) {
@@ -98,12 +100,12 @@ export default function ConfigureAccountLimitsModal({
     e.preventDefault();
 
     if (!name.trim() || !email.trim()) {
-      setError("Por favor ingresa un nombre y un correo de LinkedIn válido.");
+      setError(t("errorRequired"));
       return;
     }
 
     if (startHour >= endHour) {
-      setError("La hora de inicio debe ser anterior a la de fin en el horario de prospección.");
+      setError(t("errorTime"));
       return;
     }
 
@@ -125,10 +127,16 @@ export default function ConfigureAccountLimitsModal({
     onClose();
   };
 
+  const langs = [
+    { id: "es", label: t("langEs"), desc: t("langEsDesc") },
+    { id: "pt", label: t("langPt"), desc: t("langPtDesc") },
+    { id: "en", label: t("langEn"), desc: t("langEnDesc") },
+  ];
+
   return (
     <div className="fixed inset-0 z-99999 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
       <div className="relative w-full max-w-xl rounded-lg border border-gray-300 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900 overflow-hidden my-8">
-        {/* Cabecera idéntica a #b2b */}
+        {/* Cabecera */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-300 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-[#0A66C2]/10 text-[#0A66C2] flex items-center justify-center font-bold text-lg select-none">
@@ -136,10 +144,10 @@ export default function ConfigureAccountLimitsModal({
             </div>
             <div>
               <h3 className="font-bold text-base text-gray-900 dark:text-white leading-snug">
-                Editar Cuenta de LinkedIn
+                {t("title")}
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Paso 1 de 2: Parámetros y límites de prospección
+                {t("step")}
               </p>
             </div>
           </div>
@@ -148,7 +156,7 @@ export default function ConfigureAccountLimitsModal({
             type="button"
             onClick={onClose}
             className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-            title="Cerrar"
+            title={t("cancel")}
           >
             <X className="size-5" />
           </button>
@@ -160,12 +168,12 @@ export default function ConfigureAccountLimitsModal({
             {/* Nombre para mostrar */}
             <div>
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 pb-1 block">
-                Nombre para mostrar
+                {t("displayName")}
               </label>
               <input
                 type="text"
                 className="h-9 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                placeholder="Ej. Roberto Orse LinkedIn"
+                placeholder={t("displayNamePlaceholder")}
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
@@ -178,12 +186,12 @@ export default function ConfigureAccountLimitsModal({
             {/* Correo de LinkedIn */}
             <div>
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 pb-1 block">
-                Correo de LinkedIn
+                {t("email")}
               </label>
               <input
                 type="email"
                 className="h-9 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                placeholder="tu-correo@linkedin.com"
+                placeholder={t("emailPlaceholder")}
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -193,17 +201,13 @@ export default function ConfigureAccountLimitsModal({
               />
             </div>
 
-            {/* Idioma de Publicación e IA (Multi-cuenta independiente) */}
+            {/* Idioma de Publicación */}
             <div>
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 pb-1.5 block">
-                Idioma de Publicación e IA para esta Cuenta
+                {t("targetLanguage")}
               </label>
               <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: "es", flag: "🇪🇸", label: "Español", desc: "LATAM / España" },
-                  { id: "pt", flag: "🇧🇷", label: "Português", desc: "Brasil / Portugal" },
-                  { id: "en", flag: "🇺🇸", label: "English", desc: "USA / Global B2B" },
-                ].map((lang) => (
+                {langs.map((lang) => (
                   <button
                     key={lang.id}
                     type="button"
@@ -214,22 +218,22 @@ export default function ConfigureAccountLimitsModal({
                         : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-700 dark:text-gray-300 font-medium"
                     }`}
                   >
-                    <span className="text-lg leading-none mb-1">{lang.flag}</span>
+                    <span className="text-xs font-semibold">{lang.id.toUpperCase()}</span>
                     <span className="text-xs">{lang.label}</span>
                     <span className="text-[10px] text-gray-500 dark:text-gray-400">{lang.desc}</span>
                   </button>
                 ))}
               </div>
               <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-                Cada cuenta es independiente. El generador de posts virales e IA adaptará el contenido automáticamente a este idioma.
+                {t("targetLanguageDesc")}
               </p>
             </div>
 
-            {/* 3 Columnas de Límites Diarios (Máximo de seguridad 20) */}
+            {/* Límites Diarios */}
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 pb-1 block">
-                  Conexiones/día
+                  {t("connectionsDay")}
                 </label>
                 <input
                   type="number"
@@ -245,7 +249,7 @@ export default function ConfigureAccountLimitsModal({
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 pb-1 block">
-                  Mensajes/día
+                  {t("messagesDay")}
                 </label>
                 <input
                   type="number"
@@ -261,7 +265,7 @@ export default function ConfigureAccountLimitsModal({
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 pb-1 block">
-                  InMail/día
+                  {t("inmailDay")}
                 </label>
                 <input
                   type="number"
@@ -278,19 +282,19 @@ export default function ConfigureAccountLimitsModal({
             </div>
 
             <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1 leading-snug">
-              🔒 Límite de seguridad recomendado: Máximo 20 acciones/día para proteger tu perfil de LinkedIn.
+              {t("securityNotice")}
             </p>
 
-            {/* Sección Horario de Prospección */}
+            {/* Horario de Prospección */}
             <div className="border-t border-gray-300 dark:border-gray-800 pt-3 flex flex-col gap-3">
               <p className="text-xs leading-5 font-normal tracking-normal text-gray-400 uppercase">
-                HORARIO DE PROSPECCIÓN
+                {t("scheduleTitle")}
               </p>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 pb-1 block">
-                    Inicio
+                    {t("startHour")}
                   </label>
                   <select
                     className="h-9 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer"
@@ -306,7 +310,7 @@ export default function ConfigureAccountLimitsModal({
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 pb-1 block">
-                    Fin
+                    {t("endHour")}
                   </label>
                   <select
                     className="h-9 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer"
@@ -324,17 +328,17 @@ export default function ConfigureAccountLimitsModal({
 
               {startHour >= endHour ? (
                 <p className="text-xs text-red-500 font-medium">
-                  La hora de inicio debe ser anterior a la de fin
+                  {t("errorTime")}
                 </p>
               ) : (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {fmtHour(startHour)} – {fmtHour(endHour)} ({endHour - startHour}h activas)
+                  {fmtHour(startHour)} – {fmtHour(endHour)} ({endHour - startHour}h)
                 </p>
               )}
 
               <div>
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 pb-1 block">
-                  Zona Horaria
+                  {t("timezone")}
                 </label>
                 <select
                   className="h-9 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer"
@@ -351,7 +355,7 @@ export default function ConfigureAccountLimitsModal({
 
               <div>
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 pb-1 block">
-                  Días Laborales
+                  {t("workingDays")}
                 </label>
                 <div className="flex gap-1.5">
                   {WEEKDAYS.map((day) => {
@@ -395,13 +399,13 @@ export default function ConfigureAccountLimitsModal({
               className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
               onClick={onClose}
             >
-              Cancelar
+              {t("cancel")}
             </button>
             <button
               type="submit"
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white transition-all shadow-md shadow-blue-500/20 cursor-pointer"
             >
-              Guardar Cambios
+              {t("save")}
             </button>
           </div>
         </form>

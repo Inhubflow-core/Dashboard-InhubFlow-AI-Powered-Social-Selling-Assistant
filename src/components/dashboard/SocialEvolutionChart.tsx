@@ -24,8 +24,23 @@ export default function SocialEvolutionChart({
 
   const currentData = period === "monthly" ? monthlyData : weeklyData;
 
-  const series = currentData.series.map((s) => ({
-    name: s.name,
+  // Map series by position: 0=signals, 1=connections, 2=qualified, 3=meetings
+  const seriesNameKeys = [
+    "charts.evolution.seriesSignals",
+    "charts.evolution.seriesConnections",
+    "charts.evolution.seriesQualified",
+    "charts.evolution.seriesMeetings",
+  ] as const;
+
+  const monthKeys = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"] as const;
+  const weekKeys = ["w1","w2","w3","w4","w5","w6","w7","w8"] as const;
+
+  const translatedCategories = period === "monthly"
+    ? monthKeys.map((k) => t(`charts.evolution.months.${k}`))
+    : weekKeys.map((k) => t(`charts.evolution.weeks.${k}`));
+
+  const series = currentData.series.map((s, idx) => ({
+    name: t(seriesNameKeys[idx] ?? "charts.evolution.seriesSignals"),
     data: s.data,
   }));
 
@@ -93,7 +108,7 @@ export default function SocialEvolutionChart({
       },
     },
     xaxis: {
-      categories: currentData.categories,
+      categories: translatedCategories,
       axisBorder: {
         show: false,
       },

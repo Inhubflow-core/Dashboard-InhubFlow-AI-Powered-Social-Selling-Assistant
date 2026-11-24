@@ -49,7 +49,7 @@ export default function ApiDocsPage() {
 
   return (
     <div className="w-full space-y-6">
-      <PageBreadcrumb pageTitle="Documentación Técnica & Sandbox de Webhooks" />
+      <PageBreadcrumb pageTitle={t("docsTitle")} />
 
       <div className="w-full rounded-lg border border-gray-300 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/3">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

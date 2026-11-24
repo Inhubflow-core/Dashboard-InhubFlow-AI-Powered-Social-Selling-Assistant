@@ -52,7 +52,7 @@ export default function DashboardMetricsCards({
             {overview.activeDeals}
           </span>
           <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 dark:bg-purple-950/50 dark:text-purple-400">
-            8 Etapas
+            {t("metrics.stagesCount", { count: 8 })}
           </span>
         </div>
         <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 truncate">
@@ -73,7 +73,7 @@ export default function DashboardMetricsCards({
             {overview.closedWon}
           </span>
           <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
-            Cierres
+            {t("metrics.closedBadge")}
           </span>
         </div>
         <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 truncate">
@@ -91,7 +91,7 @@ export default function DashboardMetricsCards({
             {overview.conversionRate}%
           </span>
           <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-600 dark:bg-brand-950/50 dark:text-brand-400">
-            Inbound
+            {t("metrics.inboundBadge")}
           </span>
         </div>
         <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 truncate">

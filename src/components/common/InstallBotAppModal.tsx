@@ -1,20 +1,19 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
-import QRCode from "qrcode";
 import {
   Download,
   Smartphone,
   X,
   ExternalLink,
   CheckCircle2,
-  Share2,
-  Sparkles,
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
+import QRCode from "qrcode";
 
 export function InstallBotAppButton() {
+  const t = useTranslations("header.botApp");
   const [isOpen, setIsOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
@@ -81,11 +80,11 @@ export function InstallBotAppButton() {
       <button
         onClick={() => setIsOpen(true)}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#0099ff]/15 to-[#0099ff]/25 hover:from-[#0099ff]/25 hover:to-[#0099ff]/35 text-[#0099ff] border border-[#0099ff]/30 text-xs font-medium transition shadow-sm"
-        title="Descargar e instalar InhubBot en tu móvil o escritorio"
+        title={t("buttonTitle")}
       >
         <Smartphone className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">Descargar App</span>
-        <span className="sm:hidden">App</span>
+        <span className="hidden sm:inline">{t("button")}</span>
+        <span className="sm:hidden">{t("buttonShort")}</span>
       </button>
 
       {/* Modal Dialog */}
@@ -106,13 +105,13 @@ export function InstallBotAppButton() {
               </div>
               <div>
                 <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                  InhubBot App
+                  {t("title")}
                   <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#0099ff]/20 text-[#0099ff]">
-                    PWA
+                    {t("badge")}
                   </span>
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-slate-400">
-                  Controla LinkedIn mediante comandos de voz desde tu móvil
+                  {t("subtitle")}
                 </p>
               </div>
             </div>
@@ -120,21 +119,21 @@ export function InstallBotAppButton() {
             {/* QR Code Scan Area */}
             <div className="bg-gray-50 dark:bg-[#162032] p-4 rounded-xl border border-gray-200 dark:border-slate-800 text-center mb-4">
               <p className="text-xs font-medium text-gray-700 dark:text-slate-300 mb-3">
-                Escanea este código con la cámara de tu móvil:
+                {t("scanTitle")}
               </p>
               <div className="flex justify-center mb-2">
                 {qrDataUrl ? (
                   <div className="p-2 bg-white rounded-xl shadow-md border border-gray-200">
-                    <img src={qrDataUrl} alt="Escanear InhubBot App" className="w-36 h-36" />
+                    <img src={qrDataUrl} alt={t("qrAlt")} className="w-36 h-36" />
                   </div>
                 ) : (
                   <div className="w-36 h-36 bg-gray-200 dark:bg-slate-700 rounded-xl flex items-center justify-center text-xs text-gray-400">
-                    Generando QR...
+                    {t("generatingQr")}
                   </div>
                 )}
               </div>
               <p className="text-[11px] text-gray-500 dark:text-slate-400">
-                Abre directamente la app en tu teléfono
+                {t("scanSub")}
               </p>
             </div>
 
@@ -143,13 +142,15 @@ export function InstallBotAppButton() {
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-[#0099ff] shrink-0 mt-0.5" />
                 <span>
-                  <strong>Android / Chrome:</strong> Pulsa el botón inferior o selecciona "Instalar aplicación" desde el menú del navegador.
+                  <strong>{t("instructionAndroidPrefix")}</strong>{" "}
+                  {t("instructionAndroid")}
                 </span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-[#0099ff] shrink-0 mt-0.5" />
                 <span>
-                  <strong>iPhone / iPad (Safari):</strong> Pulsa el botón <em>Compartir</em> (ícono de flecha hacia arriba) y selecciona <em>"Añadir a pantalla de inicio"</em>.
+                  <strong>{t("instructionIosPrefix")}</strong>{" "}
+                  {t("instructionIos")}
                 </span>
               </div>
             </div>
@@ -162,7 +163,7 @@ export function InstallBotAppButton() {
                   className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-[#0099ff] hover:bg-[#0088e6] text-white text-xs font-semibold shadow-md transition"
                 >
                   <Download className="w-4 h-4" />
-                  Instalar en este dispositivo
+                  {t("installBtn")}
                 </button>
               )}
               <Link
@@ -171,7 +172,7 @@ export function InstallBotAppButton() {
                 className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-800 dark:text-white text-xs font-semibold transition"
               >
                 <ExternalLink className="w-4 h-4" />
-                Abrir App en el navegador
+                {t("openBrowser")}
               </Link>
             </div>
           </div>

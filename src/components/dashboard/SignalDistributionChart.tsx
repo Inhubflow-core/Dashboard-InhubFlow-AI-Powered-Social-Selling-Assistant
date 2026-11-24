@@ -53,7 +53,7 @@ export default function SignalDistributionChart({
             total: {
               show: true,
               showAlways: true,
-              label: "Total Leads",
+              label: t("charts.signalsDistribution.centerTotal"),
               fontSize: "12px",
               fontWeight: 500,
               color: "#6B7280",
@@ -76,7 +76,7 @@ export default function SignalDistributionChart({
     tooltip: {
       theme: "light",
       y: {
-        formatter: (val) => `${val} leads captados`,
+        formatter: (val) => t("charts.signalsDistribution.tooltip", { val }),
       },
     },
     stroke: {
@@ -121,7 +121,7 @@ export default function SignalDistributionChart({
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-[#0099ff]"></span>
-            <span className="text-gray-600 dark:text-gray-400">Nivel 1 (Mis Posts)</span>
+            <span className="text-gray-600 dark:text-gray-400">{t("charts.signalsDistribution.level1")}</span>
           </div>
           <div className="flex items-center gap-2 font-medium">
             <span className="text-gray-900 dark:text-white font-semibold">
@@ -134,7 +134,7 @@ export default function SignalDistributionChart({
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-[#8b5cf6]"></span>
-            <span className="text-gray-600 dark:text-gray-400">Nivel 2 (Competencia)</span>
+            <span className="text-gray-600 dark:text-gray-400">{t("charts.signalsDistribution.level2")}</span>
           </div>
           <div className="flex items-center gap-2 font-medium">
             <span className="text-gray-900 dark:text-white font-semibold">
@@ -147,7 +147,7 @@ export default function SignalDistributionChart({
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-[#f59e0b]"></span>
-            <span className="text-gray-600 dark:text-gray-400">Nivel 3 (Grupos & Palabras)</span>
+            <span className="text-gray-600 dark:text-gray-400">{t("charts.signalsDistribution.level3")}</span>
           </div>
           <div className="flex items-center gap-2 font-medium">
             <span className="text-gray-900 dark:text-white font-semibold">

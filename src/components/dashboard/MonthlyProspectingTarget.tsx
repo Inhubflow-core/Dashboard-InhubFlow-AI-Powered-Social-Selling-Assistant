@@ -76,7 +76,7 @@ export default function MonthlyProspectingTarget({
     stroke: {
       lineCap: "round",
     },
-    labels: ["Objetivo"],
+    labels: [t("charts.target.targetLabelText")],
   };
 
   const projectedMeetings = Math.round(scheduledMeetings * 1.35);
@@ -89,7 +89,7 @@ export default function MonthlyProspectingTarget({
             {t("charts.target.title")}
           </h3>
           <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-            En ritmo
+            {t("charts.target.onPace")}
           </span>
         </div>
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -114,7 +114,7 @@ export default function MonthlyProspectingTarget({
               {t("charts.target.targetLabel")}
             </span>
             <span className="text-base font-bold text-gray-900 dark:text-white">
-              {targetMeetings} citas
+              {t("charts.target.meetingCount", { count: targetMeetings })}
             </span>
           </div>
           <div className="border-x border-gray-200 dark:border-gray-800">
@@ -122,7 +122,7 @@ export default function MonthlyProspectingTarget({
               {t("charts.target.currentLabel")}
             </span>
             <span className="text-base font-bold text-brand-600 dark:text-brand-400">
-              {scheduledMeetings} citas
+              {t("charts.target.meetingCount", { count: scheduledMeetings })}
             </span>
           </div>
           <div>
@@ -130,7 +130,7 @@ export default function MonthlyProspectingTarget({
               {t("charts.target.projectedLabel")}
             </span>
             <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
-              {projectedMeetings} citas
+              {t("charts.target.meetingCount", { count: projectedMeetings })}
             </span>
           </div>
         </div>

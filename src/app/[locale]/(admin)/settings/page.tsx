@@ -187,11 +187,7 @@ function SettingsContent() {
   };
 
   const handleRegenerateKey = async () => {
-    if (
-      confirm(
-        "¿Estás seguro de regenerar la API Key? Cualquier integración externa actual dejará de funcionar hasta que se actualice."
-      )
-    ) {
+    if (confirm(t("apiKeyRegenerateConfirm"))) {
       try {
         const res = await fetch("/api/settings", {
           method: "POST",
@@ -207,12 +203,12 @@ function SettingsContent() {
               JSON.stringify(data.settings)
             );
           } catch {}
-          setNotice("API Key regenerada y guardada exitosamente.");
+          setNotice(t("apiKeyRegeneratedNotice"));
           setTimeout(() => setNotice(null), 3000);
           return;
         }
       } catch {}
-      setNotice("No se pudo regenerar la API Key en el servidor.");
+      setNotice(t("apiKeyRegenerateError"));
       setTimeout(() => setNotice(null), 3000);
     }
   };
@@ -227,7 +223,7 @@ function SettingsContent() {
 
   return (
     <div className="w-full space-y-6">
-      <PageBreadcrumb pageTitle="API y Workspace" />
+      <PageBreadcrumb pageTitle={t("breadcrumbTitle")} />
 
       {notice && (
         <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
@@ -249,7 +245,7 @@ function SettingsContent() {
             }`}
           >
             <Building2 className="size-4" />
-            <span>Configuración del Workspace</span>
+            <span>{t("tabWorkspace")}</span>
           </button>
 
           <button
@@ -262,7 +258,7 @@ function SettingsContent() {
             }`}
           >
             <Key className="size-4" />
-            <span>Claves de API & Seguridad</span>
+            <span>{t("tabApiSecurity")}</span>
           </button>
         </div>
       </div>
@@ -499,17 +495,17 @@ function SettingsContent() {
               </div>
               <div>
                 <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
-                  Claves de API de InhubFlow (REST API)
+                  {t("apiKeyTitle")}
                 </h3>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Utiliza esta clave para autenticar peticiones programáticas a la API de InhubFlow desde tu backend o herramientas de automatización.
+                  {t("apiKeyDesc")}
                 </p>
               </div>
             </div>
 
             <div className="mt-5 space-y-3">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                API Secret Key (Producción)
+                {t("apiKeySecret")}
               </label>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
@@ -549,7 +545,7 @@ function SettingsContent() {
                 )}
               </div>
               <span className="text-xs text-gray-400">
-                Mantén esta clave confidencial. Otorga acceso total a los prospectos y campañas de tu espacio de trabajo.
+                {t("apiKeyNotice")}
               </span>
             </div>
           </div>
@@ -562,10 +558,10 @@ function SettingsContent() {
               </div>
               <div>
                 <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
-                  Cifrado & Aislamiento de Cuentas de LinkedIn
+                  {t("securityTitle")}
                 </h3>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Estándares de seguridad aplicados a las credenciales y tokens de sesión.
+                  {t("securitySubtitle")}
                 </p>
               </div>
             </div>
@@ -573,28 +569,28 @@ function SettingsContent() {
             <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3 text-xs">
               <div className="rounded-lg border border-gray-300 bg-gray-50/50 p-4 dark:border-gray-800 dark:bg-gray-800/40">
                 <span className="text-base font-medium text-gray-800 dark:text-white/90">
-                  Cifrado AES-256
+                  {t("sec1Title")}
                 </span>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Todas las cookies y tokens de sesión de LinkedIn se cifran en reposo con claves derivadas de alta entropía.
+                  {t("sec1Desc")}
                 </p>
               </div>
 
               <div className="rounded-lg border border-gray-300 bg-gray-50/50 p-4 dark:border-gray-800 dark:bg-gray-800/40">
                 <span className="text-base font-medium text-gray-800 dark:text-white/90">
-                  Rotación Residencial de IPs
+                  {t("sec2Title")}
                 </span>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Cada cuenta de LinkedIn opera a través de proxies residenciales dedicados con User-Agents fijos.
+                  {t("sec2Desc")}
                 </p>
               </div>
 
               <div className="rounded-lg border border-gray-300 bg-gray-50/50 p-4 dark:border-gray-800 dark:bg-gray-800/40">
                 <span className="text-base font-medium text-gray-800 dark:text-white/90">
-                  Aislamiento de Sesión
+                  {t("sec3Title")}
                 </span>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  El frontend nunca recibe las credenciales crudas de LinkedIn; solo consulta estados booleanos validados.
+                  {t("sec3Desc")}
                 </p>
               </div>
             </div>
@@ -603,10 +599,10 @@ function SettingsContent() {
           {/* Sesiones Activas */}
           <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900">
             <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
-              Sesiones Activas en el Workspace
+              {t("activeSessionsTitle")}
             </h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Dispositivos que han iniciado sesión recientemente en tu cuenta.
+              {t("activeSessionsDesc")}
             </p>
 
             <div className="mt-4 divide-y divide-gray-300 dark:divide-gray-800 text-xs">

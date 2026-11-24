@@ -263,7 +263,7 @@ export default function LinkedInAccountsPage() {
         });
         const refreshed = getVisibleAccountsForUser(currentUser);
         setAccounts(refreshed);
-        setNotice("El periodo de prueba de Unipile ha finalizado (Error 401: Missing credentials). Las cuentas han sido marcadas como desconectadas.");
+        setNotice(t("unipileExpiredNotice"));
         return;
       }
       if (data.accounts && Array.isArray(data.accounts)) {
@@ -357,7 +357,7 @@ export default function LinkedInAccountsPage() {
 
   return (
     <div className="w-full space-y-6">
-      <PageBreadcrumb pageTitle="Cuentas de LinkedIn" />
+      <PageBreadcrumb pageTitle={t("breadcrumbTitle")} />
 
       {/* Capacidad de Slots SaaS */}
       {!isTeamMember && (
@@ -369,8 +369,7 @@ export default function LinkedInAccountsPage() {
         <div className="flex items-center gap-2.5 rounded-lg border border-blue-500/20 bg-blue-500/10 p-4 text-xs font-medium text-blue-700 dark:text-blue-300">
           <Info className="size-4 shrink-0 text-[#0099ff]" />
           <span>
-            Estas conectado como <strong>Operador SDR</strong> ({currentUser.name}) en <strong>{currentUser.companyName}</strong>. 
-            Solo tienes acceso y visibilidad sobre tu cuenta personal de LinkedIn asignada. La contratacion y gestion de slots corresponde al Administrador.
+            {t("memberRoleNotice", { name: currentUser.name, company: currentUser.companyName ?? "" })}
           </span>
         </div>
       )}
@@ -381,13 +380,13 @@ export default function LinkedInAccountsPage() {
           <AlertTriangle className="size-5 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
           <div className="space-y-1">
             <p className="font-bold text-sm text-rose-800 dark:text-rose-200">
-              Periodo de prueba de Unipile finalizado (Error 401: Missing credentials)
+              {t("unipileTrialExpiredTitle")}
             </p>
             <p>
-              El periodo de prueba de 7 días de Unipile para la cuenta <strong>{unipileStatus.accountEmail || "principal"}</strong> ha expirado. Por este motivo, todas las cuentas de LinkedIn han sido marcadas como desconectadas (Credenciales requeridas) y la extracción en vivo de LinkedIn está pausada.
+              {t("unipileTrialExpiredDesc", { email: unipileStatus.accountEmail || "principal" })}
             </p>
             <p className="text-[11px] text-rose-600 dark:text-rose-400 font-mono mt-1">
-              Para reanudar las funciones en vivo, genera una nueva API Key en Unipile e ingrésala en .env.local (o conecta tu nuevo periodo de prueba).
+              {t("unipileTrialExpiredHint")}
             </p>
           </div>
         </div>
@@ -407,21 +406,21 @@ export default function LinkedInAccountsPage() {
           <div className="flex items-center gap-2">
             <h2 className="text-base font-medium text-gray-800 dark:text-white/90">
               {isSuperAdmin
-                ? "Cuentas de LinkedIn (Vista Global Super Admin)"
+                ? t("titleSuperAdmin")
                 : isTeamMember
-                ? "Mi Cuenta Asignada de LinkedIn"
-                : `Cuentas del Workspace (${currentUser.companyName})`}
+                ? t("titleMember")
+                : t("titleAdmin", { company: currentUser.companyName ?? "" })}
             </h2>
             <span className="rounded-full bg-[#0099ff]/10 px-2.5 py-0.5 text-xs font-semibold text-[#0099ff]">
-              {isSuperAdmin ? "Acceso Maestro" : isTeamMember ? "Operador" : "Admin de Cuenta"}
+              {isSuperAdmin ? t("badgeMaster") : isTeamMember ? t("badgeOperator") : t("badgeAdmin")}
             </span>
           </div>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {isSuperAdmin
-              ? "Como Super Admin puedes supervisar todas las cuentas de LinkedIn de todos los clientes y workspaces de la plataforma."
+              ? t("descSuperAdmin")
               : isTeamMember
-              ? "Gestiona tus limites diarios y tu sincronizacion de mensajes en LinkedIn para tu cuenta asignada."
-              : "Como Administrador puedes ver tu cuenta propia y las cuentas asignadas a los miembros de tu equipo dentro de tus slots."}
+              ? t("descMember")
+              : t("descAdmin")}
           </p>
         </div>
 
@@ -432,7 +431,7 @@ export default function LinkedInAccountsPage() {
             className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
           >
             <RefreshCw className={`size-4 ${isSyncing ? "animate-spin text-brand-500" : ""}`} />
-            <span>{isSyncing ? "Sincronizando..." : "Sincronizar"}</span>
+            <span>{isSyncing ? t("syncingBtn") : t("syncBtn")}</span>
           </button>
 
           {/* Botón para conectar cuentas: Solo para Admins (los miembros de equipo no pueden consumir slots) */}
@@ -442,7 +441,7 @@ export default function LinkedInAccountsPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-[#0099ff] px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs transition hover:bg-[#0088e6]"
             >
               <Plus className="size-4" />
-              <span>Conectar Cuenta</span>
+              <span>{t("connectAccountBtn")}</span>
             </button>
           )}
         </div>
@@ -459,24 +458,29 @@ export default function LinkedInAccountsPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
-                    Estado del Motor Cloud LinkedIn
+                    {t("cloudEngineTitle")}
                   </h3>
                   {unipileStatus?.configured ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
                       <CheckCircle2 className="size-3" />
-                      Live API Activa
+                      {t("liveApiActive")}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-brand-600 dark:text-brand-400">
                       <Info className="size-3" />
-                      Modo Demostracion Seguro
+                      {t("safeDemoMode")}
                     </span>
                   )}
                 </div>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   {unipileStatus?.configured
-                    ? `Conectado a nodo seguro: ${unipileStatus.dsn && !unipileStatus.dsn.includes("unipile") ? unipileStatus.dsn : "https://cloud.inhubflow.com (Nodo Seguro)"}. Todas las peticiones van directamente a la infraestructura de enlace.`
-                    : "No se detectaron las credenciales de enlace activo en las variables de entorno. Operando en modo de demostracion seguro para previsualizar flujos de trabajo sin interrupciones."}
+                    ? t("cloudConnectedDesc", {
+                        dsn:
+                          unipileStatus.dsn && !unipileStatus.dsn.includes("unipile")
+                            ? unipileStatus.dsn
+                            : "https://cloud.inhubflow.com (Nodo Seguro)",
+                      })
+                    : t("cloudDemoDesc")}
                 </p>
               </div>
             </div>
@@ -485,11 +489,11 @@ export default function LinkedInAccountsPage() {
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-1.5">
                 <ShieldCheck className="size-3.5 text-[#0099ff]" />
-                <span>Rotacion inteligente de User-Agent</span>
+                <span>{t("featureUserAgent")}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Activity className="size-3.5 text-[#0099ff]" />
-                <span>Respeto de pacing limits para proteccion</span>
+                <span>{t("featurePacing")}</span>
               </div>
             </div>
 
@@ -497,7 +501,7 @@ export default function LinkedInAccountsPage() {
               href="/support/docs"
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#0099ff]/10 px-3 py-1 text-xs font-semibold text-[#0099ff] hover:bg-[#0099ff]/20 transition"
             >
-              <span>Abrir Sandbox & Webhooks</span>
+              <span>{t("openSandboxBtn")}</span>
             </Link>
           </div>
         </div>
@@ -505,18 +509,18 @@ export default function LinkedInAccountsPage() {
         {/* Resumen de Cuentas */}
         <div className="rounded-lg border border-gray-300 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900">
           <div className="text-xs leading-5 font-normal tracking-normal uppercase text-gray-400">
-            Cuentas Conectadas
+            {t("connectedAccountsSummary")}
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-3xl font-bold text-gray-900 dark:text-white">
               {accounts.length}
             </span>
-            <span className="text-xs text-gray-500">perfil(es) activos</span>
+            <span className="text-xs text-gray-500">{t("activeProfiles")}</span>
           </div>
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Cuenta seleccionada para campanas actuales:{" "}
+            {t("selectedAccountCampaigns")}{" "}
             <span className="font-semibold text-brand-500">
-              {activeAccount?.name || "Ninguna"}
+              {activeAccount?.name || t("noneSelected")}
             </span>
           </p>
         </div>
@@ -530,15 +534,15 @@ export default function LinkedInAccountsPage() {
           <div>
             <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
               {isTeamMember
-                ? `Mi Perfil Vinculado (${displayedAccounts.length})`
+                ? t("listTitleMember", { count: displayedAccounts.length })
                 : isSuperAdmin
-                ? `Todas las Cuentas del Ecosistema (${displayedAccounts.length})`
-                : `Cuentas del Workspace (${displayedAccounts.length})`}
+                ? t("listTitleSuperAdmin", { count: displayedAccounts.length })
+                : t("listTitleAdmin", { count: displayedAccounts.length })}
             </h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {isTeamMember
-                ? "Cuenta asignada por el Administrador para prospeccion y envio de DMs."
-                : "El Administrador puede ver y supervisar la totalidad de las cuentas vinculadas por su equipo."}
+                ? t("listDescMember")
+                : t("listDescAdmin")}
             </p>
           </div>
 
@@ -553,7 +557,7 @@ export default function LinkedInAccountsPage() {
                     : "text-gray-500 hover:text-gray-900 dark:text-gray-400"
                 }`}
               >
-                Todas ({accounts.length})
+                {t("filterAll", { count: accounts.length })}
               </button>
               <button
                 onClick={() => setFilterMode("mine")}
@@ -563,7 +567,7 @@ export default function LinkedInAccountsPage() {
                     : "text-gray-500 hover:text-gray-900 dark:text-gray-400"
                 }`}
               >
-                Mi Cuenta
+                {t("filterMine")}
               </button>
               <button
                 onClick={() => setFilterMode("team")}
@@ -573,7 +577,7 @@ export default function LinkedInAccountsPage() {
                     : "text-gray-500 hover:text-gray-900 dark:text-gray-400"
                 }`}
               >
-                Equipo
+                {t("filterTeam")}
               </button>
             </div>
           )}
@@ -585,12 +589,12 @@ export default function LinkedInAccountsPage() {
               <Plus className="size-6" />
             </div>
             <h4 className="mt-4 text-base font-semibold text-gray-900 dark:text-white">
-              No hay cuentas disponibles en este filtro
+              {t("emptyFilterTitle")}
             </h4>
             <p className="mx-auto mt-1 max-w-sm text-sm text-gray-500 dark:text-gray-400">
               {isTeamMember
-                ? "No tienes cuentas de LinkedIn asignadas actualmente. Contacta al Administrador de tu organizacion."
-                : "Conecta una nueva cuenta o ajusta el filtro para visualizar los perfiles vinculados."}
+                ? t("emptyFilterDescMember")
+                : t("emptyFilterDescAdmin")}
             </p>
             {!isTeamMember && (
               <button
@@ -598,7 +602,7 @@ export default function LinkedInAccountsPage() {
                 className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#0099ff] px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs transition hover:bg-[#0088e6]"
               >
                 <Plus className="size-4" />
-                <span>Conectar Cuenta de LinkedIn</span>
+                <span>{t("connectLinkedInBtn")}</span>
               </button>
             )}
           </div>

@@ -72,7 +72,7 @@ export default function SystemStatusPage() {
   const t = useTranslations("support");
   return (
     <div className="w-full space-y-6">
-      <PageBreadcrumb pageTitle="Estado del Sistema & Infraestructura" />
+      <PageBreadcrumb pageTitle={t("statusTitle")} />
 
       {/* Banner Principal de Salud */}
       <div className="flex flex-col gap-4 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-6 sm:flex-row sm:items-center sm:justify-between">

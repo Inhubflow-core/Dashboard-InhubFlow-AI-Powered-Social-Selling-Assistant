@@ -17,7 +17,18 @@ interface PipelineFunnelChartProps {
 export default function PipelineFunnelChart({ stages }: PipelineFunnelChartProps) {
   const t = useTranslations("dashboard");
 
-  const categories = stages.map((s) => s.label);
+  const stageLabels: Record<string, string> = {
+    lead_captured: t("charts.funnel.stages.lead_captured"),
+    in_sequence: t("charts.funnel.stages.in_sequence"),
+    connected_material_sent: t("charts.funnel.stages.connected_material_sent"),
+    interested: t("charts.funnel.stages.interested"),
+    meeting_scheduled: t("charts.funnel.stages.meeting_scheduled"),
+    proposal_sent: t("charts.funnel.stages.proposal_sent"),
+    closed_won: t("charts.funnel.stages.closed_won"),
+    closed_lost: t("charts.funnel.stages.closed_lost"),
+  };
+
+  const categories = stages.map((s) => stageLabels[s.id] ?? s.label);
   const data = stages.map((s) => s.count);
   const colors = stages.map((s) => s.color);
 
@@ -56,7 +67,7 @@ export default function PipelineFunnelChart({ stages }: PipelineFunnelChartProps
         colors: ["#374151"],
       },
       formatter: function (val) {
-        return `${val} prospectos`;
+        return t("charts.funnel.leadsCount", { count: val as number });
       },
     },
     stroke: {
@@ -104,7 +115,7 @@ export default function PipelineFunnelChart({ stages }: PipelineFunnelChartProps
     tooltip: {
       theme: "light",
       y: {
-        formatter: (val) => `${val} prospectos activos`,
+        formatter: (val) => t("charts.funnel.activeProspectsTooltip", { count: val }),
       },
     },
     legend: {
@@ -114,7 +125,7 @@ export default function PipelineFunnelChart({ stages }: PipelineFunnelChartProps
 
   const series = [
     {
-      name: "Prospectos",
+      name: t("charts.funnel.seriesName"),
       data: data,
     },
   ];
@@ -152,10 +163,10 @@ export default function PipelineFunnelChart({ stages }: PipelineFunnelChartProps
 
       <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-800">
         <span className="text-xs text-gray-500 dark:text-gray-400">
-          Volumen activo en embudo
+          {t("charts.funnel.activeVolume")}
         </span>
         <span className="text-xs font-bold text-gray-900 dark:text-white">
-          {totalDeals} oportunidades en gestión
+          {t("charts.funnel.dealsInManagement", { count: totalDeals })}
         </span>
       </div>
     </div>

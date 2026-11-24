@@ -97,7 +97,7 @@ export default function HelpCenterPage() {
 
   return (
     <div className="w-full space-y-6">
-      <PageBreadcrumb pageTitle="Centro de Ayuda & Guías" />
+      <PageBreadcrumb pageTitle={t("helpTitle")} />
 
       {/* Hero del Centro de Ayuda */}
       <div className="rounded-lg border border-gray-300 bg-gradient-to-r from-blue-50 to-white p-8 text-center shadow-theme-xs dark:border-gray-800 dark:from-gray-900 dark:to-gray-900/60">

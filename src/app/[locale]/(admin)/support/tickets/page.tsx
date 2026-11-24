@@ -105,7 +105,7 @@ export default function SupportTicketsPage() {
 
   return (
     <div className="w-full space-y-6">
-      <PageBreadcrumb pageTitle="Tickets de Soporte Técnico" />
+      <PageBreadcrumb pageTitle={t("ticketsTitle")} />
 
       {notice && (
         <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">

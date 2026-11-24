@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { useTranslations } from "next-intl";
 import {
   Check,
   AlertTriangle,
@@ -36,6 +37,7 @@ export default function LinkedInAccountCard({
   onReconnect,
   onConfigureLimits,
 }: LinkedInAccountCardProps) {
+  const t = useTranslations("accounts");
   const isHealthy = account.status === "OK";
   const isCheckpoint = account.status === "CHECKPOINT";
   const isCredentials = account.status === "CREDENTIALS";
@@ -85,7 +87,7 @@ export default function LinkedInAccountCard({
           </p>
           {isActive && (
             <span className="rounded-lg bg-brand-50 px-2 py-0.5 text-xs font-bold text-brand-600 dark:bg-brand-950/40 dark:text-brand-300 shrink-0">
-              Activa
+              {t("cardActive")}
             </span>
           )}
           {account.assignedUserName && (
@@ -97,9 +99,9 @@ export default function LinkedInAccountCard({
           {account.targetLanguage && (
             <span
               className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700 shrink-0"
-              title={`Idioma de prospección e IA: ${account.targetLanguage === "pt" ? "Português" : account.targetLanguage === "en" ? "English" : "Español"}`}
+              title={t("tooltipTargetLanguage", { lang: account.targetLanguage === "pt" ? "Português" : account.targetLanguage === "en" ? "English" : "Español" })}
             >
-              <span>{account.targetLanguage === "pt" ? "🇧🇷 PT" : account.targetLanguage === "en" ? "🇺🇸 EN" : "🇪🇸 ES"}</span>
+              <span>{account.targetLanguage.toUpperCase()}</span>
             </span>
           )}
         </div>
@@ -127,10 +129,10 @@ export default function LinkedInAccountCard({
         >
           {isHealthy ? (
             <>
-              <Check className="size-2.5" /> Activo
+              <Check className="size-2.5" /> {t("cardBadgeActive")}
             </>
           ) : (
-            "Inactivo"
+            t("cardBadgeInactive")
           )}
         </span>
 
@@ -138,23 +140,23 @@ export default function LinkedInAccountCard({
         {isHealthy ? (
           <span
             className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-            title="Cuenta de LinkedIn sincronizada y lista para prospección"
+            title={t("tooltipConnected")}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Conectado
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> {t("cardStatusConnected")}
           </span>
         ) : isCheckpoint || isCredentials ? (
           <span
             className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-            title="Inicia sesión o resuelve el código 2FA para renovar la conexión"
+            title={t("tooltipReconnect")}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Reconexión requerida
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> {t("cardStatusReconnect")}
           </span>
         ) : (
           <span
             className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border border-gray-300 dark:border-gray-700"
-            title="Conecta esta cuenta para sincronizar con LinkedIn"
+            title={t("tooltipNotConnected")}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> Sin conectar
+            <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> {t("cardStatusNotConnected")}
           </span>
         )}
 
@@ -165,7 +167,7 @@ export default function LinkedInAccountCard({
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-all cursor-pointer shadow-xs"
             onClick={() => onReconnect(account.id)}
           >
-            <AlertTriangle className="size-3.5" /> Resolver 2FA
+            <AlertTriangle className="size-3.5" /> {t("btnResolve2fa")}
           </button>
         ) : (
           <button
@@ -173,7 +175,7 @@ export default function LinkedInAccountCard({
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 hover:bg-brand-500/20 transition-all cursor-pointer"
             onClick={() => onReconnect(account.id)}
           >
-            <ShieldCheck className="size-3.5" /> {isHealthy ? "Reconectar" : "Conectar LinkedIn"}
+            <ShieldCheck className="size-3.5" /> {isHealthy ? t("btnReconnect") : t("btnConnectLinkedIn")}
           </button>
         )}
 
@@ -183,7 +185,7 @@ export default function LinkedInAccountCard({
             type="button"
             className="inline-flex items-center p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-800 transition-colors cursor-pointer"
             onClick={() => onConfigureLimits(account)}
-            title="Editar límites y horario de prospección"
+            title={t("tooltipEditLimits")}
           >
             <Sliders className="size-3.5" />
           </button>
@@ -195,7 +197,7 @@ export default function LinkedInAccountCard({
             type="button"
             className="inline-flex items-center p-1.5 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 transition-colors cursor-pointer"
             onClick={() => onDisconnect(account.id)}
-            title="Eliminar cuenta"
+            title={t("tooltipDeleteAccount")}
           >
             <Trash2 className="size-3.5" />
           </button>
