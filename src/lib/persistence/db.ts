@@ -421,7 +421,7 @@ function ensureSaasSubscribersSchema(db: Database.Database): void {
       10,
       "active",
       "https://media.licdn.com/dms/image/v2/D4E03AQETqM_x3Dg7UA/profile-displayphoto-shrink_800_800/B4EZkzyXuFGwAc-/0/1757510466710?e=1793836800&v=beta&t=ti_Vff5L4ZlFHs8iYo8trtcyT1hKT4EikEtlwieUi0U",
-      "acc-li-acc_01m7mmyew9f69bk7z5kxse2bzp",
+      "acc-li-acc_01m87cbk01fvqa4n010bz6kak5",
       "2026-10-01T08:00:00.000Z",
       "2026-11-17T08:00:00.000Z"
     );
