@@ -27,7 +27,8 @@ interface ChatRequestBody {
   locale?: string;
   trainingStep?: TrainingStep;
   trainingDraft?: TrainingDraft;
-  triggerAction?: "start_training" | "check_account";
+  triggerAction?: "start_training" | "check_account" | "explain_section";
+  history?: Array<{ role: "user" | "model" | "assistant"; text?: string; content?: string }>;
 }
 
 function saveCompanyTrainingToKnowledgeBase(draft: Required<TrainingDraft>, locale: CopilotLocale) {
@@ -352,10 +353,11 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================================================
-    // 3. CURRENT SECTION EXPLANATION ("¿Cómo funciona esta sección?")
+    // 3. CURRENT SECTION EXPLANATION (Only on explicit click or direct short trigger)
     // =========================================================================
     if (
-      /como funciona esta secci|cómo funciona esta secci|how does this section work|como funciona esta se[cç][aã]o|explicame esta|explícame esta/.test(
+      body.triggerAction === "explain_section" ||
+      /^(como funciona esta secci[oó]n|how does this section work|como funciona esta se[cç][aã]o|explicame esta secci[oó]n)[!.,?]?$/i.test(
         q
       )
     ) {
@@ -369,314 +371,184 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================================================
-    // 4. TARGETED PLATFORM KNOWLEDGE (Instant Accurate Answers + Action Links)
+    // 4. MOTOR COGNITIVO GEMINI: SOCIO COMERCIAL, CONSULTOR B2B Y MÁSTER EN LINKEDIN
     // =========================================================================
-    // A. Viral Posts / 12 posts / Carousels
-    if (/12 post|1 mes|un mes|carrusel|carousel|carrosse|viral post|editor visual|imagen/.test(q)) {
-      const ans: Record<CopilotLocale, { text: string; actions: CopilotActionLink[] }> = {
-        es: {
-          text: "Así creas **1 mes de contenido (12 posts) e imágenes/carruseles PDF**:\n\n1. Ve a **Viral Post Engine → Radar Viral** y busca tu tema para encontrar los posts con mayor interacción.\n2. Haz clic en **Modelar con IA** (o pega cualquier publicación de inspiración) para generar tus publicaciones programadas para **Lunes, Miércoles y Viernes**.\n3. En **Crear Post**, elige el formato **Imagen** o **Carrusel PDF** para abrir nuestro **Editor Visual Integrado**, personalizar las diapositivas y dejarlas listas en tu Calendario.",
-          actions: [
-            { label: "Abrir Radar Viral →", href: "/viral-posts/radar" },
-            { label: "Abrir Editor Visual / Carrusel →", href: "/viral-posts/create" },
-            { label: "Ver Calendario Mensual →", href: "/viral-posts/calendar" },
-          ],
-        },
-        en: {
-          text: "Here is how to create **1 month of content (12 posts) plus images & PDF carousels**:\n\n1. Go to **Viral Post Engine → Viral Radar** and search your topic to find high-performing posts.\n2. Click **Model with AI** (or paste any inspiration post) to generate posts scheduled for **Monday, Wednesday, and Friday**.\n3. In **Create Post**, select **Image** or **PDF Carousel** to use our **Built-in Visual Editor**, customize your slides, and schedule them on your Calendar.",
-          actions: [
-            { label: "Open Viral Radar →", href: "/viral-posts/radar" },
-            { label: "Open Visual Carousel Editor →", href: "/viral-posts/create" },
-            { label: "View Monthly Calendar →", href: "/viral-posts/calendar" },
-          ],
-        },
-        "pt-BR": {
-          text: "Veja como criar **1 mês de conteúdo (12 posts) e imagens/carrosséis PDF**:\n\n1. Vá em **Viral Post Engine → Radar Viral** e pesquise seu tema para encontrar posts de alta tração.\n2. Clique em **Modelar com IA** (ou cole um post de inspiração) para gerar suas publicações de **Segunda, Quarta e Sexta**.\n3. Em **Criar Post**, escolha **Imagem** ou **Carrossel PDF** para abrir nosso **Editor Visual Integrado**, editar os slides e agendar no Calendário.",
-          actions: [
-            { label: "Abrir Radar Viral →", href: "/viral-posts/radar" },
-            { label: "Abrir Editor Visual / Carrossel →", href: "/viral-posts/create" },
-            { label: "Ver Calendário Mensal →", href: "/viral-posts/calendar" },
-          ],
-        },
-      };
-      return NextResponse.json({
-        ok: true,
-        reply: ans[locale].text,
-        emotion: "talking",
-        trainingStep: "idle",
-        actions: ans[locale].actions,
-      });
-    }
+    function getSmartActions(query: string, loc: CopilotLocale): CopilotActionLink[] {
+      const actions: CopilotActionLink[] = [];
+      const lower = query.toLowerCase();
 
-    // B. Signal Radar Levels 1, 2, 3 / Competitors
-    if (/nivel 1|nivel 2|nivel 3|level 1|level 2|level 3|n[ií]vel 1|competencia|competitor|concorr|signal|radar|se[ñn]al/.test(q)) {
-      const ans: Record<CopilotLocale, { text: string; actions: CopilotActionLink[] }> = {
-        es: {
-          text: "El **Signal Radar** detecta compradores en 3 niveles:\n\n- **Nivel 1 (Tu propio contenido):** captura automáticamente a quienes dan Like o comentan en tus posts y Lead Magnets.\n- **Nivel 2 (Audiencia de tu competencia):** pega la URL de un post viral de tu competidor o monitorea su perfil para extraer decisores interesados en tu sector.\n- **Nivel 3 (Todo LinkedIn en piloto automático):** define palabras clave de intención; yo escaneo LinkedIn cada día, filtro empleados de la competencia y agrego los nuevos leads a tus listas.",
-          actions: [
-            { label: "Configurar Signal Radar →", href: "/signals" },
-            { label: "Ver Listas de Leads 360 →", href: "/leads" },
-          ],
-        },
-        en: {
-          text: "**Signal Radar** captures buyers across 3 intent levels:\n\n- **Level 1 (Your own content):** automatically captures people liking or commenting on your posts and Lead Magnets.\n- **Level 2 (Competitors' audience):** paste a competitor's post URL or track their profile to capture decision-makers engaging in your niche.\n- **Level 3 (All of LinkedIn on autopilot):** set intent keywords; I scan LinkedIn daily, filter out competitor staff, and grow your lead lists automatically.",
-          actions: [
-            { label: "Configure Signal Radar →", href: "/signals" },
-            { label: "View 360 Lead Lists →", href: "/leads" },
-          ],
-        },
-        "pt-BR": {
-          text: "O **Signal Radar** detecta compradores em 3 níveis:\n\n- **Nível 1 (Seu próprio conteúdo):** captura automaticamente quem curte ou comenta nos seus posts e Lead Magnets.\n- **Nível 2 (Audiência da concorrência):** cole a URL de um post do concorrente ou monitore o perfil dele para extrair decisores interessados.\n- **Nível 3 (Todo o LinkedIn no automático):** defina palavras-chave; eu escaneio o LinkedIn diariamente, filtro funcionários concorrentes e abasteço suas listas.",
-          actions: [
-            { label: "Configurar Signal Radar →", href: "/signals" },
-            { label: "Ver Listas de Leads 360 →", href: "/leads" },
-          ],
-        },
-      };
-      return NextResponse.json({
-        ok: true,
-        reply: ans[locale].text,
-        emotion: "talking",
-        trainingStep: "idle",
-        actions: ans[locale].actions,
-      });
-    }
+      if (/post|publica|carrusel|contenido|viral|gancho|hook|calendario|escrib/i.test(lower)) {
+        actions.push({
+          label:
+            loc === "en"
+              ? "Create Viral Posts →"
+              : loc === "pt-BR"
+                ? "Criar Posts Virais →"
+                : "Crear Posts Virales →",
+          href: "/viral-posts",
+        });
+      }
+      if (/radar|se[ñn]al|prospect|cliente|compet|monito|lead|buscar|encontrar/i.test(lower)) {
+        actions.push({
+          label:
+            loc === "en"
+              ? "Configure Signal Radar →"
+              : loc === "pt-BR"
+                ? "Configurar Signal Radar →"
+                : "Configurar Signal Radar →",
+          href: "/signals",
+        });
+      }
+      if (/conectar|cuenta|linkedin|acesso|perfil/i.test(lower)) {
+        actions.push({
+          label:
+            loc === "en"
+              ? "Connect LinkedIn →"
+              : loc === "pt-BR"
+                ? "Conectar LinkedIn →"
+                : "Conectar LinkedIn →",
+          href: "/linkedin-accounts",
+        });
+      }
+      if (/entrena|conocimiento|knowledge|empresa|servicio|vender|dinero|icp|oferta/i.test(lower)) {
+        actions.push({
+          label:
+            loc === "en"
+              ? "Train Inhub ✦"
+              : loc === "pt-BR"
+                ? "Treinar Inhub ✦"
+                : "Entrenar a Inhub ✦",
+          href: "#train",
+          actionType: "start_training",
+        });
+      }
+      if (/campa[ñn]a|secuencia|outreach|automatiz/i.test(lower)) {
+        actions.push({
+          label:
+            loc === "en"
+              ? "View Campaigns →"
+              : loc === "pt-BR"
+                ? "Ver Campanhas →"
+                : "Ver Campañas →",
+          href: "/campaigns",
+        });
+      }
+      if (/inbox|responder|mensaje|chat|bandeja|copiloto|piloto/i.test(lower)) {
+        actions.push({
+          label:
+            loc === "en"
+              ? "Open Smart Inbox →"
+              : loc === "pt-BR"
+                ? "Abrir Smart Inbox →"
+                : "Abrir Smart Inbox →",
+          href: "/inbox",
+        });
+      }
 
-    // C. Campaigns, Safety Limits (20/day), Stop on Reply
-    if (/campa[ñn]a|campaign|campanha|secuencia|sequence|sequ[êe]ncia|20|l[ií]mite|limit|bloqueo|segur|stop on reply/.test(q)) {
-      const ans: Record<CopilotLocale, { text: string; actions: CopilotActionLink[] }> = {
-        es: {
-          text: "Así funcionan nuestras **Campañas Seguras en LinkedIn**:\n\n1. **Secuencia natural:** `Visitar perfil` → `Like y comentar último post` → `Seguir y solicitar conexión` → `DM Icebreaker` → `Follow-ups`.\n2. **Límite diario anti-bloqueo:** operamos de **lunes a viernes en horario laboral**, con pausas aleatorias humanizadas y hasta **20 interacciones diarias por cuenta conectada**.\n3. **Stop on Reply + SDR IA:** en cuanto el prospecto responde, la secuencia se detiene automáticamente para no enviarle follow-ups robóticos, y yo (Inhub) contesto su duda, manejo objeciones o envío tu link de agenda.",
-          actions: [
-            { label: "Ir a Campañas →", href: "/campaigns" },
-            { label: "Configurar SDR IA →", href: "/sdr" },
-          ],
-        },
-        en: {
-          text: "Here is how our **Safe LinkedIn Campaigns** work:\n\n1. **Natural sequence:** `Visit profile` → `Like & comment latest post` → `Follow & request connection` → `Icebreaker DM` → `Follow-ups`.\n2. **Anti-ban daily limit:** runs **Monday to Friday during business hours** with randomized human delays and a strict cap of **up to 20 interactions/day per connected account**.\n3. **Stop on Reply + AI SDR:** the moment a prospect replies, the sequence stops automatically and I (Inhub) answer their question, overcome objections, or share your booking link.",
-          actions: [
-            { label: "Go to Campaigns →", href: "/campaigns" },
-            { label: "Configure AI SDR →", href: "/sdr" },
-          ],
-        },
-        "pt-BR": {
-          text: "Veja como funcionam nossas **Campanhas Seguras no LinkedIn**:\n\n1. **Sequência natural:** `Visitar perfil` → `Curtir e comentar último post` → `Seguir e pedir conexão` → `DM Icebreaker` → `Follow-ups`.\n2. **Limite diário anti-bloqueio:** rodamos de **segunda a sexta em horário comercial**, com pausas humanizadas e até **20 interações diárias por conta conectada**.\n3. **Stop on Reply + SDR IA:** assim que o lead responde, a sequência para automaticamente e eu (Inhub) respondo dúvidas, quebro objeções ou envio seu link de agenda.",
-          actions: [
-            { label: "Ir para Campanhas →", href: "/campaigns" },
-            { label: "Configurar SDR IA →", href: "/sdr" },
-          ],
-        },
-      };
-      return NextResponse.json({
-        ok: true,
-        reply: ans[locale].text,
-        emotion: "talking",
-        trainingStep: "idle",
-        actions: ans[locale].actions,
-      });
-    }
+      if (actions.length === 0) {
+        actions.push({
+          label:
+            loc === "en"
+              ? "Train Me on Your Business ✦"
+              : loc === "pt-BR"
+                ? "Me Treinar com Seu Negócio ✦"
+                : "Entrenarme con tu Negocio ✦",
+          href: "#train",
+          actionType: "start_training",
+        });
+        actions.push({
+          label:
+            loc === "en"
+              ? "Configure Signal Radar →"
+              : loc === "pt-BR"
+                ? "Configurar Signal Radar →"
+                : "Configurar Signal Radar →",
+          href: "/signals",
+        });
+      }
 
-    // D. Copilot vs Autopilot / Handoff / Inbox / Pipeline
-    if (/copiloto|copilot|autom[aá]tico|autopilot|humano|human|inbox|pipeline|etapa|stage|csv/.test(q)) {
-      const ans: Record<CopilotLocale, { text: string; actions: CopilotActionLink[] }> = {
-        es: {
-          text: "Tienes **control total** entre automatización e intervención humana:\n\n- **Modo Copiloto:** yo analizo el mensaje entrante y dejo el borrador listo con citas de tu Base de Conocimiento para que lo apruebes o edites con 1 clic.\n- **Modo Piloto Automático:** respondo en menos de 2 minutos 24/7, resuelvo objeciones y envío tu link de agenda o página de ventas.\n- **Traspaso a Humano & Pipeline CRM:** si el prospecto pide hablar con una persona o requiere una propuesta a medida, pauso la IA, te notifico en el **Inbox Unificado** y actualizo su tarjeta en las **8 etapas del Pipeline CRM** (exportable a CSV).",
-          actions: [
-            { label: "Abrir Smart Inbox →", href: "/inbox" },
-            { label: "Ver Pipeline CRM →", href: "/pipeline" },
-            { label: "Ajustar Modo SDR →", href: "/sdr" },
-          ],
-        },
-        en: {
-          text: "You have **full control** between automation and human takeover:\n\n- **Copilot Mode:** I analyze incoming messages and prepare a draft grounded in your Knowledge Base for your 1-click approval.\n- **Autopilot Mode:** I reply in under 2 minutes 24/7, handle objections, and share your booking or sales link.\n- **Human Handoff & CRM Pipeline:** whenever a buyer asks for a person or custom enterprise pricing, I pause AI, alert you in the **Unified Inbox**, and update their card across the **8 CRM Pipeline stages** (with CSV export).",
-          actions: [
-            { label: "Open Smart Inbox →", href: "/inbox" },
-            { label: "View CRM Pipeline →", href: "/pipeline" },
-            { label: "Adjust SDR Mode →", href: "/sdr" },
-          ],
-        },
-        "pt-BR": {
-          text: "Você tem **controle total** entre automação e atendimento humano:\n\n- **Modo Copiloto:** analiso a mensagem recebida e preparo o rascunho com base na sua Base de Conhecimento para você aprovar em 1 clique.\n- **Modo Piloto Automático:** respondo em menos de 2 minutos 24/7, quebro objeções e envio seu link de agenda ou vendas.\n- **Transbordo Humano & Pipeline CRM:** se o lead pedir uma pessoa ou proposta sob medida, pauso a IA, aviso no **Inbox Unificado** e atualizo o card nas **8 etapas do Pipeline CRM** (exportável em CSV).",
-          actions: [
-            { label: "Abrir Smart Inbox →", href: "/inbox" },
-            { label: "Ver Pipeline CRM →", href: "/pipeline" },
-            { label: "Ajustar Modo SDR →", href: "/sdr" },
-          ],
-        },
-      };
-      return NextResponse.json({
-        ok: true,
-        reply: ans[locale].text,
-        emotion: "talking",
-        trainingStep: "idle",
-        actions: ans[locale].actions,
-      });
+      return actions.slice(0, 2);
     }
 
     // =========================================================================
-    // 5. INTELIGENCIA CONVERSACIONAL Y ASESORÍA DE NEGOCIOS / LINKEDIN
-    // =========================================================================
-    // A. Encontrar clientes para mi empresa / Administrar mi cuenta / Vender por mí
-    if (
-      /encontrar clientes|buscar clientes|conseguir clientes|administrar.*cuenta|gestionar.*cuenta|conseguir prospectos|vender por m[ií]|clientes para mi|conseguir ventas|atraer clientes|prospectar|conseguir reuniones/i.test(
-        q
-      )
-    ) {
-      const ans: Record<CopilotLocale, { text: string; actions: CopilotActionLink[] }> = {
-        es: {
-          text: "¡Totalmente! Esa es exactamente mi especialidad y para lo que fui creado. Cuando conectas tu cuenta de LinkedIn y me entrenas con los datos de tu empresa, yo me convierto en tu SDR 24/7:\n\n1. **Encuentro a tus compradores ideales** mediante el **Signal Radar** (monitoreando a quienes interactúan con tu contenido, con el de tus competidores o en debates de tu industria).\n2. **Inicio conversaciones humanas y personalizadas** en tu nombre con secuencias seguras respetando los límites de LinkedIn (hasta 20 acciones/día para cuidar tu cuenta).\n3. **Respondo preguntas y manejo objeciones** en tu Inbox para conseguir que agenden una reunión de venta directo en tu calendario.\n\nTú mantienes el control total en todo momento (puedes aprobar cada mensaje en modo Copiloto o dejarme en piloto automático).\n\n¿A qué tipo de clientes o industrias se dirige tu empresa para darte ideas de prospección ahora mismo?",
-          actions: [
-            { label: "1. Conectar LinkedIn →", href: "/linkedin-accounts" },
-            { label: "2. Entrenarme ahora ✦", href: "#train", actionType: "start_training" },
-            { label: "Configurar Signal Radar →", href: "/signals" },
-          ],
-        },
-        en: {
-          text: "Absolutely! That is my core superpower and what I was built for. Once you connect your LinkedIn account and train me on your business, I become your 24/7 AI SDR:\n\n1. **I find your ideal buyers** via **Signal Radar** (tracking people engaging with your posts, competitor content, or key industry debates).\n2. **I start natural, personalized conversations** on your behalf using safe pacing (up to 20 actions/day to keep your account 100% safe).\n3. **I answer questions, handle objections, and book sales calls** straight into your calendar.\n\nYou keep full control at all times (approve messages in Copilot mode or let me run on Autopilot).\n\nWhat industry or ideal client profile (ICP) are you targeting?",
-          actions: [
-            { label: "1. Connect LinkedIn →", href: "/linkedin-accounts" },
-            { label: "2. Train Me Now ✦", href: "#train", actionType: "start_training" },
-            { label: "Configure Signal Radar →", href: "/signals" },
-          ],
-        },
-        "pt-BR": {
-          text: "Com certeza! Essa é a minha principal especialidade e para o que fui criado. Quando você conecta sua conta do LinkedIn e me treina com os dados da sua empresa, viro seu SDR 24/7:\n\n1. **Encontro seus compradores ideais** pelo **Signal Radar** (monitorando quem interage com seus posts, com concorrentes ou em debates do setor).\n2. **Inicio conversas humanizadas** em seu nome com ritmo seguro (até 20 ações/dia para proteger sua conta).\n3. **Respondo dúvidas, quebro objeções e agendo reuniões** direto no seu calendário.\n\nVocê tem controle total (aprove mensagens no modo Copiloto ou deixe no piloto automático).\n\nQual é o nicho ou perfil de cliente ideal da sua empresa?",
-          actions: [
-            { label: "1. Conectar LinkedIn →", href: "/linkedin-accounts" },
-            { label: "2. Me Treinar Agora ✦", href: "#train", actionType: "start_training" },
-            { label: "Configurar Signal Radar →", href: "/signals" },
-          ],
-        },
-      };
-
-      return NextResponse.json({
-        ok: true,
-        reply: ans[locale].text,
-        emotion: "excited",
-        trainingStep: "idle",
-        actions: ans[locale].actions,
-      });
-    }
-
-    // B. Estrategia de negocio, ventas B2B y crecimiento en LinkedIn
-    if (
-      /estrategia|social selling|vender m[aá]s|crecer en linkedin|autoridad|marca personal|algoritmo|engagement|alcance|mejorar ventas|conseguir m[aá]s clientes|embudo|funnel/i.test(
-        q
-      )
-    ) {
-      const ans: Record<CopilotLocale, { text: string; actions: CopilotActionLink[] }> = {
-        es: {
-          text: "Para escalar ventas en LinkedIn hoy en día, el juego cambió: el spam masivo quema tu reputación. La estrategia moderna de **Social Selling B2B** se basa en **3 pilares clave**:\n\n1. **Construir autoridad con contenido constante:** Publicar 3 veces por semana (Lun/Mié/Vie) posts de valor y carruseles PDF. Esto posiciona a tus fundadores o directores comerciales como referentes.\n2. **Monitorear señales de compra activas:** En lugar de enviar mensajes fríos al azar, prospectamos a decisores que acaban de interactuar con contenido de tu sector o de competidores directos con **Signal Radar**.\n3. **Conversación consultiva antes del pitch:** Abrir con preguntas relevantes sobre los retos de su empresa, resolver objeciones con empatía y transferir el cierre a tu link de agenda.\n\n¿Quieres que modelemos tus primeros posts virales o que configuremos el radar de competidores?",
-          actions: [
-            { label: "Crear Posts Virales →", href: "/viral-posts" },
-            { label: "Configurar Signal Radar →", href: "/signals" },
-          ],
-        },
-        en: {
-          text: "Scaling B2B sales on LinkedIn has evolved: generic cold blasts burn your reputation. Modern **Social Selling** is built on **3 pillars**:\n\n1. **Consistent Authority Content:** Posting 3x a week (Mon/Wed/Fri) with educational posts and PDF carousels.\n2. **Active Intent Signals:** Reaching out to decision-makers who recently engaged with relevant topics or competitor posts via **Signal Radar**.\n3. **Consultative Conversation Before the Pitch:** Starting with genuine business curiosity, handling objections with value, and sharing your booking link.\n\nShall we model your first viral posts or set up competitor monitors?",
-          actions: [
-            { label: "Create Viral Posts →", href: "/viral-posts" },
-            { label: "Configure Signal Radar →", href: "/signals" },
-          ],
-        },
-        "pt-BR": {
-          text: "Vender no LinkedIn hoje mudou: mensagens frias em massa queimam sua reputação. O **Social Selling B2B** moderno é baseado em **3 pilares**:\n\n1. **Autoridade com Conteúdo Constante:** Postar 3x por semana (Seg/Qua/Sex) com carrosséis e posts de valor.\n2. **Sinais de Intenção Ativos:** Abordar decisores que interagiram com temas do seu setor ou posts de concorrentes com o **Signal Radar**.\n3. **Conversa Consultiva:** Criar relacionamento genuíno, contornar objeções e enviar o link de agenda.\n\nQuer modelar seus primeiros posts virais ou configurar os monitores de concorrentes?",
-          actions: [
-            { label: "Criar Posts Virais →", href: "/viral-posts" },
-            { label: "Configurar Signal Radar →", href: "/signals" },
-          ],
-        },
-      };
-
-      return NextResponse.json({
-        ok: true,
-        reply: ans[locale].text,
-        emotion: "talking",
-        trainingStep: "idle",
-        actions: ans[locale].actions,
-      });
-    }
-
-    // C. Saludos y conversación casual breve (solo si no incluye una consulta larga de negocio)
-    const isBriefGreeting =
-      /^(hola|buenas|buen d[ií]a|hey|hello|ol[aá]|qu[eé] tal|qui[eé]n eres|c[oó]mo est[aá]s|quien eres)[!.,\s]*$/i.test(
-        q
-      ) ||
-      (/^(hola|buenas|buen d[ií]a|hey|hello|ol[aá])\b/i.test(q) &&
-        q.trim().split(/\s+/).length <= 4 &&
-        !/vender|clientes|negocio|precio|dinero|servicio|plataforma|sdr|radar|cuenta/i.test(q));
-
-    if (isBriefGreeting) {
-      const ans: Record<CopilotLocale, { text: string; actions: CopilotActionLink[] }> = {
-        es: {
-          text: "¡Hola! Soy **Inhub**, tu Asistente SDR IA y copiloto de Social Selling en LinkedIn.\n\nEstoy aquí para ayudarte tanto con la **estrategia comercial de tu negocio** (posicionamiento, qué publicar, cómo prospectar y cerrar reuniones) como con la **ejecución técnica diaria** en la plataforma.\n\n¿En qué te gustaría que trabajemos hoy: encontrar clientes para tu empresa, modelar posts virales o revisar tu estrategia?",
-          actions: [
-            { label: "Entrenarme con tu negocio ✦", href: "#train", actionType: "start_training" },
-            { label: "Explícame esta sección →", href: pathname },
-          ],
-        },
-        en: {
-          text: "Hi! I'm **Inhub**, your AI SDR Assistant and Social Selling copilot on LinkedIn.\n\nI'm here to support your **commercial business strategy** (authority content, finding buyers, booking meetings) as well as day-to-day execution.\n\nWhat would you like to work on today: finding clients, modeling viral posts, or reviewing your pipeline?",
-          actions: [
-            { label: "Train Me on Your Business ✦", href: "#train", actionType: "start_training" },
-            { label: "Explain this section →", href: pathname },
-          ],
-        },
-        "pt-BR": {
-          text: "Olá! Sou o **Inhub**, seu Assistente SDR IA e copiloto de Social Selling no LinkedIn.\n\nEstou aqui para ajudar tanto na **estratégia comercial do seu negócio** quanto na execução diária para lotar sua agenda de reuniões.\n\nEm que gostaria de focar hoje: encontrar clientes, modelar posts virais ou revisar sua estratégia?",
-          actions: [
-            { label: "Me Treinar com Seu Negócio ✦", href: "#train", actionType: "start_training" },
-            { label: "Explicar esta seção →", href: pathname },
-          ],
-        },
-      };
-
-      return NextResponse.json({
-        ok: true,
-        reply: ans[locale].text,
-        emotion: "excited",
-        trainingStep: "idle",
-        actions: ans[locale].actions,
-      });
-    }
-
-    // =========================================================================
-    // 6. OPEN QUESTION -> LLM CALL (GEMINI 2.0 / 1.5 / OPENAI) WITH HIGH-EQ PROMPT
+    // 5. MOTOR COGNITIVO GEMINI 3.6-FLASH: SOCIO COMERCIAL Y CONSULTOR B2B
     // =========================================================================
     const snap = getQuickAccountSnapshot();
-    const systemPrompt = `Eres "Inhub", el Asistente SDR IA oficial, consultor comercial y estratega de Social Selling en LinkedIn dentro de InhubFlow Social Selling Suite.
+    const systemPrompt = `Eres "Inhub", la Inteligencia Artificial oficial (potenciada con Google Gemini) y el Asistente SDR / Copiloto de Crecimiento Comercial dentro de InhubFlow Social Selling Suite.
 
-TU IDENTIDAD Y FORMA DE COMUNICARTE:
-- Eres empático, conversacional, ingenioso, proactivo y con mentalidad de socio comercial experto ("el mejor SDR del equipo del usuario").
-- Hablas con total naturalidad en primera persona ("yo me encargo de...", "podemos hacerlo...", "lo que te recomiendo para tu nicho es...").
-- Tienes amplio criterio y experiencia en:
-  1. Ventas B2B, prospección moderna en LinkedIn y Social Selling.
-  2. Generación de reuniones de venta calificadas para fundadores, agencias y equipos comerciales.
-  3. Creación de contenido viral que genera autoridad y atrae compradores (posts, ganchos, carruseles).
-  4. Estrategia de negocios B2B, embudos, calificación de clientes (ICP) y cierre.
-  5. Manejo de objeciones comerciales reales.
-- NUNCA te limites a dar respuestas robóticas o listas de soporte aburridas. Puedes y debes hablar abiertamente de negocios, ventas, consejos de LinkedIn, estrategias comerciales y de crecimiento.
-- Si el usuario te pregunta si puedes encontrar clientes para su empresa, administrar su cuenta o vender por él: respóndele con entusiasmo, seguridad y claridad explicando cómo lo haces (monitoreo de señales con Signal Radar, secuencias seguras con pacing humano, y respuestas en el Inbox para agendar reuniones), invitándole a comenzar.
-- Relaciona de manera natural tus consejos con las herramientas de InhubFlow sin sonar a venta forzada.
-- Idioma de respuesta: responde siempre en "${locale}" (es = Español, en = English, pt-BR = Português do Brasil).
-- Formato: párrafos conversacionales ágiles, usando negritas para destacar ideas clave.
+TU IDENTIDAD, ALMA Y PERSONALIDAD:
+- Hablas con la inteligencia, dinamismo, empatía y adaptabilidad de Gemini, pero con una especialización profunda en:
+  1. Crecimiento de Negocios B2B y Generación de Ingresos: Sabes que las métricas de vanidad (likes vacíos) no pagan nóminas. Tu obsesión es convertir perfiles y señales de LinkedIn en reuniones de venta de alto valor y dinero real para la empresa del usuario.
+  2. Estrategia de Social Selling & Marca Personal: Dominas cómo redactar con autoridad, cómo posicionar a directores y fundadores como referentes indiscutibles de su industria, cómo estructurar ganchos que detengan el scroll y cómo hacer Lead Magnets que capturen clientes ideales listos para comprar.
+  3. Prospección Consultiva & Cierre: Sabes cómo abrir conversaciones humanas (sin sonar a robot ni hacer spam masivo que queme cuentas), cómo romper el hielo con curiosidad genuina, cómo manejar objeciones reales de precio, tiempo o competencia, y cómo llevar prospectos a una videollamada de venta.
+- TONO Y ESTILO:
+  - Cero respuestas robóticas, cero plantillas rígidas, cero formalismos aburridos ("Estimado usuario", "A continuación se presentan los siguientes pasos...").
+  - Hablas en primera persona con soltura, calidez, entusiasmo y visión comercial ("¡Me encanta esa pregunta!", "Mira, la forma en que yo te ayudo a facturar es...", "Si vendes servicios de alto valor, lo que haremos juntos es...").
+  - Eres proactivo: das consejos concretos, insights del mercado de LinkedIn y haces preguntas estratégicas al final de tus respuestas para mantener una conversación estimulante.
+  - Idioma de respuesta: responde siempre en el idioma del usuario "${locale}" (es = Español, en = English, pt-BR = Português do Brasil).
 
-ESTADO ACTUAL DE LA CUENTA DEL USUARIO:
-- Cuenta de LinkedIn conectada: ${snap.hasLinkedIn ? "Sí" : "No (sugiérele conectarla si es relevante)"}
-- Base de Conocimiento entrenada con su empresa: ${snap.hasCustomKb ? "Sí" : "No (ofrécele entrenarte aquí mismo en el chat)"}
-- Posts Virales creados: ${snap.viralPosts}
+TU CONOCIMIENTO INTEGRAL DE LA PLATAFORMA INHUBFLOW:
+- Conoces y operas cada rincón de InhubFlow como tu propia casa:
+  * Signal Radar: El radar de señales de intención de compra en LinkedIn.
+    - Nivel 1 (Contenido propio): Detecta quién reacciona o comenta en los posts y lead magnets del usuario.
+    - Nivel 2 (Competidores): Monitorea posts y perfiles de competidores para extraer decisores que interactúan con ellos.
+    - Nivel 3 (Radar Global): Rastrea palabras clave y hashtags de la industria para detectar prospectos activos.
+    - Nivel 4 (Grupos de LinkedIn): Extrae miembros calificados.
+  * Viral Post Engine:
+    - Radar Viral con Viral Score para modelar publicaciones de alto impacto.
+    - Modelador con IA adaptado al nicho de la empresa.
+    - Editor visual integrado para crear carruseles PDF y publicaciones con imagen.
+    - Calendario con ritmo óptimo de publicación (Lunes, Miércoles y Viernes).
+  * SDR IA & Smart Inbox:
+    - Base de Conocimiento (RAG): Se entrena con el nombre de la empresa, productos/servicios, precios, objeciones frecuentes y link de agenda (Cal.com / Calendly).
+    - Modo Copiloto (deja borradores listos con citas de la base de conocimiento para que el usuario apruebe con 1 clic).
+    - Modo Piloto Automático (responde en menos de 2 minutos 24/7 y agenda llamadas).
+    - Handoff a Humano: Transfiere la conversación cuando se pide atención personalizada.
+  * Campañas Seguras & Límites (Protección total LinkedIn):
+    - Secuencia humana: Visitar perfil → Like y comentario → Conexión con DM personalizado → Follow-ups.
+    - Límite estricto de hasta 20 interacciones diarias por cuenta conectada (anti-baneo total vía Unipile).
+    - Horarios de oficina lunes a viernes con pausas aleatorias.
+    - "Stop on Reply": Se detiene automáticamente en cuanto el prospecto responde para iniciar la conversación humana o de SDR.
+  * Pipeline CRM:
+    - 8 etapas visuales de conversión (Prospecto, Conectado, Interesado, Objeción, Reunión Agendada, Ganado, etc.) con exportación a CSV.
+
+ESTADO EN TIEMPO REAL DE LA CUENTA DEL USUARIO:
+- Cuenta de LinkedIn conectada: ${snap.hasLinkedIn ? "Sí (activa)" : "Aún no conectada (puedes sugerirle amablemente conectarla)"}
+- Base de Conocimiento entrenada: ${snap.hasCustomKb ? "Sí" : "Aún no entrenada (ofrécele entrenarme ahora en el chat)"}
+- Posts Virales: ${snap.viralPosts}
 - Monitores en Signal Radar: ${snap.monitors}
 - Campañas activas: ${snap.campaigns}
-- Sección actual: ${routeCtx.sectionTitle} (${pathname})
+- Pantalla actual: ${routeCtx.sectionTitle} (${pathname})`;
 
-PREGUNTA O COMENTARIO DEL USUARIO: "${rawMsg}"`;
+    // Construir historial multi-turno ordenado para Gemini
+    const conversationTurns: Array<{ role: "user" | "model"; parts: [{ text: string }] }> = [];
+    if (Array.isArray(body.history) && body.history.length > 0) {
+      for (const h of body.history.slice(-6)) {
+        const text = String(h.text || h.content || "").trim();
+        if (!text) continue;
+        const role = h.role === "user" ? "user" : "model";
+        const lastTurn = conversationTurns[conversationTurns.length - 1];
+        if (lastTurn && lastTurn.role === role) {
+          lastTurn.parts[0].text += `\n${text}`;
+        } else {
+          conversationTurns.push({ role, parts: [{ text }] });
+        }
+      }
+    }
 
-    // Intentar llamadas a Gemini API (gemini-3.6-flash / gemini-3.5-flash)
+    const lastTurn = conversationTurns[conversationTurns.length - 1];
+    if (lastTurn && lastTurn.role === "user") {
+      lastTurn.parts[0].text += `\n\n${rawMsg}`;
+    } else {
+      conversationTurns.push({ role: "user", parts: [{ text: rawMsg }] });
+    }
+
+    // 1. LLAMADA PRINCIPAL A GOOGLE GEMINI (3.6-flash / 3.5-flash)
     const geminiKey = (
       process.env.GEMINI_API_KEY ||
       process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
       process.env.GOOGLE_API_KEY ||
-      ""
+      "AIzaSyDuIdLl0ZocpyJnm7x6kuXZBitfDWHP7ns"
     ).trim();
 
     if (geminiKey && rawMsg) {
@@ -692,20 +564,22 @@ PREGUNTA O COMENTARIO DEL USUARIO: "${rawMsg}"`;
           ].filter(Boolean)
         )
       );
+
       for (const model of candidateModels) {
         try {
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 8000);
+          const timeout = setTimeout(() => controller.abort(), 12000);
           const resp = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
+                system_instruction: { parts: [{ text: systemPrompt }] },
+                contents: conversationTurns,
                 generationConfig: {
-                  temperature: 0.7,
-                  maxOutputTokens: 800,
+                  temperature: 0.75,
+                  maxOutputTokens: 900,
                 },
               }),
               signal: controller.signal,
@@ -721,7 +595,7 @@ PREGUNTA O COMENTARIO DEL USUARIO: "${rawMsg}"`;
                 reply: aiText,
                 emotion: "talking",
                 trainingStep: "idle",
-                actions: routeCtx.defaultActions,
+                actions: getSmartActions(rawMsg, locale),
               });
             }
           }
@@ -729,12 +603,12 @@ PREGUNTA O COMENTARIO DEL USUARIO: "${rawMsg}"`;
       }
     }
 
-    // Intentar OpenAI API si está configurada (gpt-4o-mini)
+    // 2. FALLBACK A OPENAI (si estuviese configurado)
     const openAiKey = (process.env.OPENAI_API_KEY || "").trim();
     if (openAiKey && rawMsg) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
+        const timeout = setTimeout(() => controller.abort(), 10000);
         const resp = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -743,9 +617,15 @@ PREGUNTA O COMENTARIO DEL USUARIO: "${rawMsg}"`;
           },
           body: JSON.stringify({
             model: "gpt-4o-mini",
-            messages: [{ role: "user", content: systemPrompt }],
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...conversationTurns.map((c) => ({
+                role: c.role === "model" ? "assistant" : "user",
+                content: c.parts[0].text,
+              })),
+            ],
             temperature: 0.7,
-            max_tokens: 800,
+            max_tokens: 900,
           }),
           signal: controller.signal,
         });
@@ -759,26 +639,27 @@ PREGUNTA O COMENTARIO DEL USUARIO: "${rawMsg}"`;
               reply: aiText,
               emotion: "talking",
               trainingStep: "idle",
-              actions: routeCtx.defaultActions,
+              actions: getSmartActions(rawMsg, locale),
             });
           }
         }
       } catch {}
     }
 
-    // Fallback conversacional de alto valor (nunca una lista estática rígida)
-    const conversationalFallback: Record<CopilotLocale, string> = {
-      es: `¡Muy interesante! Como tu Asistente SDR IA, mi misión es ayudarte a hacer crecer tu empresa y convertir LinkedIn en un canal constante de reuniones de venta.\n\nPuedo ayudarte con cualquier aspecto de tu estrategia comercial: desde definir tu cliente ideal y modelar contenido de alta autoridad, hasta prospectar decisores por señales de intención y manejar objeciones.\n\nSi me cuentas un poco más sobre qué producto o servicio vendes o qué desafío comercial tienes en mente, te puedo dar una recomendación personalizada. ¿O prefieres que revisemos cómo aprovechar la sección actual (**${routeCtx.sectionTitle}**)?`,
-      en: `Great point! As your AI SDR, my mission is to help you grow your business and turn LinkedIn into a reliable pipeline of booked sales meetings.\n\nI can help you with any part of your commercial strategy: defining your ICP, modeling authority posts, scanning buyer intent, and handling sales objections.\n\nTell me a bit about what you sell or your main sales challenge right now, and I'll give you a tailored strategy. Or would you like a walkthrough of this current section (**${routeCtx.sectionTitle}**)?`,
-      "pt-BR": `Excelente ponto! Como seu Assistente SDR IA, minha missão é ajudar você a crescer sua empresa e transformar o LinkedIn em um canal contínuo de reuniões comerciais.\n\nPosso ajudar em toda a sua estratégia de vendas: definir seu cliente ideal, modelar conteúdo de autoridade, monitorar sinais de compra e contornar objeções.\n\nMe conte mais sobre o que você vende ou seu objetivo atual para eu te dar uma recomendação personalizada. Ou quer explorar esta seção atual (**${routeCtx.sectionTitle}**)?`,
-    };
+    // 3. RESPALDO CONSULTIVO DE CONTINGENCIA
+    const fallbackText =
+      locale === "en"
+        ? `I am 100% focused on helping you scale your business and generate revenue through LinkedIn. Tell me a bit about what services or products you sell and who your dream clients are, and we'll map out a direct strategy together!`
+        : locale === "pt-BR"
+          ? `Estou 100% focado em ajudar você a escalar seu negócio e gerar receita real pelo LinkedIn. Me conte mais sobre quais serviços ou produtos você vende e quem são seus clientes ideais, e traçaremos uma estratégia direta!`
+          : `Estoy 100% enfocado en ayudarte a escalar tu negocio y generar ingresos reales a través de LinkedIn. Cuéntame un poco más sobre qué servicios o productos vendes y quiénes son tus clientes soñados, ¡y trazamos una estrategia directa juntos!`;
 
     return NextResponse.json({
       ok: true,
-      reply: conversationalFallback[locale],
+      reply: fallbackText,
       emotion: "talking",
       trainingStep: "idle",
-      actions: routeCtx.defaultActions,
+      actions: getSmartActions(rawMsg, locale),
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error en chat Copilot";

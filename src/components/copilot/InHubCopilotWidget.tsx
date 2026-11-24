@@ -158,6 +158,8 @@ export default function InHubCopilotWidget() {
   const [trainingStep, setTrainingStep] = useState<TrainingStep>("idle");
   const [trainingDraft, setTrainingDraft] = useState<TrainingDraft>({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const messagesRef = useRef<ChatMessage[]>(messages);
+  messagesRef.current = messages;
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   const fetchAccountStatus = useCallback(async () => {
@@ -249,6 +251,10 @@ export default function InHubCopilotWidget() {
             trainingStep,
             trainingDraft,
             triggerAction: options?.triggerAction,
+            history: messagesRef.current.slice(-6).map((m) => ({
+              role: m.sender === "user" ? "user" : "model",
+              text: m.text,
+            })),
           }),
         });
 
