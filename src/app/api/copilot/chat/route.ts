@@ -597,12 +597,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // C. Saludos y conversación casual
-    if (
-      /^(hola|buenas|buen d[ií]a|hey|hello|ol[aá]|qu[eé] tal|qui[eé]n eres|c[oó]mo est[aá]s|quien eres)\b/i.test(
+    // C. Saludos y conversación casual breve (solo si no incluye una consulta larga de negocio)
+    const isBriefGreeting =
+      /^(hola|buenas|buen d[ií]a|hey|hello|ol[aá]|qu[eé] tal|qui[eé]n eres|c[oó]mo est[aá]s|quien eres)[!.,\s]*$/i.test(
         q
-      )
-    ) {
+      ) ||
+      (/^(hola|buenas|buen d[ií]a|hey|hello|ol[aá])\b/i.test(q) &&
+        q.trim().split(/\s+/).length <= 4 &&
+        !/vender|clientes|negocio|precio|dinero|servicio|plataforma|sdr|radar|cuenta/i.test(q));
+
+    if (isBriefGreeting) {
       const ans: Record<CopilotLocale, { text: string; actions: CopilotActionLink[] }> = {
         es: {
           text: "¡Hola! Soy **Inhub**, tu Asistente SDR IA y copiloto de Social Selling en LinkedIn.\n\nEstoy aquí para ayudarte tanto con la **estrategia comercial de tu negocio** (posicionamiento, qué publicar, cómo prospectar y cerrar reuniones) como con la **ejecución técnica diaria** en la plataforma.\n\n¿En qué te gustaría que trabajemos hoy: encontrar clientes para tu empresa, modelar posts virales o revisar tu estrategia?",
@@ -667,7 +671,7 @@ ESTADO ACTUAL DE LA CUENTA DEL USUARIO:
 
 PREGUNTA O COMENTARIO DEL USUARIO: "${rawMsg}"`;
 
-    // Intentar llamadas a Gemini API (gemini-2.0-flash o gemini-1.5-flash)
+    // Intentar llamadas a Gemini API (gemini-3.6-flash / gemini-3.5-flash)
     const geminiKey = (
       process.env.GEMINI_API_KEY ||
       process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
@@ -676,7 +680,18 @@ PREGUNTA O COMENTARIO DEL USUARIO: "${rawMsg}"`;
     ).trim();
 
     if (geminiKey && rawMsg) {
-      const candidateModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+      const configuredModel = (process.env.GEMINI_MODEL || "").trim();
+      const candidateModels = Array.from(
+        new Set(
+          [
+            configuredModel,
+            "gemini-3.6-flash",
+            "gemini-3.5-flash",
+            "gemini-3.8-flash",
+            "gemini-flash-latest",
+          ].filter(Boolean)
+        )
+      );
       for (const model of candidateModels) {
         try {
           const controller = new AbortController();
