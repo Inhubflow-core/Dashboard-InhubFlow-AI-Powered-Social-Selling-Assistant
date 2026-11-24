@@ -162,6 +162,96 @@ export default function InHubCopilotWidget() {
   messagesRef.current = messages;
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
+  // Free drag-and-drop position state (persisted in localStorage)
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const widgetRef = useRef<HTMLDivElement | null>(null);
+  const dragStateRef = useRef<{
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    hasMoved: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("inhubflow_bot_position");
+      if (saved) {
+        const parsed = JSON.parse(saved) as { x?: unknown; y?: unknown };
+        if (typeof parsed.x === "number" && typeof parsed.y === "number") {
+          const maxX = Math.max(8, window.innerWidth - 110);
+          const maxY = Math.max(8, window.innerHeight - 110);
+          setPosition({
+            x: Math.min(Math.max(8, parsed.x), maxX),
+            y: Math.min(Math.max(8, parsed.y), maxY),
+          });
+        }
+      }
+    } catch {}
+  }, []);
+
+  const handleBotPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    const el = widgetRef.current;
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    dragStateRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: rect.left,
+      originY: rect.top,
+      hasMoved: false,
+    };
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const state = dragStateRef.current;
+      if (!state) return;
+
+      const dx = moveEvent.clientX - state.startX;
+      const dy = moveEvent.clientY - state.startY;
+
+      if (!state.hasMoved && Math.hypot(dx, dy) > 5) {
+        state.hasMoved = true;
+        setIsDragging(true);
+      }
+
+      if (state.hasMoved) {
+        const width = el.offsetWidth || 96;
+        const height = el.offsetHeight || 96;
+        const nextX = Math.min(Math.max(8, state.originX + dx), Math.max(8, window.innerWidth - width - 8));
+        const nextY = Math.min(Math.max(8, state.originY + dy), Math.max(8, window.innerHeight - height - 8));
+        setPosition({ x: nextX, y: nextY });
+      }
+    };
+
+    const handlePointerUp = () => {
+      const state = dragStateRef.current;
+      if (state?.hasMoved) {
+        setPosition((curr) => {
+          if (curr) {
+            try {
+              localStorage.setItem("inhubflow_bot_position", JSON.stringify(curr));
+            } catch {}
+          }
+          return curr;
+        });
+        setTimeout(() => {
+          setIsDragging(false);
+        }, 50);
+      }
+      dragStateRef.current = null;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+  }, []);
+
   const fetchAccountStatus = useCallback(async () => {
     try {
       const res = await fetch("/api/copilot/status", { cache: "no-store" });
@@ -393,7 +483,13 @@ export default function InHubCopilotWidget() {
     : [];
 
   return (
-    <div className="fixed bottom-3 right-3 z-[999999] flex flex-col items-end">
+    <div
+      ref={widgetRef}
+      style={position ? { left: `${position.x}px`, top: `${position.y}px` } : undefined}
+      className={`fixed z-[999999] flex flex-col items-end ${
+        position ? "" : "bottom-3 right-3"
+      }`}
+    >
       {/* ===================================================================== */}
       {/* 1. CLEAN MINIMAL CHAT PANEL                                           */}
       {/* ===================================================================== */}
@@ -598,12 +694,23 @@ export default function InHubCopilotWidget() {
           </div>
         )}
 
-        <InHubLiveAvatar
-          emotion={emotion}
-          size="2xl"
-          hasNotification={hasPendingOnboarding}
-          onClick={() => setIsOpen((prev) => !prev)}
-        />
+        <div
+          onPointerDown={handleBotPointerDown}
+          className={`touch-none select-none ${
+            isDragging ? "cursor-grabbing scale-105 transition-transform" : "cursor-grab"
+          }`}
+          title="Arrastra para mover"
+        >
+          <InHubLiveAvatar
+            emotion={emotion}
+            size="2xl"
+            hasNotification={hasPendingOnboarding}
+            onClick={() => {
+              if (isDragging || dragStateRef.current?.hasMoved) return;
+              setIsOpen((prev) => !prev);
+            }}
+          />
+        </div>
       </div>
     </div>
   );
