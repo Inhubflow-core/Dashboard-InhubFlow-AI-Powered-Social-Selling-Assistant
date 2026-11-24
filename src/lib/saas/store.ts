@@ -45,6 +45,20 @@ export const initialSaaSUsers: SaaSUser[] = [
     createdAt: "2026-10-01T08:00:00.000Z",
     updatedAt: "2026-11-09T08:00:00.000Z",
   },
+  {
+    id: "usr-client-jimmy-guerra",
+    email: "jimmyrafael310@gmail.com",
+    name: "Jimmy Guerra",
+    role: "client_admin",
+    companyName: "Jimmy Guerra",
+    slotsLimit: 10,
+    planTier: "business",
+    subscriptionStatus: "active",
+    avatarUrl: "/images/user/owner.png",
+    assignedAccountId: "acc-li-acc_01m87cbk01fvqa4n010bz6kak5",
+    createdAt: "2026-11-24T18:16:28.502Z",
+    updatedAt: "2026-11-24T18:16:28.502Z",
+  },
 ];
 
 export const initialTeamMembers: TeamMember[] = [];

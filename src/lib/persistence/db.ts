@@ -426,6 +426,26 @@ function ensureSaasSubscribersSchema(db: Database.Database): void {
       "2026-11-17T08:00:00.000Z"
     );
   }
+
+  db.prepare(`
+    INSERT OR IGNORE INTO saas_subscribers (
+      id, email, name, role, company_name, plan_tier, slots_limit,
+      subscription_status, avatar_url, assigned_account_id, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    "usr-client-jimmy-guerra",
+    "jimmyrafael310@gmail.com",
+    "Jimmy Guerra",
+    "client_admin",
+    "Jimmy Guerra",
+    "business",
+    10,
+    "active",
+    "/images/user/owner.png",
+    "acc-li-acc_01m87cbk01fvqa4n010bz6kak5",
+    "2026-11-24T18:16:28.502Z",
+    "2026-11-24T18:16:28.502Z"
+  );
 }
 
 export function getSocialSellingDb(): Database.Database {
