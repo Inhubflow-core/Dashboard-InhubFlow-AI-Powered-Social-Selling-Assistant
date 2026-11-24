@@ -73,7 +73,8 @@ export function getStoredAccounts(): ConnectedLinkedInAccount[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return [];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(initialLinkedInAccounts));
+      return initialLinkedInAccounts;
     }
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -176,6 +177,11 @@ export function getStoredAccounts(): ConnectedLinkedInAccount[] {
           assignedUserName: base.assignedUserName || fallback.assignedUserName,
         };
       }
+    }
+
+    const jimmyInit = initialLinkedInAccounts.find((a) => a.id === "acc-li-acc_01m87cbk01fvqa4n010bz6kak5");
+    if (jimmyInit && !deduplicated.some((d) => d.id === jimmyInit.id || d.unipileAccountId === jimmyInit.unipileAccountId)) {
+      deduplicated.push(jimmyInit);
     }
 
     if (deduplicated.length !== parsed.length) {

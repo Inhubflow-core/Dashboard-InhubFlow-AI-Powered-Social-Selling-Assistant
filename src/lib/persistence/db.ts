@@ -351,6 +351,45 @@ function ensureLinkedInAccountsV2Schema(db: Database.Database): void {
       payload_json TEXT NOT NULL DEFAULT '{}'
     );
   `);
+
+  const jimmyPayload = JSON.stringify({
+    id: "acc-li-acc_01m87cbk01fvqa4n010bz6kak5",
+    unipileAccountId: "acc_01m87cbk01fvqa4n010bz6kak5",
+    name: "Jimmy Guerra",
+    email: "jimmyrafael310@gmail.com",
+    headline: "Perfil LinkedIn Conectado",
+    publicProfileUrl: "https://www.linkedin.com",
+    profilePictureUrl: "/images/user/owner.png",
+    status: "OK",
+    authMode: "hosted",
+    connectedAt: "2026-11-24T18:16:28.502Z",
+    lastSyncAt: "Sincronizado con InhubFlow Cloud (Unipile v2)",
+    dailyActionsCount: { invitationsSent: 0, messagesSent: 0, profilesVisited: 0 },
+    daily_connection_limit: 20,
+    daily_message_limit: 20,
+    daily_visit_limit: 20,
+    active_hours_start: 9,
+    active_hours_end: 18,
+    timezone: "America/Sao_Paulo",
+    working_days: "1,2,3,4,5",
+    targetLanguage: "pt",
+    ownerId: "usr-client-jimmy-guerra",
+    assignedUserId: "usr-client-jimmy-guerra",
+    assignedUserName: "Jimmy Guerra",
+  });
+
+  db.prepare(`
+    INSERT OR IGNORE INTO linkedin_accounts_v2 (
+      id, unipile_account_id, name, status, updated_at, payload_json
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `).run(
+    "acc-li-acc_01m87cbk01fvqa4n010bz6kak5",
+    "acc_01m87cbk01fvqa4n010bz6kak5",
+    "Jimmy Guerra",
+    "OK",
+    "2026-11-24T18:16:28.502Z",
+    jimmyPayload
+  );
 }
 
 function ensurePipelineSchema(db: Database.Database): void {

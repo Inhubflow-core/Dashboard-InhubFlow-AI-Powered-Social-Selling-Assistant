@@ -58,11 +58,12 @@ async function fetchLiveAccountsPayload() {
           // Si el perfil no se puede consultar de inmediato, mantener los datos base de la cuenta
         }
 
+        const isJimmy = acc.id === 'acc_01m87cbk01fvqa4n010bz6kak5';
         return {
           id: `acc-li-${acc.id}`,
           unipileAccountId: acc.id,
           name,
-          email,
+          email: email || (isJimmy ? 'jimmyrafael310@gmail.com' : undefined),
           headline,
           publicProfileUrl,
           profilePictureUrl,
@@ -82,7 +83,14 @@ async function fetchLiveAccountsPayload() {
           active_hours_end: 18,
           timezone: 'America/Sao_Paulo',
           working_days: '1,2,3,4,5',
-          ownerId: "usr-client-roberto-agencia",
+          ...(isJimmy ? {
+            targetLanguage: 'pt' as const,
+            ownerId: 'usr-client-jimmy-guerra',
+            assignedUserId: 'usr-client-jimmy-guerra',
+            assignedUserName: 'Jimmy Guerra',
+          } : {
+            ownerId: 'usr-client-roberto-agencia',
+          }),
         };
       })
     );
