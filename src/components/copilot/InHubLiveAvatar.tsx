@@ -10,6 +10,8 @@ interface InHubLiveAvatarProps {
   hasNotification?: boolean;
   hideStatusDot?: boolean;
   onClick?: () => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLElement>) => void;
+  isDragging?: boolean;
 }
 
 export function InHubLiveAvatar({
@@ -18,6 +20,8 @@ export function InHubLiveAvatar({
   hasNotification = false,
   hideStatusDot = false,
   onClick,
+  onPointerDown,
+  isDragging = false,
 }: InHubLiveAvatarProps) {
   const [isBlinking, setIsBlinking] = useState(false);
   const [lookOffset, setLookOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -89,10 +93,13 @@ export function InHubLiveAvatar({
     <button
       type="button"
       onClick={onClick}
+      onPointerDown={onPointerDown}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       aria-label="Inhub AI SDR Assistant"
-      className={`group relative ${dims} bg-transparent border-0 p-0 flex items-center justify-center cursor-pointer transition-transform duration-300 select-none overflow-visible focus:outline-none`}
+      className={`group relative ${dims} bg-transparent border-0 p-0 flex items-center justify-center transition-transform duration-300 select-none overflow-visible focus:outline-none touch-none ${
+        isDragging ? "cursor-grabbing scale-105" : "cursor-grab"
+      }`}
     >
       {/* Subtle floating floor shadow under Inhub's feet */}
       <span
@@ -117,7 +124,9 @@ export function InHubLiveAvatar({
         <img
           src="/images/inhub-front.png"
           alt="Inhub"
-          className={`w-full h-full object-contain ${
+          draggable={false}
+          onDragStart={(e) => e.preventDefault()}
+          className={`w-full h-full object-contain pointer-events-none ${
             size === "2xl"
               ? "drop-shadow-[0_10px_20px_rgba(15,23,42,0.22)]"
               : "drop-shadow-[0_6px_12px_rgba(15,23,42,0.18)]"

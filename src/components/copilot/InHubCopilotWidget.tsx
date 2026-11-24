@@ -191,8 +191,9 @@ export default function InHubCopilotWidget() {
     } catch {}
   }, []);
 
-  const handleBotPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  const handleBotPointerDown = useCallback((e: React.PointerEvent<HTMLElement>) => {
     if (e.button !== 0 && e.pointerType === "mouse") return;
+    e.preventDefault();
     const el = widgetRef.current;
     if (!el) return;
 
@@ -694,23 +695,17 @@ export default function InHubCopilotWidget() {
           </div>
         )}
 
-        <div
+        <InHubLiveAvatar
+          emotion={emotion}
+          size="2xl"
+          hasNotification={hasPendingOnboarding}
+          isDragging={isDragging}
           onPointerDown={handleBotPointerDown}
-          className={`touch-none select-none ${
-            isDragging ? "cursor-grabbing scale-105 transition-transform" : "cursor-grab"
-          }`}
-          title="Arrastra para mover"
-        >
-          <InHubLiveAvatar
-            emotion={emotion}
-            size="2xl"
-            hasNotification={hasPendingOnboarding}
-            onClick={() => {
-              if (isDragging || dragStateRef.current?.hasMoved) return;
-              setIsOpen((prev) => !prev);
-            }}
-          />
-        </div>
+          onClick={() => {
+            if (dragStateRef.current?.hasMoved) return;
+            setIsOpen((prev) => !prev);
+          }}
+        />
       </div>
     </div>
   );
