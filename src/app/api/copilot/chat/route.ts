@@ -133,6 +133,84 @@ function getQuickAccountSnapshot() {
   }
 }
 
+function generateDynamicConsultativeReply(
+  q: string,
+  rawMsg: string,
+  locale: CopilotLocale,
+  snap: {
+    hasLinkedIn: boolean;
+    hasCustomKb: boolean;
+    viralPosts: number;
+    monitors: number;
+    campaigns: number;
+  },
+  routeCtx: ReturnType<typeof getRouteCopilotContext>
+): { text: string; emotion: string } {
+  const lower = q.toLowerCase();
+
+  // 1. Ganar dinero / monetizar / vender servicios
+  if (/ganar dinero|vender servicios|conseguir ventas|monetizar|facturar|vender m[aá]s|hacer dinero|ganar m[aá]s/i.test(lower)) {
+    if (locale === "en") {
+      return {
+        emotion: "excited",
+        text: `**Yes, absolutely.** That is literally my #1 reason for existing. I'm not here for vanity likes—my mission is turning your LinkedIn profile into a predictable revenue channel.\n\nHere is our 3-step monetization formula:\n1. **High-Authority Content:** We model viral posts and PDF carousels in **Viral Post Engine** with lead magnets (e.g. *"Comment 'SYSTEM' to get the guide"*).\n2. **Buyer Intent Capture:** Through **Signal Radar**, we identify decision-makers engaging with your content or your competitors.\n3. **24/7 AI Outreach:** I initiate genuine conversations, handle objections, and send your calendar link to book sales calls.\n\nWhat exact service or offer do you sell, and what is your average deal size? Tell me so we can map out your campaign!`,
+      };
+    }
+    if (locale === "pt-BR") {
+      return {
+        emotion: "excited",
+        text: `**Com certeza!** Esse é literalmente meu principal objetivo. Não estou aqui para curtidas vazias de vaidade—minha meta é transformar seu LinkedIn em um canal previsível de faturamento.\n\nNossa estratégia em 3 passos para monetizar:\n1. **Conteúdo de Autoridade:** Modelamos posts virais e carrosséis no **Viral Post Engine** com iscas digitais (ex: *"Comente 'SISTEMA' para receber"*).\n2. **Captura por Sinais:** Pelo **Signal Radar**, detectamos decisores que interagiram com você ou com concorrentes.\n3. **Prospecção 24/7:** Eu abro conversas humanizadas, quebro objeções e envio seu link de agenda para fechar reuniões.\n\nQual serviço você vende e qual o ticket médio? Me conte para desenharmos sua rota de clientes!`,
+      };
+    }
+    return {
+      emotion: "excited",
+      text: `**¡Totalmente!** Esa es literalmente mi única razón de existir. No estoy aquí para buscar likes vacíos de vanidad, sino para convertir tu presencia en LinkedIn en un canal constante de facturación y reuniones de venta calificadas.\n\nNuestra fórmula de monetización en 3 pasos:\n\n1. **Autoridad con Lead Magnets:** En **Viral Post Engine**, modelamos publicaciones de alto impacto y carruseles PDF con llamadas a la acción irresistibles (por ejemplo: *"Comenta 'SISTEMA' y te lo envío por DM"*).\n2. **Detección de compradores calificados:** Con **Signal Radar**, capturamos al instante a directores y decisores que interactúan con tus publicaciones o las de tus competidores directos.\n3. **Prospección y agendamiento 24/7:** Inicio conversaciones respetuosas y personalizadas en tu nombre, resuelvo objeciones de tu oferta y envío tu link de agenda para llenar tu calendario.\n\n¿Qué tipo de servicios o productos vendes exactamente y qué precio promedio manejas? ¡Cuéntame y te armo la estrategia ahora mismo!`,
+    };
+  }
+
+  // 2. Usar mi cuenta de linkedin / administrar mi cuenta / cómo me ayudas con LinkedIn
+  if (/cuenta de linkedin|usando mi cuenta|administrar.*cuenta|gestionar.*cuenta|mi perfil|conectar linkedin/i.test(lower)) {
+    if (locale === "en") {
+      return {
+        emotion: "talking",
+        text: `Here is exactly how I work using your **connected LinkedIn account**:\n\n1. **Human Pacing & Safe Limits:** I operate during business hours (Mon-Fri) with randomized natural delays and a strict limit of **up to 20 interactions/day** to keep your account 100% safe from restrictions.\n2. **Automated Intent Scanning:** I monitor your target market, visit profiles, like relevant posts, and send highly personalized connection requests.\n3. **Inbox Management & Meeting Booking:** In **Copilot Mode**, I draft tailored replies for your 1-click approval. In **Autopilot Mode**, I answer prospect questions in under 2 minutes and book discovery calls directly into your calendar.\n\n${snap.hasLinkedIn ? "Your LinkedIn account is already linked!" : "To start, connect your LinkedIn account in **Settings → LinkedIn Accounts**."}\n\nWhat target titles (e.g. CEOs, Marketing Directors, Founders) would you like me to start prospecting?`,
+      };
+    }
+    if (locale === "pt-BR") {
+      return {
+        emotion: "talking",
+        text: `Veja exatamente como atuo usando sua **conta conectada do LinkedIn**:\n\n1. **Ritmo Seguro e Blindagem:** Opero em horário comercial (Seg-Sex) com pausas humanizadas e até **20 ações/dia por conta** para proteção total contra bloqueios.\n2. **Prospecção Ativa:** Monitoro seu nicho, visito perfis, curto posts e envio convites personalizados.\n3. **Inbox e Reuniões:** No **Modo Copiloto**, deixo os rascunhos prontos para seu clique. No **Modo Piloto Automático**, respondo em menos de 2 minutos e agendo chamadas na sua agenda.\n\n${snap.hasLinkedIn ? "Sua conta do LinkedIn já está conectada!" : "Para começar, conecte seu perfil em **Configurações → Contas do LinkedIn**."}\n\nQuais cargos de tomadores de decisão você quer prospectar primeiro?`,
+      };
+    }
+    return {
+      emotion: "talking",
+      text: `Así es exactamente como trabajo utilizando tu **cuenta conectada de LinkedIn**:\n\n1. **Blindaje y ritmo 100% seguro:** Opero de lunes a viernes en horario laboral con pausas aleatorias y un límite estricto de **hasta 20 interacciones diarias** para cuidar tu cuenta y evitar cualquier restricción de LinkedIn.\n2. **Prospección inteligente por señales:** En lugar de enviar spam frío, monitoreo a decisores que ya mostraron interés en tu nicho con **Signal Radar**, visito sus perfiles, interactúo con su contenido y les envío invitaciones personalizadas.\n3. **Atención de tu Inbox y cierre de citas:** Cuando te responden, en **Modo Copiloto** te preparo el borrador de respuesta listo para que lo apruebes en 1 clic; o en **Modo Piloto Automático**, respondo en menos de 2 minutos, resuelvo sus dudas con tu Base de Conocimiento y les comparto tu link de agenda.\n\n${snap.hasLinkedIn ? "¡Tu cuenta de LinkedIn ya está conectada y lista!" : "Para comenzar, conecta tu perfil en **Configuración → Cuentas de LinkedIn**."}\n\n¿A qué cargos de tomadores de decisión (ej: CEOs, Directores Comerciales, Fundadores) te gustaría que nos dirijamos?`,
+    };
+  }
+
+  // 3. Posts, contenido, carruseles, publicaciones
+  if (/post|carrusel|publica|contenido|gancho|hook|radar viral|calendario/i.test(lower)) {
+    return {
+      emotion: "talking",
+      text: `El contenido en LinkedIn es tu mejor vendedor silencioso. En InhubFlow lo resolvemos con **Viral Post Engine**:\n\n1. **Radar Viral:** Rastreamos las publicaciones con mayor interacción en tu industria y te mostramos su estructura y puntuación de viralidad.\n2. **Modelado con IA:** Adaptamos el ángulo persuasivo de ese post a tu empresa, oferta y tono de voz.\n3. **Editor de Carruseles PDF:** Diseñas diapositivas visuales de alto valor y las agendas en tu calendario para publicar 3 veces por semana (**Lunes, Miércoles y Viernes**).\n\n¿Quieres que modelemos juntos una publicación de alto impacto para tu sector ahora mismo?`,
+    };
+  }
+
+  // 4. Clientes, prospectos, radar de señales
+  if (/cliente|prospect|radar|se[ñn]al|buscar|encontrar/i.test(lower)) {
+    return {
+      emotion: "talking",
+      text: `Para encontrar clientes en LinkedIn sin quemar tu tiempo, usamos **Signal Radar** en 4 niveles:\n\n- **Nivel 1 (Tus posts):** Quienes dan like o comentan en tu contenido se convierten en prospectos calificados.\n- **Nivel 2 (Competidores):** Escaneamos las publicaciones de tus competidores para capturar a los decisores que interactúan con ellos.\n- **Nivel 3 (Radar Global):** Monitoreamos debates y palabras clave de tu sector en todo LinkedIn.\n- **Nivel 4 (Grupos):** Extraemos miembros activos de comunidades clave de tu industria.\n\n¿Quién es tu cliente ideal (ICP) para indicarte qué monitores activar?`,
+    };
+  }
+
+  // 5. Saludo general o pregunta abierta
+  return {
+    emotion: "talking",
+    text: `¡Qué gusto saludarte! Como tu socio y SDR IA en InhubFlow, estoy aquí para ayudarte a diseñar tu estrategia comercial, posicionar tu marca con contenido viral y convertir LinkedIn en un canal constante de reuniones de venta.\n\nPodemos trabajar en:\n1. **Encontrar clientes potenciales** mediante señales de intención en **Signal Radar**.\n2. **Modelar tu mes de contenido (12 posts y carruseles PDF)** en **Viral Post Engine**.\n3. **Entrenarme con tu empresa** para que responda dudas y agende llamadas por ti en el Inbox.\n\nCuéntame: ¿qué desafío comercial tienes en mente hoy o qué servicio vendes en tu empresa?`,
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json().catch(() => ({}))) as ChatRequestBody;
@@ -548,7 +626,7 @@ ESTADO EN TIEMPO REAL DE LA CUENTA DEL USUARIO:
       process.env.GEMINI_API_KEY ||
       process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
       process.env.GOOGLE_API_KEY ||
-      "AIzaSyDuIdLl0ZocpyJnm7x6kuXZBitfDWHP7ns"
+      ""
     ).trim();
 
     if (geminiKey && rawMsg) {
@@ -646,18 +724,19 @@ ESTADO EN TIEMPO REAL DE LA CUENTA DEL USUARIO:
       } catch {}
     }
 
-    // 3. RESPALDO CONSULTIVO DE CONTINGENCIA
-    const fallbackText =
-      locale === "en"
-        ? `I am 100% focused on helping you scale your business and generate revenue through LinkedIn. Tell me a bit about what services or products you sell and who your dream clients are, and we'll map out a direct strategy together!`
-        : locale === "pt-BR"
-          ? `Estou 100% focado em ajudar você a escalar seu negócio e gerar receita real pelo LinkedIn. Me conte mais sobre quais serviços ou produtos você vende e quem são seus clientes ideais, e traçaremos uma estratégia direta!`
-          : `Estoy 100% enfocado en ayudarte a escalar tu negocio y generar ingresos reales a través de LinkedIn. Cuéntame un poco más sobre qué servicios o productos vendes y quiénes son tus clientes soñados, ¡y trazamos una estrategia directa juntos!`;
+    // 3. RESPALDO CONSULTIVO DINÁMICO DE ALTA INTELIGENCIA
+    const dynamicReply = generateDynamicConsultativeReply(
+      q,
+      rawMsg,
+      locale,
+      snap,
+      routeCtx
+    );
 
     return NextResponse.json({
       ok: true,
-      reply: fallbackText,
-      emotion: "talking",
+      reply: dynamicReply.text,
+      emotion: dynamicReply.emotion,
       trainingStep: "idle",
       actions: getSmartActions(rawMsg, locale),
     });
