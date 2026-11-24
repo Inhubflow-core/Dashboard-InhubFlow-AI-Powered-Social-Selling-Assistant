@@ -398,7 +398,7 @@ export default function InHubCopilotWidget() {
       {/* 1. CLEAN MINIMAL CHAT PANEL                                           */}
       {/* ===================================================================== */}
       {isOpen && (
-        <div className="mb-2.5 w-[340px] sm:w-[375px] max-h-[min(510px,calc(100dvh-135px))] rounded-2xl border border-slate-200/90 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-2xl shadow-slate-900/15 overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-3 duration-200">
+        <div className="mb-3 w-[360px] sm:w-[410px] max-h-[min(570px,calc(100dvh-220px))] rounded-2xl border border-slate-200/90 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-2xl shadow-slate-900/20 overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-3 duration-200">
           {/* Clean Light Header */}
           <div className="px-4 py-3 bg-white dark:bg-gray-900 border-b border-slate-100 dark:border-gray-800 shrink-0">
             <div className="flex items-center justify-between gap-2">
@@ -600,6 +600,7 @@ export default function InHubCopilotWidget() {
 
         <InHubLiveAvatar
           emotion={emotion}
+          size="2xl"
           hasNotification={hasPendingOnboarding}
           onClick={() => setIsOpen((prev) => !prev)}
         />

@@ -6,7 +6,7 @@ export type InHubEmotion = "idle" | "talking" | "thinking" | "excited" | "celebr
 
 interface InHubLiveAvatarProps {
   emotion?: InHubEmotion;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl";
   hasNotification?: boolean;
   hideStatusDot?: boolean;
   onClick?: () => void;
@@ -70,13 +70,17 @@ export function InHubLiveAvatar({
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
-  // Exact 330:446 aspect ratio of inhub-front.png, ~25%+ larger than previous avatar
+  // Exact 330:446 aspect ratio of inhub-front.png, support 2xl (double size)
   const dims =
-    size === "lg"
-      ? "w-[86px] h-[116px]"
-      : size === "sm"
-        ? "w-[44px] h-[60px]"
-        : "w-[72px] h-[97px]";
+    size === "2xl"
+      ? "w-[144px] h-[194px]"
+      : size === "xl"
+        ? "w-[110px] h-[148px]"
+        : size === "lg"
+          ? "w-[86px] h-[116px]"
+          : size === "sm"
+            ? "w-[44px] h-[60px]"
+            : "w-[72px] h-[97px]";
 
   const isHappyPose =
     isHovered || emotion === "excited" || emotion === "celebrate";
@@ -92,7 +96,7 @@ export function InHubLiveAvatar({
     >
       {/* Subtle floating floor shadow under Inhub's feet */}
       <span
-        className={`pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 w-3/4 h-2.5 rounded-full bg-[#0099ff]/30 blur-md transition-all duration-300 ${
+        className={`pointer-events-none absolute ${size === "2xl" ? "-bottom-2 h-4 w-[85%] blur-xl" : "-bottom-1 h-2.5 w-3/4 blur-md"} left-1/2 -translate-x-1/2 rounded-full bg-[#0099ff]/30 transition-all duration-300 ${
           isHappyPose ? "scale-110 opacity-100" : "scale-95 opacity-70"
         }`}
       />
@@ -113,7 +117,11 @@ export function InHubLiveAvatar({
         <img
           src="/images/inhub-front.png"
           alt="Inhub"
-          className="w-full h-full object-contain drop-shadow-[0_10px_18px_rgba(15,23,42,0.22)]"
+          className={`w-full h-full object-contain ${
+            size === "2xl"
+              ? "drop-shadow-[0_16px_28px_rgba(15,23,42,0.28)]"
+              : "drop-shadow-[0_10px_18px_rgba(15,23,42,0.22)]"
+          }`}
         />
 
         {/* Natural Eyelid Blink Overlay aligned to exact 330x446 eye coordinates */}
@@ -147,16 +155,30 @@ export function InHubLiveAvatar({
 
         {/* Subtle #0099ff glow on chest dot only when actively processing */}
         {emotion === "thinking" && (
-          <span className="pointer-events-none absolute top-[60.5%] left-[41%] w-1.5 h-1.5 rounded-full bg-[#0099ff] opacity-80 animate-pulse" />
+          <span
+            className={`pointer-events-none absolute top-[60.5%] left-[41%] ${
+              size === "2xl" ? "w-2.5 h-2.5" : "w-1.5 h-1.5"
+            } rounded-full bg-[#0099ff] opacity-80 animate-pulse`}
+          />
         )}
       </div>
 
       {/* Subtle status dot (no aggressive bounce/ping) */}
       {!hideStatusDot &&
         (hasNotification ? (
-          <span className="absolute top-1 right-1 z-20 h-3 w-3 rounded-full bg-[#0099ff] ring-2 ring-white dark:ring-gray-900 shadow-xs" />
+          <span
+            className={`absolute ${
+              size === "2xl" ? "top-2 right-2 h-4 w-4" : "top-1 right-1 h-3 w-3"
+            } z-20 rounded-full bg-[#0099ff] ring-2 ring-white dark:ring-gray-900 shadow-xs`}
+          />
         ) : (
-          <span className="absolute bottom-1.5 right-1.5 z-20 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900" />
+          <span
+            className={`absolute ${
+              size === "2xl"
+                ? "bottom-2 right-3 h-3.5 w-3.5"
+                : "bottom-1.5 right-1.5 h-2.5 w-2.5"
+            } z-20 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900`}
+          />
         ))}
 
       <style jsx>{`
