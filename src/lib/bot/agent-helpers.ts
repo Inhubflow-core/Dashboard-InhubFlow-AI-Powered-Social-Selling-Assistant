@@ -1,3 +1,4 @@
+import type { BotLocale } from "@/lib/bot/i18n";
 import { getSocialSellingDb } from "@/lib/persistence/db";
 import { INITIAL_KNOWLEDGE_SOURCES } from "@/lib/sdr/knowledge-data";
 import type { KnowledgeSource } from "@/lib/sdr/types";
@@ -493,7 +494,8 @@ export async function getLatestPostOfPerson(
  */
 export async function executeApprovedAction(
   approval: ApprovalActionPayload,
-  scheduledAtOverride?: string
+  scheduledAtOverride?: string,
+  locale: BotLocale = "es"
 ): Promise<{
   ok: boolean;
   message: string;
@@ -503,16 +505,26 @@ export async function executeApprovedAction(
   const db = getSocialSellingDb();
   const effectiveSchedule = scheduledAtOverride || approval.scheduledAt;
 
+  const t = (es: string, en: string, pt: string) =>
+    locale === "en" ? en : locale === "pt-BR" ? pt : es;
+
   // 1. PUBLICAR O PROGRAMAR POST
   if (approval.type === "post") {
     const text = (approval.preview || "").trim();
     if (!text) {
-      return { ok: false, message: "El contenido del post está vacío." };
+      return {
+        ok: false,
+        message: t(
+          "El contenido del post está vacío.",
+          "The post content is empty.",
+          "O conteúdo do post está vazio."
+        ),
+      };
     }
 
     const id = `post-${Date.now()}`;
     const now = new Date().toISOString();
-    const title = approval.title || text.split("\n")[0]?.slice(0, 60) || "Post de LinkedIn";
+    const title = approval.title || text.split("\n")[0]?.slice(0, 60) || "LinkedIn Post";
 
     if (effectiveSchedule) {
       db.prepare(
@@ -530,11 +542,18 @@ export async function executeApprovedAction(
         JSON.stringify({ source: "inhub_bot" })
       );
 
+      const formattedDate = new Date(effectiveSchedule).toLocaleString(
+        locale === "en" ? "en-US" : locale === "pt-BR" ? "pt-BR" : "es-ES",
+        { dateStyle: "medium", timeStyle: "short" }
+      );
+
       return {
         ok: true,
-        message: `Publicación **programada** en tu calendario editorial para el **${new Date(
-          effectiveSchedule
-        ).toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" })}**.`,
+        message: t(
+          `Publicación **programada** en tu calendario editorial para el **${formattedDate}**.`,
+          `Post **scheduled** in your editorial calendar for **${formattedDate}**.`,
+          `Publicação **agendada** no seu calendário editorial para **${formattedDate}**.`
+        ),
         details: { id, status: "scheduled", scheduledAt: effectiveSchedule },
       };
     }
@@ -542,7 +561,11 @@ export async function executeApprovedAction(
     if (!accountId) {
       return {
         ok: false,
-        message: "No hay ninguna cuenta de LinkedIn conectada y activa para publicar.",
+        message: t(
+          "No hay ninguna cuenta de LinkedIn conectada y activa para publicar.",
+          "There is no active connected LinkedIn account to publish.",
+          "Não há nenhuma conta do LinkedIn conectada e ativa para publicar."
+        ),
       };
     }
 
@@ -570,7 +593,11 @@ export async function executeApprovedAction(
 
     return {
       ok: true,
-      message: `Publicación **emitida en vivo en LinkedIn** desde la cuenta **${accountName}**.`,
+      message: t(
+        `Publicación **emitida en vivo en LinkedIn** desde la cuenta **${accountName}**.`,
+        `Post **published live on LinkedIn** from account **${accountName}**.`,
+        `Publicação **enviada ao vivo no LinkedIn** pela conta **${accountName}**.`
+      ),
       details: { id, linkedinPostId, status: "published" },
     };
   }
@@ -578,7 +605,11 @@ export async function executeApprovedAction(
   if (!accountId) {
     return {
       ok: false,
-      message: "No hay una cuenta de LinkedIn activa conectada para ejecutar esta acción.",
+      message: t(
+        "No hay una cuenta de LinkedIn activa conectada para ejecutar esta acción.",
+        "There is no active LinkedIn account connected to execute this action.",
+        "Não há uma conta do LinkedIn ativa conectada para executar esta ação."
+      ),
     };
   }
 
@@ -587,7 +618,11 @@ export async function executeApprovedAction(
     if (!approval.targetProviderId) {
       return {
         ok: false,
-        message: "Falta identificar el perfil del destinatario antes de enviar la invitación.",
+        message: t(
+          "Falta identificar el perfil del destinatario antes de enviar la invitación.",
+          "The recipient profile must be identified before sending the invitation.",
+          "É necessário identificar o perfil do destinatário antes de enviar o convite."
+        ),
       };
     }
     const res = await unipile.sendInvitation({
@@ -596,9 +631,14 @@ export async function executeApprovedAction(
       message: approval.preview?.slice(0, 290) || undefined,
     });
 
+    const target = approval.targetName || t("el prospecto", "the prospect", "o prospect");
     return {
       ok: true,
-      message: `Solicitud de conexión enviada a **${approval.targetName || "el prospecto"}** vía **${accountName}**.`,
+      message: t(
+        `Solicitud de conexión enviada a **${target}** vía **${accountName}**.`,
+        `Connection request sent to **${target}** via **${accountName}**.`,
+        `Solicitação de conexão enviada para **${target}** via **${accountName}**.`
+      ),
       details: { invitationId: res.invitation_id, status: res.status || "sent" },
     };
   }
@@ -608,7 +648,11 @@ export async function executeApprovedAction(
     if (!approval.targetPostId) {
       return {
         ok: false,
-        message: "No se encontró el ID de la publicación a comentar.",
+        message: t(
+          "No se encontró el ID de la publicación a comentar.",
+          "Could not find the post ID to comment on.",
+          "Não foi possível encontrar o ID da publicação para comentar."
+        ),
       };
     }
     const res = await unipile.commentOnPost({
@@ -617,9 +661,14 @@ export async function executeApprovedAction(
       text: approval.preview.trim(),
     });
 
+    const target = approval.targetName || t("el prospecto", "the prospect", "o prospect");
     return {
       ok: true,
-      message: `Comentario publicado en la última publicación de **${approval.targetName || "el prospecto"}**.`,
+      message: t(
+        `Comentario publicado en la última publicación de **${target}**.`,
+        `Comment published on **${target}**'s latest post.`,
+        `Comentário publicado na última publicação de **${target}**.`
+      ),
       details: { commentId: res.comment_id || res.id },
     };
   }
@@ -628,10 +677,16 @@ export async function executeApprovedAction(
   if (approval.type === "message") {
     const text = (approval.preview || "").trim();
     if (!text) {
-      return { ok: false, message: "El texto del mensaje está vacío." };
+      return {
+        ok: false,
+        message: t(
+          "El texto del mensaje está vacío.",
+          "The message text is empty.",
+          "O texto da mensagem está vazio."
+        ),
+      };
     }
 
-    // Buscar si ya existe un chat con esta persona
     let existingChatId: string | null = null;
     if (approval.targetName || approval.targetProviderId) {
       try {
@@ -649,6 +704,8 @@ export async function executeApprovedAction(
       } catch {}
     }
 
+    const target = approval.targetName || t("el prospecto", "the prospect", "o prospect");
+
     if (existingChatId) {
       const sent = await unipile.sendMessage({
         chat_id: existingChatId,
@@ -656,7 +713,11 @@ export async function executeApprovedAction(
       });
       return {
         ok: true,
-        message: `Mensaje enviado a **${approval.targetName || "el prospecto"}** en su chat de LinkedIn.`,
+        message: t(
+          `Mensaje enviado a **${target}** en su chat de LinkedIn.`,
+          `Message sent to **${target}** in LinkedIn chat.`,
+          `Mensagem enviada para **${target}** no chat do LinkedIn.`
+        ),
         details: { chatId: existingChatId, messageId: sent.message_id },
       };
     }
@@ -664,7 +725,11 @@ export async function executeApprovedAction(
     if (!approval.targetProviderId) {
       return {
         ok: false,
-        message: "Falta el ID del perfil en LinkedIn para iniciar el chat.",
+        message: t(
+          "Falta el ID del perfil en LinkedIn para iniciar el chat.",
+          "Missing LinkedIn profile ID to start the chat.",
+          "Falta o ID do perfil no LinkedIn para iniciar o chat."
+        ),
       };
     }
 
@@ -675,10 +740,17 @@ export async function executeApprovedAction(
     });
     return {
       ok: true,
-      message: `Mensaje / propuesta enviado a **${approval.targetName || "el prospecto"}** en LinkedIn.`,
+      message: t(
+        `Mensaje / propuesta enviado a **${target}** en LinkedIn.`,
+        `Message / proposal sent to **${target}** on LinkedIn.`,
+        `Mensagem / proposta enviada para **${target}** no LinkedIn.`
+      ),
       details: { chatId: started.chat_id, messageId: started.message_id },
     };
   }
 
-  return { ok: false, message: "Tipo de acción no soportado." };
+  return {
+    ok: false,
+    message: t("Tipo de acción no soportado.", "Unsupported action type.", "Tipo de ação não suportado."),
+  };
 }

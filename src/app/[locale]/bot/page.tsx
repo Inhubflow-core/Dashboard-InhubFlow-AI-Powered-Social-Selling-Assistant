@@ -1,11 +1,18 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useLocale } from "next-intl";
 import { InHubLiveAvatar, type InHubEmotion } from "@/components/copilot/InHubLiveAvatar";
 import type {
   ApprovalActionPayload,
   VerifiedPersonCandidate,
 } from "@/lib/bot/agent-helpers";
+import {
+  BOT_UI_LABELS,
+  getBotLocale,
+  getSpeechLang,
+  type BotUiLabels,
+} from "@/lib/bot/i18n";
 import {
   Mic,
   MicOff,
@@ -55,18 +62,10 @@ interface PendingImage {
   previewUrl: string;
 }
 
-const DEFAULT_QUICK_ACTIONS = [
-  "Dame el resumen de hoy",
-  "¿Cómo van las campañas?",
-  "Crear post viral sobre ventas B2B",
-  "Últimos prospectos del radar",
-  "Estado de mi cuenta de LinkedIn",
-];
-
 function compressImageToBase64(file: File): Promise<PendingImage> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
+    reader.onerror = () => reject(new Error("Could not read image"));
     reader.onload = () => {
       const dataUrl = String(reader.result || "");
       const img = new Image();
@@ -107,27 +106,27 @@ function compressImageToBase64(file: File): Promise<PendingImage> {
   });
 }
 
-function getNetworkBadge(distance?: string) {
+function getNetworkBadge(distance: string | undefined, ui: BotUiLabels) {
   switch (distance) {
     case "FIRST_DEGREE":
       return {
-        label: "1er grado · Conectados",
+        label: ui.degree1,
         className: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
       };
     case "SECOND_DEGREE":
       return {
-        label: "2do grado",
+        label: ui.degree2,
         className: "bg-[#0099ff]/20 text-[#70c4ff] border-[#0099ff]/30",
       };
     case "THIRD_DEGREE":
     case "OUT_OF_NETWORK":
       return {
-        label: "3er grado",
+        label: ui.degree3,
         className: "bg-slate-500/20 text-slate-300 border-slate-500/30",
       };
     default:
       return {
-        label: "Perfil LinkedIn",
+        label: ui.degreeUnknown,
         className: "bg-slate-500/20 text-slate-300 border-slate-500/30",
       };
   }
@@ -138,6 +137,7 @@ function ProfileVerifyCard({
   intendedAction,
   userContext,
   disabled,
+  ui,
   onConfirm,
   onReject,
 }: {
@@ -145,6 +145,7 @@ function ProfileVerifyCard({
   intendedAction: string;
   userContext: string;
   disabled: boolean;
+  ui: BotUiLabels;
   onConfirm: (person: VerifiedPersonCandidate) => void;
   onReject: (remaining: VerifiedPersonCandidate[]) => void;
 }) {
@@ -155,7 +156,7 @@ function ProfileVerifyCard({
   if (!current) return null;
 
   const remaining = candidates.slice(1);
-  const badge = getNetworkBadge(current.networkDistance);
+  const badge = getNetworkBadge(current.networkDistance, ui);
   const initials = current.name
     .split(/\s+/)
     .slice(0, 2)
@@ -173,7 +174,7 @@ function ProfileVerifyCard({
       <div className="flex items-center justify-between text-[11px] font-semibold text-[#70c4ff]">
         <span className="flex items-center gap-1.5">
           <UserCheck className="w-3.5 h-3.5 text-[#0099ff]" />
-          Verificación de identidad
+          {ui.verifyTitle}
         </span>
         <span className={`px-2 py-0.5 rounded-full text-[10px] border ${badge.className}`}>
           {badge.label}
@@ -204,7 +205,7 @@ function ProfileVerifyCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[#0099ff] hover:text-white shrink-0"
-                title="Abrir perfil en LinkedIn"
+                title="LinkedIn"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
@@ -223,9 +224,7 @@ function ProfileVerifyCard({
 
       {acted ? (
         <div className="text-xs font-medium text-slate-300 px-1">
-          {acted === "confirmed"
-            ? "✅ Identidad confirmada. Preparando propuesta..."
-            : "❌ Perfil descartado."}
+          {acted === "confirmed" ? ui.confirmedStatus : ui.rejectedStatus}
         </div>
       ) : (
         <div className="flex items-center gap-2">
@@ -240,7 +239,7 @@ function ProfileVerifyCard({
             style={{ background: "linear-gradient(135deg, #0099ff, #0070cc)" }}
           >
             <Check className="w-3.5 h-3.5" />
-            Sí, es él
+            {ui.confirmYes}
           </button>
           <button
             type="button"
@@ -252,15 +251,13 @@ function ProfileVerifyCard({
             className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-medium text-slate-300 bg-white/8 hover:bg-white/15 border border-white/10 transition cursor-pointer disabled:opacity-50"
           >
             <X className="w-3.5 h-3.5" />
-            {remaining.length > 0 ? `No, ver otro (${remaining.length})` : "No es él"}
+            {remaining.length > 0 ? ui.confirmSeeOther(remaining.length) : ui.confirmNo}
           </button>
         </div>
       )}
 
       {!acted && intendedAction && userContext && (
-        <p className="text-[10px] text-slate-400 px-0.5">
-          No ejecutaré ninguna acción hasta que confirmes el perfil y apruebes el borrador.
-        </p>
+        <p className="text-[10px] text-slate-400 px-0.5">{ui.verifySafetyNote}</p>
       )}
     </div>
   );
@@ -269,12 +266,14 @@ function ProfileVerifyCard({
 function ApprovalActionCard({
   initialApproval,
   disabled,
+  ui,
   onApprove,
   onSchedule,
   onDiscard,
 }: {
   initialApproval: ApprovalActionPayload;
   disabled: boolean;
+  ui: BotUiLabels;
   onApprove: (approval: ApprovalActionPayload) => void;
   onSchedule: (approval: ApprovalActionPayload, scheduledAt: string) => void;
   onDiscard: () => void;
@@ -292,12 +291,12 @@ function ApprovalActionCard({
 
   const typeMeta =
     initialApproval.type === "post"
-      ? { label: "Publicación de LinkedIn", icon: <FileText className="w-3.5 h-3.5 text-[#0099ff]" />, cta: "Publicar ahora" }
+      ? { label: ui.typePost, icon: <FileText className="w-3.5 h-3.5 text-[#0099ff]" />, cta: ui.ctaPost }
       : initialApproval.type === "connection"
-        ? { label: "Solicitud de Conexión", icon: <UserPlus className="w-3.5 h-3.5 text-[#0099ff]" />, cta: "Enviar conexión" }
+        ? { label: ui.typeConnection, icon: <UserPlus className="w-3.5 h-3.5 text-[#0099ff]" />, cta: ui.ctaConnection }
         : initialApproval.type === "comment"
-          ? { label: "Comentario en Post", icon: <MessageSquarePlus className="w-3.5 h-3.5 text-[#0099ff]" />, cta: "Publicar comentario" }
-          : { label: "Mensaje Directo / Propuesta", icon: <SendHorizonal className="w-3.5 h-3.5 text-[#0099ff]" />, cta: "Enviar mensaje" };
+          ? { label: ui.typeComment, icon: <MessageSquarePlus className="w-3.5 h-3.5 text-[#0099ff]" />, cta: ui.ctaComment }
+          : { label: ui.typeMessage, icon: <SendHorizonal className="w-3.5 h-3.5 text-[#0099ff]" />, cta: ui.ctaMessage };
 
   const currentPayload: ApprovalActionPayload = {
     ...initialApproval,
@@ -319,14 +318,14 @@ function ApprovalActionCard({
         </span>
         {initialApproval.targetName && (
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/8 text-slate-200 truncate max-w-[150px]">
-            Para: {initialApproval.targetName}
+            {ui.forLabel} {initialApproval.targetName}
           </span>
         )}
       </div>
 
       {initialApproval.targetPostSnippet && (
         <div className="p-2 rounded-lg bg-black/35 border border-white/8 text-[11px] text-slate-400 italic line-clamp-2">
-          Post original: “{initialApproval.targetPostSnippet}...”
+          {ui.originalPostLabel} “{initialApproval.targetPostSnippet}...”
         </div>
       )}
 
@@ -343,7 +342,7 @@ function ApprovalActionCard({
             onClick={() => setIsEditing(false)}
             className="text-[11px] font-semibold text-[#0099ff] hover:text-white cursor-pointer"
           >
-            ✓ Guardar cambios en borrador
+            {ui.saveDraftChanges}
           </button>
         </div>
       ) : (
@@ -354,9 +353,9 @@ function ApprovalActionCard({
 
       {status !== "pending" ? (
         <div className="text-xs font-semibold pt-0.5 text-emerald-300">
-          {status === "approved" && "✅ Aprobado y enviado a ejecución."}
-          {status === "scheduled" && "📅 Agendado en tu calendario editorial."}
-          {status === "discarded" && "🗑️ Borrador descartado."}
+          {status === "approved" && ui.statusApproved}
+          {status === "scheduled" && ui.statusScheduled}
+          {status === "discarded" && ui.statusDiscarded}
         </div>
       ) : (
         <div className="space-y-2 pt-0.5">
@@ -377,7 +376,7 @@ function ApprovalActionCard({
                 }}
                 className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#0099ff] text-white cursor-pointer disabled:opacity-50"
               >
-                Confirmar fecha
+                {ui.confirmDateBtn}
               </button>
             </div>
           )}
@@ -404,7 +403,7 @@ function ApprovalActionCard({
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-200 bg-white/8 hover:bg-white/15 border border-white/10 transition cursor-pointer"
             >
               <Pencil className="w-3 h-3" />
-              {isEditing ? "Listo" : "Editar"}
+              {isEditing ? ui.doneEditBtn : ui.editBtn}
             </button>
 
             {initialApproval.type === "post" && (
@@ -415,7 +414,7 @@ function ApprovalActionCard({
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#70c4ff] bg-[#0099ff]/12 hover:bg-[#0099ff]/20 border border-[#0099ff]/25 transition cursor-pointer"
               >
                 <Calendar className="w-3 h-3" />
-                Agendar
+                {ui.scheduleBtn}
               </button>
             )}
 
@@ -429,7 +428,7 @@ function ApprovalActionCard({
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition cursor-pointer"
             >
               <Trash2 className="w-3 h-3" />
-              Descartar
+              {ui.discardBtn}
             </button>
           </div>
         </div>
@@ -439,6 +438,11 @@ function ApprovalActionCard({
 }
 
 export default function InhubBotAppPage() {
+  const rawLocale = useLocale();
+  const locale = getBotLocale(rawLocale);
+  const ui = BOT_UI_LABELS[locale];
+  const speechLang = getSpeechLang(locale);
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
@@ -454,7 +458,6 @@ export default function InhubBotAppPage() {
   const messagesRef = useRef<Message[]>(messages);
   messagesRef.current = messages;
 
-  // Text to Speech
   const speakText = useCallback(
     (text: string) => {
       if (!voiceEnabled || typeof window === "undefined" || !("speechSynthesis" in window)) {
@@ -464,7 +467,7 @@ export default function InhubBotAppPage() {
         window.speechSynthesis.cancel();
         const clean = text.replace(/[*_#`[\]()]/g, "").trim();
         const utterance = new SpeechSynthesisUtterance(clean);
-        utterance.lang = "es-ES";
+        utterance.lang = speechLang;
         utterance.rate = 1.05;
         utterance.pitch = 1.0;
 
@@ -477,10 +480,9 @@ export default function InhubBotAppPage() {
         setEmotion("idle");
       }
     },
-    [voiceEnabled]
+    [voiceEnabled, speechLang]
   );
 
-  // Send message to Bot API
   const handleSend = useCallback(
     async (
       customText?: string,
@@ -527,7 +529,7 @@ export default function InhubBotAppPage() {
               sender: m.sender,
               text: m.text,
             })),
-            locale: "es",
+            locale,
           }),
         });
 
@@ -539,7 +541,7 @@ export default function InhubBotAppPage() {
             sender: "bot",
             text: data.reply,
             cards: data.cards || [],
-            quickActions: data.quickActions || DEFAULT_QUICK_ACTIONS,
+            quickActions: data.quickActions || ui.quickActions,
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           };
           setMessages((prev) => [...prev, botMsg]);
@@ -556,7 +558,7 @@ export default function InhubBotAppPage() {
             {
               id: `bot-err-${Date.now()}`,
               sender: "bot",
-              text: data.reply || "Ocurrió un error al procesar el comando.",
+              text: data.reply || ui.genericError,
               timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             },
           ]);
@@ -568,7 +570,7 @@ export default function InhubBotAppPage() {
           {
             id: `bot-err-${Date.now()}`,
             sender: "bot",
-            text: "Error de conexión con el asistente. Inténtalo de nuevo.",
+            text: ui.connectionError,
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           },
         ]);
@@ -576,13 +578,12 @@ export default function InhubBotAppPage() {
         setIsSending(false);
       }
     },
-    [inputValue, pendingImage, speakText, voiceEnabled]
+    [inputValue, pendingImage, speakText, voiceEnabled, locale, ui.quickActions, ui.genericError, ui.connectionError]
   );
 
   const handleSendRef = useRef(handleSend);
   handleSendRef.current = handleSend;
 
-  // Initialize Speech Recognition once
   useEffect(() => {
     if (typeof window !== "undefined") {
       const SpeechRecognition =
@@ -592,7 +593,7 @@ export default function InhubBotAppPage() {
         const recognition = new SpeechRecognition();
         recognition.continuous = false;
         recognition.interimResults = false;
-        recognition.lang = "es-ES";
+        recognition.lang = speechLang;
 
         recognition.onstart = () => {
           setIsListening(true);
@@ -621,23 +622,21 @@ export default function InhubBotAppPage() {
         setRecognitionSupported(false);
       }
     }
-  }, []);
+  }, [speechLang]);
 
-  // Welcome message on mount
   useEffect(() => {
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     setMessages([
       {
         id: "welcome-msg",
         sender: "bot",
-        text: "Hola, soy **InhubBot**. Puedo controlar tu plataforma de Social Selling en LinkedIn por voz, texto o foto.\n\n• Sácale foto a un artículo de revista para modelar un post.\n• Pídeme buscar a un prospecto (verifico su foto y grado de conexión antes de actuar).\n• Nunca publico ni envío nada sin tu aprobación.",
-        quickActions: DEFAULT_QUICK_ACTIONS,
+        text: ui.welcomeMessage,
+        quickActions: ui.quickActions,
         timestamp: now,
       },
     ]);
-  }, []);
+  }, [ui.welcomeMessage, ui.quickActions]);
 
-  // Auto scroll to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isSending]);
@@ -651,6 +650,7 @@ export default function InhubBotAppPage() {
         window.speechSynthesis.cancel();
       }
       try {
+        recognitionRef.current.lang = speechLang;
         recognitionRef.current.start();
       } catch {
         recognitionRef.current.stop();
@@ -674,7 +674,7 @@ export default function InhubBotAppPage() {
   const handleToggleCampaign = (campaignId: string, campaignName: string, currentStatus: string) => {
     const newStatus = currentStatus === "active" ? "paused" : "active";
     handleSend(
-      `${newStatus === "active" ? "Activar" : "Pausar"} campaña ${campaignName}`,
+      ui.campaignToggleLabel(newStatus === "active", campaignName),
       "toggle_campaign",
       { campaignId, campaignName, status: newStatus },
       null
@@ -691,8 +691,8 @@ export default function InhubBotAppPage() {
       {
         id: `welcome-${Date.now()}`,
         sender: "bot",
-        text: "Conversación reiniciada. ¿Qué trabajo deseas que ejecute en tu LinkedIn hoy?",
-        quickActions: DEFAULT_QUICK_ACTIONS,
+        text: ui.resetMessage,
+        quickActions: ui.quickActions,
         timestamp: now,
       },
     ]);
@@ -726,28 +726,28 @@ export default function InhubBotAppPage() {
                 ? "bg-[#0099ff] text-white shadow-lg shadow-[#0099ff]/20 border-[#0099ff]/50"
                 : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 border-white/8"
             }`}
-            title={voiceEnabled ? "Desactivar respuesta por voz" : "Activar respuesta por voz (TTS $0)"}
+            title={voiceEnabled ? ui.voiceDisableTitle : ui.voiceEnableTitle}
           >
             {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
           <button
             onClick={handleClearChat}
             className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition border border-white/8"
-            title="Reiniciar conversación"
+            title={ui.resetChatTitle}
           >
             <RotateCcw className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      {/* ── GEMINI HERO (only shown before conversation starts) ── */}
+      {/* ── GEMINI HERO ── */}
       {messages.length <= 1 && !isSending && (
         <div className="flex flex-col items-center justify-center flex-1 min-h-0 overflow-y-auto px-6 py-4">
           <h1 className="text-[28px] sm:text-4xl font-light text-white tracking-tight mb-1 text-center">
-            ¡Hola!
+            {ui.greetingTitle}
           </h1>
           <p className="text-[18px] sm:text-lg font-light text-white text-center leading-snug mb-8">
-            ¿En qué puedo ayudarte hoy?
+            {ui.greetingSubtitle}
           </p>
 
           <div className="relative mb-10">
@@ -770,10 +770,10 @@ export default function InhubBotAppPage() {
 
           <div className="w-full max-w-sm grid grid-cols-2 gap-2.5">
             {[
-              { icon: <BarChart3 className="w-4 h-4" />, label: "Dame el resumen de hoy" },
-              { icon: <Layers className="w-4 h-4" />, label: "¿Cómo van las campañas?" },
-              { icon: <FileText className="w-4 h-4" />, label: "Crear post viral" },
-              { icon: <Users className="w-4 h-4" />, label: "Últimos prospectos del radar" },
+              { icon: <BarChart3 className="w-4 h-4" />, label: ui.heroChips[0] },
+              { icon: <Layers className="w-4 h-4" />, label: ui.heroChips[1] },
+              { icon: <FileText className="w-4 h-4" />, label: ui.heroChips[2] },
+              { icon: <Users className="w-4 h-4" />, label: ui.heroChips[3] },
             ].map((chip, idx) => (
               <button
                 key={idx}
@@ -829,7 +829,7 @@ export default function InhubBotAppPage() {
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={m.imagePreviewUrl}
-                        alt="Foto enviada"
+                        alt="Photo"
                         className="rounded-xl max-h-52 object-cover border border-white/20"
                       />
                     </div>
@@ -858,7 +858,6 @@ export default function InhubBotAppPage() {
                     </div>
                   )}
 
-                  {/* Interactive Cards */}
                   {m.cards && m.cards.length > 0 && (
                     <div className="mt-3 space-y-3 pt-2 border-t border-[#0099ff]/15">
                       {m.cards.map((card, cidx) => {
@@ -873,9 +872,10 @@ export default function InhubBotAppPage() {
                               intendedAction={intendedAction}
                               userContext={userContext}
                               disabled={isSending}
+                              ui={ui}
                               onConfirm={(person) =>
                                 handleSend(
-                                  `Sí, es ${person.name}`,
+                                  ui.confirmPersonLabel(person.name),
                                   "confirm_profile",
                                   { person, intendedAction, userContext },
                                   null
@@ -883,7 +883,7 @@ export default function InhubBotAppPage() {
                               }
                               onReject={(remaining) =>
                                 handleSend(
-                                  "No es esa persona",
+                                  ui.rejectPersonLabel,
                                   "reject_profile",
                                   { remaining, intendedAction, userContext },
                                   null
@@ -900,9 +900,10 @@ export default function InhubBotAppPage() {
                               key={cidx}
                               initialApproval={approval}
                               disabled={isSending}
+                              ui={ui}
                               onApprove={(editedApproval) =>
                                 handleSend(
-                                  "Aprobado, ejecutar ahora",
+                                  ui.approveCmdLabel,
                                   "approve_action",
                                   { approval: editedApproval },
                                   null
@@ -910,14 +911,14 @@ export default function InhubBotAppPage() {
                               }
                               onSchedule={(editedApproval, scheduledAt) =>
                                 handleSend(
-                                  "Agendar publicación",
+                                  ui.scheduleCmdLabel,
                                   "schedule_action",
                                   { approval: editedApproval, scheduledAt },
                                   null
                                 )
                               }
                               onDiscard={() =>
-                                handleSend("Descartar borrador", "discard_action", {}, null)
+                                handleSend(ui.discardCmdLabel, "discard_action", {}, null)
                               }
                             />
                           );
@@ -934,27 +935,27 @@ export default function InhubBotAppPage() {
                               <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
                                 <span className="flex items-center gap-1.5">
                                   <BarChart3 className="w-3.5 h-3.5 text-[#0099ff]" />
-                                  Métricas Clave
+                                  {ui.keyMetrics}
                                 </span>
                                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
-                                  En tiempo real
+                                  {ui.realtimeBadge}
                                 </span>
                               </div>
                               <div className="grid grid-cols-2 gap-2 text-xs">
                                 <div className="p-2 rounded-lg bg-white/5">
-                                  <span className="text-[#5abaff] block text-[11px]">Prospectos CRM</span>
+                                  <span className="text-[#5abaff] block text-[11px]">{ui.crmLeads}</span>
                                   <span className="text-lg font-bold text-white">{s.leads?.total || 0}</span>
                                 </div>
                                 <div className="p-2 rounded-lg bg-white/5">
-                                  <span className="text-[#5abaff] block text-[11px]">Alta Intención</span>
+                                  <span className="text-[#5abaff] block text-[11px]">{ui.highIntent}</span>
                                   <span className="text-lg font-bold text-emerald-400">{s.leads?.qualified || 0}</span>
                                 </div>
                                 <div className="p-2 rounded-lg bg-white/5">
-                                  <span className="text-[#5abaff] block text-[11px]">Campañas Activas</span>
+                                  <span className="text-[#5abaff] block text-[11px]">{ui.activeCampaigns}</span>
                                   <span className="text-lg font-bold text-[#0099ff]">{s.campaigns?.active || 0} / {s.campaigns?.total || 0}</span>
                                 </div>
                                 <div className="p-2 rounded-lg bg-white/5">
-                                  <span className="text-[#5abaff] block text-[11px]">Posts Prog.</span>
+                                  <span className="text-[#5abaff] block text-[11px]">{ui.scheduledPosts}</span>
                                   <span className="text-lg font-bold text-amber-400">{s.posts?.scheduled || 0}</span>
                                 </div>
                               </div>
@@ -973,7 +974,7 @@ export default function InhubBotAppPage() {
                               <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
                                 <span className="flex items-center gap-1.5">
                                   <Layers className="w-3.5 h-3.5 text-[#0099ff]" />
-                                  Secuencias Lineales
+                                  {ui.linearSequences}
                                 </span>
                               </div>
                               <div className="space-y-1.5">
@@ -986,7 +987,7 @@ export default function InhubBotAppPage() {
                                     >
                                       <div className="min-w-0 pr-2">
                                         <span className="font-medium text-white block truncate">{camp.name}</span>
-                                        <span className="text-[10px] text-[#5abaff]">Código: {camp.code}</span>
+                                        <span className="text-[10px] text-[#5abaff]">{ui.codeLabel} {camp.code}</span>
                                       </div>
                                       <button
                                         onClick={() => handleToggleCampaign(camp.id, camp.name, camp.status)}
@@ -996,7 +997,7 @@ export default function InhubBotAppPage() {
                                             : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
                                         }`}
                                       >
-                                        {isActive ? (<><PauseCircle className="w-3 h-3" /> Pausar</>) : (<><PlayCircle className="w-3 h-3" /> Activar</>)}
+                                        {isActive ? (<><PauseCircle className="w-3 h-3" /> {ui.pauseBtn}</>) : (<><PlayCircle className="w-3 h-3" /> {ui.activateBtn}</>)}
                                       </button>
                                     </div>
                                   );
@@ -1022,7 +1023,7 @@ export default function InhubBotAppPage() {
                                 <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                                   post.status === "scheduled" ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"
                                 }`}>
-                                  {post.status === "scheduled" ? "Programado" : "Borrador"}
+                                  {post.status === "scheduled" ? ui.scheduledBadge : ui.draftBadge}
                                 </span>
                               </div>
                               <p className="text-slate-300 line-clamp-3 p-2 rounded-lg font-mono text-[11px] bg-white/5">
@@ -1043,7 +1044,7 @@ export default function InhubBotAppPage() {
                               <div className="flex items-center justify-between font-semibold text-slate-300">
                                 <span className="flex items-center gap-1.5">
                                   <Users className="w-3.5 h-3.5 text-[#0099ff]" />
-                                  Prospectos Calificados
+                                  {ui.qualifiedLeads}
                                 </span>
                               </div>
                               <div className="space-y-1.5">
@@ -1073,10 +1074,10 @@ export default function InhubBotAppPage() {
                             >
                               <div className="flex items-center gap-2">
                                 <Globe className="w-4 h-4 text-[#0099ff]" />
-                                <span className="font-semibold text-white">Estado de LinkedIn</span>
+                                <span className="font-semibold text-white">{ui.linkedinStatus}</span>
                               </div>
                               <div className="p-2 rounded-lg flex items-center justify-between bg-white/5">
-                                <span className="text-[#5abaff]">Cuentas activas:</span>
+                                <span className="text-[#5abaff]">{ui.activeAccountsLabel}</span>
                                 <span className="font-bold text-white">{acc.active} / {acc.total}</span>
                               </div>
                             </div>
@@ -1103,7 +1104,7 @@ export default function InhubBotAppPage() {
                 <span className="w-1.5 h-1.5 bg-[#0099ff]/60 rounded-full animate-bounce [animation-delay:150ms]" />
                 <span className="w-1.5 h-1.5 bg-[#0099ff]/60 rounded-full animate-bounce [animation-delay:300ms]" />
               </span>
-              InhubBot está procesando...
+              {ui.processingText}
             </div>
           )}
 
@@ -1114,7 +1115,7 @@ export default function InhubBotAppPage() {
       {/* Quick Action Chips */}
       {messages.length > 1 && (
         <div className="px-3 py-2 overflow-x-auto flex gap-2 no-scrollbar shrink-0 border-t border-[#0099ff]/12">
-          {DEFAULT_QUICK_ACTIONS.map((chip, idx) => (
+          {ui.quickActions.map((chip, idx) => (
             <button
               key={idx}
               onClick={() => handleSend(chip, undefined, undefined, null)}
@@ -1140,10 +1141,10 @@ export default function InhubBotAppPage() {
         >
           <div className="flex items-center gap-2">
             <Mic className="w-4 h-4" />
-            <span className="font-medium">Escuchando tu comando de voz en español...</span>
+            <span className="font-medium">{ui.listeningBanner}</span>
           </div>
           <button onClick={toggleListening} className="text-[11px] underline font-bold hover:text-blue-100">
-            Detener
+            {ui.stopListeningBtn}
           </button>
         </div>
       )}
@@ -1159,21 +1160,19 @@ export default function InhubBotAppPage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={pendingImage.previewUrl}
-                alt="Vista previa"
+                alt="Preview"
                 className="w-14 h-14 rounded-xl object-cover border border-[#0099ff]/40"
               />
               <button
                 type="button"
                 onClick={() => setPendingImage(null)}
-                aria-label="Quitar imagen"
+                aria-label="Remove image"
                 className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black text-white border border-white/25 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
             </div>
-            <span className="text-xs text-[#70c4ff]">
-              Foto lista. Indica qué quieres modelar o envía directamente.
-            </span>
+            <span className="text-xs text-[#70c4ff]">{ui.imageReadyHint}</span>
           </div>
         )}
 
@@ -1184,7 +1183,6 @@ export default function InhubBotAppPage() {
           }}
           className="flex items-center gap-2 max-w-4xl mx-auto"
         >
-          {/* Voice Button */}
           {recognitionSupported ? (
             <button
               type="button"
@@ -1195,27 +1193,26 @@ export default function InhubBotAppPage() {
                   : "text-white hover:opacity-90"
               }`}
               style={!isListening ? { background: "linear-gradient(135deg, #0099ff, #0070cc)", boxShadow: "0 4px 15px rgba(0,153,255,0.3)" } : {}}
-              title={isListening ? "Detener escucha" : "Hablar con InhubBot (Voz $0)"}
+              title={isListening ? ui.micStopTitle : ui.micStartTitle}
             >
               {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
             </button>
           ) : (
             <div
               className="flex items-center justify-center w-11 h-11 rounded-2xl bg-white/5 text-slate-500 shrink-0 border border-white/8"
-              title="Reconocimiento de voz no soportado en este navegador"
+              title={ui.micUnsupportedTitle}
             >
               <MicOff className="w-5 h-5" />
             </div>
           )}
 
-          {/* Camera / Photo Upload Button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isSending || isListening}
             className="flex items-center justify-center w-11 h-11 rounded-2xl bg-white/6 text-[#70c4ff] hover:text-white hover:bg-[#0099ff]/20 border border-[#0099ff]/25 transition shrink-0 cursor-pointer disabled:opacity-40"
-            title="Enviar foto de artículo o captura para modelar"
-            aria-label="Adjuntar foto"
+            title={ui.cameraTitle}
+            aria-label={ui.cameraTitle}
           >
             <Camera className="w-5 h-5" />
           </button>
@@ -1227,7 +1224,6 @@ export default function InhubBotAppPage() {
             onChange={handleImagePicked}
           />
 
-          {/* Text Input */}
           <div className="relative flex-1">
             <input
               type="text"
@@ -1235,10 +1231,10 @@ export default function InhubBotAppPage() {
               onChange={(e) => setInputValue(e.target.value)}
               placeholder={
                 isListening
-                  ? "Escuchando..."
+                  ? ui.inputListeningPlaceholder
                   : pendingImage
-                    ? "Ej: Modélalo para nuestra empresa y publícalo hoy..."
-                    : "Escribe, habla o envía una foto..."
+                    ? ui.inputImagePlaceholder
+                    : ui.inputDefaultPlaceholder
               }
               disabled={isSending || isListening}
               className="w-full h-11 px-4 rounded-2xl text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition"
@@ -1249,13 +1245,12 @@ export default function InhubBotAppPage() {
             />
           </div>
 
-          {/* Send Button */}
           <button
             type="submit"
             disabled={(!inputValue.trim() && !pendingImage) || isSending || isListening}
             className="flex items-center justify-center w-11 h-11 rounded-2xl text-white disabled:opacity-30 transition shadow-lg shrink-0 cursor-pointer"
             style={{ background: "linear-gradient(135deg, #0099ff, #0070cc)", boxShadow: "0 4px 15px rgba(0,153,255,0.25)" }}
-            title="Enviar mensaje"
+            title={ui.sendTitle}
           >
             <Send className="w-4 h-4" />
           </button>

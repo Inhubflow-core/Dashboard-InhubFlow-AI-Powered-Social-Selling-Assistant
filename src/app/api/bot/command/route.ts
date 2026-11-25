@@ -9,6 +9,12 @@ import {
   type GeminiTurn,
   type VerifiedPersonCandidate,
 } from "@/lib/bot/agent-helpers";
+import {
+  BOT_UI_LABELS,
+  getBotLocale,
+  getLocaleDisplayName,
+  type BotLocale,
+} from "@/lib/bot/i18n";
 import { getSocialSellingDb } from "@/lib/persistence/db";
 import { unipile } from "@/lib/unipile/client";
 import { getNicheViralPosts } from "@/lib/viral-posts/niche-search";
@@ -31,6 +37,12 @@ interface BotCommandResponse {
 interface HistoryItem {
   sender?: "user" | "bot";
   text?: string;
+}
+
+function t(locale: BotLocale, es: string, en: string, pt: string): string {
+  if (locale === "en") return en;
+  if (locale === "pt-BR") return pt;
+  return es;
 }
 
 function getPlatformSummary() {
@@ -162,7 +174,7 @@ function getRecentLeads() {
       return {
         id: r.id,
         name: r.full_name,
-        headline: String(meta.headline || meta.title || "Tomador de decisión B2B"),
+        headline: String(meta.headline || meta.title || "B2B Decision Maker"),
         stage: r.stage,
         score: r.intent_score,
         profileUrl: r.linkedin_url || "#",
@@ -215,25 +227,25 @@ async function classifyBotIntent(
 ): Promise<ClassifiedIntent> {
   const nowIso = new Date().toISOString();
   const res = await callGeminiMultimodal({
-    systemPrompt: `Eres el clasificador de intenciones de InhubBot (Social Selling en LinkedIn).
-Fecha/hora actual UTC: ${nowIso}.
+    systemPrompt: `You are the intent classifier for InhubBot (LinkedIn Social Selling in es/en/pt-BR).
+Current UTC datetime: ${nowIso}.
 
-Analiza el mensaje del usuario y clasifícalo en UNA de estas 3 intenciones:
-1. "person_outreach": El usuario pide buscar, contactar, enviar mensaje/propuesta/video, pedir conexión o comentar el post de UNA PERSONA específica (ej: "busca a Juan Pérez de TechCorp", "comenta la última publicación de Carlos", "mándale una propuesta a Ana de Acme", "pide conexión a Luis").
-2. "create_viral_post": El usuario pide crear, redactar, modelar, buscar posts virales para inspirarse o publicar/agendar un post de LinkedIn (ej: "busca los mejores posts sobre IA en México y crea un post", "crea un post sobre social selling", "publica algo sobre ventas B2B").
-3. "general_chat": Pregunta estratégica, seguimiento de conversación, consulta sobre la empresa o cualquier otra cosa.
+Classify the user message into ONE of 3 intents:
+1. "person_outreach": The user asks to find, contact, message, send a proposal/video, send a connection request, or comment on a post of ONE SPECIFIC PERSON (in Spanish, English or Portuguese).
+2. "create_viral_post": The user asks to create, draft, model, search viral posts for inspiration, or publish/schedule a LinkedIn post.
+3. "general_chat": Strategic question, follow-up, company question, or anything else.
 
-Contexto de empresa (referencia): ${kbContext.slice(0, 600)}
+Company context snippet: ${kbContext.slice(0, 600)}
 
-Devuelve EXCLUSIVAMENTE JSON válido:
+Return ONLY valid JSON:
 {
   "intent": "person_outreach" | "create_viral_post" | "general_chat",
-  "personQuery": "Nombre Empresa (si aplica)",
+  "personQuery": "Name Company (if applicable)",
   "intendedAction": "message" | "connection" | "comment" | "proposal" | "auto",
-  "userContext": "instrucciones/evento/recurso pedido por el usuario",
-  "topic": "tema del post (si aplica)",
-  "searchViralFirst": true o false,
-  "scheduledDateIso": "ISO string si el usuario pidió fecha/hora específica, o null"
+  "userContext": "instructions/event/resource requested by user",
+  "topic": "post topic (if applicable)",
+  "searchViralFirst": true or false,
+  "scheduledDateIso": "ISO string if user specified date/time, or null"
 }`,
     turns: [{ role: "user", parts: [{ text: message }] }],
     temperature: 0.1,
@@ -246,19 +258,18 @@ Devuelve EXCLUSIVAMENTE JSON válido:
     if (parsed?.intent) return parsed;
   }
 
-  // Fallback heurístico si Gemini no respondió JSON
   const lower = message.toLowerCase();
   if (
-    /\b(busca a|contacta a|conecta con|solicitud de conexi[oó]n|m[aá]ndale|env[ií]ale|comenta.*publicaci[oó]n de|comenta.*post de|escr[ií]bele a|linkedin\.com\/in\/)\b/i.test(
+    /\b(busca a|contacta a|conecta con|solicitud de conexi[oó]n|m[aá]ndale|env[ií]ale|comenta.*publicaci[oó]n de|comenta.*post de|escr[ií]bele a|find |search for |reach out to |connect with |send a message to |comment on .*post|procure |busque |mande |envie |comente .*post de|linkedin\.com\/in\/)\b/i.test(
       lower
     )
   ) {
-    const isComment = /comenta/i.test(lower);
-    const isConnect = /conexi[oó]n|conecta/i.test(lower);
-    const isProp = /propuesta|video|recurso/i.test(lower);
+    const isComment = /comenta|comment|comente/i.test(lower);
+    const isConnect = /conexi[oó]n|conecta|connect|conex[aã]o/i.test(lower);
+    const isProp = /propuesta|proposal|proposta|video|recurso/i.test(lower);
     const cleanPerson = message
       .replace(
-        /\b(por favor|inhub|inhubbot|quiero que|busca a|contacta a|conecta con|m[aá]ndale|env[ií]ale|comenta la [uú]ltima publicaci[oó]n de|comenta el [uú]ltimo post de|una propuesta|un mensaje|solicitud de conexi[oó]n)\b/gi,
+        /\b(por favor|please|inhub|inhubbot|quiero que|busca a|contacta a|conecta con|m[aá]ndale|env[ií]ale|find|search for|connect with|reach out to|procure|busque|mande|envie|una propuesta|un mensaje|solicitud de conexi[oó]n)\b/gi,
         " "
       )
       .replace(/\s+/g, " ")
@@ -274,14 +285,14 @@ Devuelve EXCLUSIVAMENTE JSON válido:
   }
 
   if (
-    /\b(crear post|crea un post|nuevo post|escribe un post|modela|publicar|mejores posts|posts virales|carrusel)\b/i.test(
+    /\b(crear post|crea un post|nuevo post|escribe un post|modela|publicar|mejores posts|posts virales|create.*post|viral post|write a post|criar post|novo post|post viral|carrusel|carousel)\b/i.test(
       lower
     )
   ) {
     return {
       intent: "create_viral_post",
       topic: message,
-      searchViralFirst: /mejores|virales|busca/i.test(lower),
+      searchViralFirst: /mejores|virales|busca|best|top|viral|search|melhores|procure/i.test(lower),
     };
   }
 
@@ -292,11 +303,12 @@ async function generatePostApprovalData(params: {
   topicOrInstruction: string;
   kbContext: string;
   companyName: string | null;
+  locale: BotLocale;
   referencePostsText?: string;
   imageBase64?: string;
   imageMimeType?: string;
-  scheduledAt?: string;
 }): Promise<{ title: string; content: string; summaryNote: string }> {
+  const langName = getLocaleDisplayName(params.locale);
   const parts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [];
 
   if (params.imageBase64 && params.imageMimeType) {
@@ -310,18 +322,19 @@ async function generatePostApprovalData(params: {
 
   const promptText = [
     params.imageBase64
-      ? "El usuario adjuntó esta IMAGEN (ej. foto de un artículo de revista, captura o gráfico). Analiza todo el texto, idea central y enfoque visual de la imagen."
+      ? "The user attached an IMAGE (e.g., magazine article photo, screenshot, or chart). Extract all key text, insights, and framing from it."
       : "",
-    `Instrucción del usuario: "${params.topicOrInstruction || "Modela este contenido en un post de autoridad para nuestra empresa."}"`,
+    `User instruction: "${params.topicOrInstruction || "Model this into an authority LinkedIn post for our company."}"`,
     params.referencePostsText
-      ? `\nPosts virales reales encontrados en LinkedIn para modelar estructura y gancho:\n${params.referencePostsText}`
+      ? `\nTop viral LinkedIn posts to model structure & hook from:\n${params.referencePostsText}`
       : "",
-    `\nBase de Conocimiento de la empresa (${params.companyName || "InhubFlow"}):\n${params.kbContext}`,
-    `\nResponde EXCLUSIVAMENTE en JSON válido con:
+    `\nCompany Knowledge Base (${params.companyName || "InhubFlow"}):\n${params.kbContext}`,
+    `\nIMPORTANT: Write ALL fields ("title", "summaryNote", "content") strictly in ${langName}.
+Return ONLY valid JSON:
 {
-  "title": "Título corto descriptivo (máx 55 caracteres)",
-  "summaryNote": "1 frase explicando qué modelaste (ej. del artículo de la foto o de los posts virales encontrados)",
-  "content": "Texto completo del post listo para LinkedIn con gancho fuerte en las primeras 2 líneas, párrafos escaneables, propuesta de valor alineada a la empresa y CTA final"
+  "title": "Short descriptive title (max 55 chars)",
+  "summaryNote": "1 concise sentence explaining what you modeled",
+  "content": "Full LinkedIn post ready for human approval with strong 2-line hook, scannable spacing, value aligned to the company, and clear CTA"
 }`,
   ]
     .filter(Boolean)
@@ -330,8 +343,7 @@ async function generatePostApprovalData(params: {
   parts.push({ text: promptText });
 
   const ai = await callGeminiMultimodal({
-    systemPrompt:
-      "Eres un experto en Social Selling y Copywriting B2B en LinkedIn. Tu trabajo es redactar publicaciones de alta autoridad listas para que el humano apruebe antes de publicar. Responde en español.",
+    systemPrompt: `You are an expert B2B LinkedIn Social Selling copywriter. Draft high-authority posts for human approval before publishing. Always write in ${langName}.`,
     turns: [{ role: "user", parts }],
     temperature: 0.7,
     maxOutputTokens: 1200,
@@ -342,29 +354,44 @@ async function generatePostApprovalData(params: {
     const parsed = parseJsonSafe<{ title?: string; content?: string; summaryNote?: string }>(ai.text);
     if (parsed?.content) {
       return {
-        title: parsed.title || "Post modelado para LinkedIn",
+        title: parsed.title || t(params.locale, "Post modelado para LinkedIn", "Modeled LinkedIn Post", "Post modelado para LinkedIn"),
         content: parsed.content,
-        summaryNote: parsed.summaryNote || "Borrador optimizado con tu Base de Conocimiento.",
+        summaryNote:
+          parsed.summaryNote ||
+          t(
+            params.locale,
+            "Borrador optimizado con tu Base de Conocimiento.",
+            "Draft optimized with your Knowledge Base.",
+            "Rascunho otimizado com sua Base de Conhecimento."
+          ),
       };
     }
   }
 
   const cleanTopic = params.topicOrInstruction.slice(0, 70) || "Social Selling B2B";
   return {
-    title: `Insights sobre ${cleanTopic}`,
-    summaryNote: "Borrador preparado listo para tu revisión.",
-    content: [
-      `La mayoría en ${cleanTopic} sigue enfocándose en volumen frío en lugar de relevancia real.\n`,
-      `Cuando combinas señales de intención con contenido de autoridad, cada conversación empieza con contexto y confianza.\n`,
-      `3 claves que aplicamos hoy:\n1. Diagnóstico claro del problema del cliente.\n2. Contenido práctico que demuestra cómo resolverlo.\n3. Seguimiento humano sin mensajes robotizados.\n`,
-      `¿Cómo lo están abordando en tu equipo? Te leo en comentarios.`,
-    ].join("\n"),
+    title: t(params.locale, `Insights sobre ${cleanTopic}`, `Insights on ${cleanTopic}`, `Insights sobre ${cleanTopic}`),
+    summaryNote: t(
+      params.locale,
+      "Borrador preparado listo para tu revisión.",
+      "Draft prepared and ready for your review.",
+      "Rascunho preparado e pronto para sua revisão."
+    ),
+    content: t(
+      params.locale,
+      `La mayoría en ${cleanTopic} sigue enfocándose en volumen frío en lugar de relevancia real.\n\nCuando combinas señales de intención con contenido de autoridad, cada conversación empieza con contexto y confianza.\n\n3 claves:\n1. Diagnóstico claro del problema.\n2. Contenido práctico.\n3. Seguimiento humano.\n\n¿Cómo lo abordan en tu equipo?`,
+      `Most teams in ${cleanTopic} still focus on cold volume instead of real relevance.\n\nWhen you combine intent signals with authority content, every conversation starts with context and trust.\n\n3 keys:\n1. Clear diagnosis of the problem.\n2. Practical content.\n3. Human follow-up.\n\nHow is your team approaching this?`,
+      `A maioria em ${cleanTopic} ainda foca em volume frio em vez de relevância real.\n\nQuando você combina sinais de intenção com conteúdo de autoridade, cada conversa começa com contexto e confiança.\n\n3 pilares:\n1. Diagnóstico claro do problema.\n2. Conteúdo prático.\n3. Follow-up humanizado.\n\nComo sua equipe está fazendo isso hoje?`
+    ),
   };
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
+    const locale = getBotLocale(typeof body.locale === "string" ? body.locale : undefined);
+    const ui = BOT_UI_LABELS[locale];
+    const langName = getLocaleDisplayName(locale);
     const message = String(body.message || "").trim();
     const action = String(body.action || "").trim();
     const payload = (body.payload || {}) as Record<string, unknown>;
@@ -377,25 +404,38 @@ export async function POST(req: NextRequest) {
     // 1. ACCIONES EXPLÍCITAS DESDE TARJETAS (HUMAN-IN-THE-LOOP)
     // =========================================================================
 
-    // 1A. Pausar / Activar Campaña
     if (action === "toggle_campaign" && payload?.campaignId && payload?.status) {
       const ok = toggleCampaignStatus(
         String(payload.campaignId),
         payload.status === "active" ? "active" : "paused"
       );
       const campaigns = getCampaignsList();
-      const statusText = payload.status === "active" ? "activada" : "pausada";
+      const isActivating = payload.status === "active";
+      const campName = String(payload.campaignName || payload.campaignId);
+      const statusText = isActivating
+        ? t(locale, "activada", "activated", "ativada")
+        : t(locale, "pausada", "paused", "pausada");
+
       return NextResponse.json({
         ok,
-        reply: `Listo. La campaña **${String(payload.campaignName || payload.campaignId)}** ha sido **${statusText}** con éxito.`,
-        spokenText: `Campaña ${statusText} correctamente.`,
+        reply: t(
+          locale,
+          `Listo. La campaña **${campName}** ha sido **${statusText}** con éxito.`,
+          `Done. Campaign **${campName}** has been **${statusText}** successfully.`,
+          `Pronto. A campanha **${campName}** foi **${statusText}** com sucesso.`
+        ),
+        spokenText: t(
+          locale,
+          `Campaña ${statusText} correctamente.`,
+          `Campaign ${statusText} successfully.`,
+          `Campanha ${statusText} com sucesso.`
+        ),
         emotion: "talking",
         cards: [{ type: "campaigns", data: { campaigns } }],
-        quickActions: ["Dame el resumen de hoy", "Crear post viral", "Últimos prospectos del radar"],
+        quickActions: ui.quickActions,
       } as BotCommandResponse);
     }
 
-    // 1B. Confirmación de Identidad ("✅ Sí, es él") → Detecta grado de conexión y propone acción
     if (action === "confirm_profile" && payload?.person) {
       const person = payload.person as VerifiedPersonCandidate;
       const intendedAction = String(payload.intendedAction || "auto");
@@ -406,14 +446,13 @@ export async function POST(req: NextRequest) {
       const isFirstDegree = person.networkDistance === "FIRST_DEGREE";
       const distLabel =
         person.networkDistance === "FIRST_DEGREE"
-          ? "1er nivel (ya conectados)"
+          ? t(locale, "1er nivel (ya conectados)", "1st degree (already connected)", "1º grau (já conectados)")
           : person.networkDistance === "SECOND_DEGREE"
-            ? "2do nivel"
+            ? t(locale, "2do nivel", "2nd degree", "2º grau")
             : person.networkDistance === "THIRD_DEGREE"
-              ? "3er nivel"
-              : "fuera de tu red directa";
+              ? t(locale, "3er nivel", "3rd degree", "3º grau")
+              : t(locale, "fuera de tu red directa", "outside your direct network", "fora da sua rede direta");
 
-      // Caso: comentar la última publicación del perfil
       if (intendedAction === "comment") {
         const identifier = person.publicIdentifier || person.providerId;
         const latestPost = accountId ? await getLatestPostOfPerson(identifier, accountId) : null;
@@ -421,30 +460,38 @@ export async function POST(req: NextRequest) {
         if (!latestPost) {
           return NextResponse.json({
             ok: true,
-            reply: `Confirmado: **${person.name}**. Sin embargo, no encontré publicaciones públicas recientes en su perfil para comentar.\n\n¿Quieres que le enviemos ${
-              isFirstDegree ? "un mensaje directo" : "una solicitud de conexión"
-            } en su lugar?`,
-            spokenText: `No encontré publicaciones recientes de ${person.name}.`,
+            reply: t(
+              locale,
+              `Confirmado: **${person.name}**. No encontré publicaciones públicas recientes en su perfil para comentar.\n\n¿Quieres que le enviemos ${
+                isFirstDegree ? "un mensaje directo" : "una solicitud de conexión"
+              } en su lugar?`,
+              `Confirmed: **${person.name}**. I couldn't find recent public posts on their profile to comment on.\n\nWould you like to send ${
+                isFirstDegree ? "a direct message" : "a connection request"
+              } instead?`,
+              `Confirmado: **${person.name}**. Não encontrei publicações públicas recentes no perfil para comentar.\n\nQuer que eu envie ${
+                isFirstDegree ? "uma mensagem direta" : "uma solicitação de conexão"
+              } no lugar?`
+            ),
+            spokenText: t(
+              locale,
+              `No encontré publicaciones recientes de ${person.name}.`,
+              `I couldn't find recent posts from ${person.name}.`,
+              `Não encontrei publicações recentes de ${person.name}.`
+            ),
             emotion: "thinking",
-            quickActions: [
-              isFirstDegree
-                ? `Envíale un mensaje a ${person.name}`
-                : `Envíale solicitud de conexión a ${person.name}`,
-              "Dame el resumen de hoy",
-            ],
+            quickActions: ui.quickActions,
           } as BotCommandResponse);
         }
 
         const postText = String(latestPost.text || latestPost.content || "").slice(0, 900);
         const aiComment = await callGeminiMultimodal({
-          systemPrompt:
-            "Redacta un comentario breve, genuino y de alto valor en LinkedIn (máx 2-3 frases) para la publicación de un prospecto. Sin sonar a spam ni vender agresivamente. Usa contexto de la empresa solo si aporta. Responde SOLO con el texto del comentario.",
+          systemPrompt: `Write a short, genuine, high-value LinkedIn comment (max 2-3 sentences) on a prospect's post. Not spammy. Respond ONLY with the comment text in ${langName}.`,
           turns: [
             {
               role: "user",
               parts: [
                 {
-                  text: `Prospecto: ${person.name} (${person.headline})\nPublicación suya:\n"${postText}"\nInstrucción extra del usuario: ${userContext || "Ninguna"}\nContexto empresa: ${kb.contextText.slice(0, 800)}`,
+                  text: `Prospect: ${person.name} (${person.headline})\nTheir post:\n"${postText}"\nExtra instruction: ${userContext || "None"}\nCompany context: ${kb.contextText.slice(0, 800)}`,
                 },
               ],
             },
@@ -453,10 +500,16 @@ export async function POST(req: NextRequest) {
           maxOutputTokens: 250,
         });
 
+        const firstName = person.name.split(" ")[0];
         const draftComment =
           aiComment.ok && aiComment.text
             ? aiComment.text
-            : `Muy buen punto, ${person.name.split(" ")[0]}. Coincido totalmente con esa visión; en nuestro día a día vemos exactamente el mismo impacto cuando se ejecuta con foco.`;
+            : t(
+                locale,
+                `Muy buen punto, ${firstName}. Coincido totalmente con esa visión; cuando se ejecuta con foco marca una diferencia real.`,
+                `Great point, ${firstName}. I completely agree with this perspective—when executed with focus, it makes a real difference.`,
+                `Excelente ponto, ${firstName}. Concordo totalmente com essa visão; quando executada com foco, faz muita diferença.`
+              );
 
         const approval: ApprovalActionPayload = {
           type: "comment",
@@ -471,23 +524,32 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
           ok: true,
-          reply: `Perfecto, encontré la última publicación de **${person.name}**.\n\nAquí tienes mi propuesta de comentario. Revísala y apruébala antes de publicarla:`,
-          spokenText: `Preparé un comentario para la última publicación de ${person.name}. Revísalo para aprobarlo.`,
+          reply: t(
+            locale,
+            `Perfecto, encontré la última publicación de **${person.name}**.\n\nAquí tienes mi propuesta de comentario. Revísala y apruébala antes de publicarla:`,
+            `Got it — I found **${person.name}**'s latest post.\n\nHere is my proposed comment. Review and approve before I publish it:`,
+            `Perfeito, encontrei a última publicação de **${person.name}**.\n\nAqui está a minha sugestão de comentário. Revise e aprove antes de publicar:`
+          ),
+          spokenText: t(
+            locale,
+            `Preparé un comentario para la última publicación de ${person.name}.`,
+            `I drafted a comment for ${person.name}'s latest post.`,
+            `Preparei um comentário para o último post de ${person.name}.`
+          ),
           emotion: "talking",
           cards: [{ type: "approval", data: { approval } }],
         } as BotCommandResponse);
       }
 
-      // Caso: Mensaje / Propuesta / Conexión según nivel de conexión
       if (isFirstDegree) {
         const aiMsg = await callGeminiMultimodal({
-          systemPrompt: `Eres Inhub, el asistente SDR de ${kb.companyName || "InhubFlow"}. Redacta un mensaje directo personalizado en LinkedIn para un contacto de 1er grado. Integra de forma natural cualquier detalle de evento, propuesta o recurso (video/link) que exista en la Base de Conocimiento si el usuario lo pidió. Responde SOLO con el texto del mensaje.`,
+          systemPrompt: `You are Inhub, SDR assistant for ${kb.companyName || "InhubFlow"}. Draft a personalized LinkedIn direct message for a 1st-degree connection. Integrate event context, proposal or Knowledge Base resources if requested. Respond ONLY with the message text in ${langName}.`,
           turns: [
             {
               role: "user",
               parts: [
                 {
-                  text: `Destinatario: ${person.name} (${person.headline})\nInstrucción del usuario: ${userContext || "Salúdalo y preséntale nuestra propuesta"}\nBase de Conocimiento:\n${kb.contextText}`,
+                  text: `Recipient: ${person.name} (${person.headline})\nUser instruction: ${userContext || "Greet and share our proposal"}\nKnowledge Base:\n${kb.contextText}`,
                 },
               ],
             },
@@ -496,12 +558,16 @@ export async function POST(req: NextRequest) {
           maxOutputTokens: 450,
         });
 
+        const firstName = person.name.split(" ")[0];
         const draftMsg =
           aiMsg.ok && aiMsg.text
             ? aiMsg.text
-            : `Hola ${person.name.split(" ")[0]}, un gusto saludarte. ${
-                userContext ? `Sobre lo que comentamos (${userContext}), ` : ""
-              }me encantaría compartirte cómo ayudamos a equipos como el tuyo a generar reuniones calificadas en LinkedIn. ¿Te parece si conversamos 15 minutos esta semana?`;
+            : t(
+                locale,
+                `Hola ${firstName}, un gusto saludarte. Me encantaría compartirte cómo ayudamos a equipos como el tuyo a generar reuniones calificadas en LinkedIn. ¿Conversamos 15 minutos esta semana?`,
+                `Hi ${firstName}, great connecting with you. I'd love to share how we help teams like yours book qualified LinkedIn meetings. Open to a quick 15-minute chat this week?`,
+                `Olá ${firstName}, tudo bem? Gostaria de compartilhar como ajudamos equipes como a sua a gerar reuniões qualificadas no LinkedIn. Topa uma conversa de 15 minutos esta semana?`
+              );
 
         const approval: ApprovalActionPayload = {
           type: "message",
@@ -516,21 +582,30 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
           ok: true,
-          reply: `Confirmado: **${person.name}** está en tu **${distLabel}** ✅.\n\nComo ya están conectados, preparé este **mensaje directo** con tu contexto y Base de Conocimiento. Aprueba o edita antes de enviarlo:`,
-          spokenText: `${person.name} ya es contacto de primer grado. Preparé el mensaje directo para tu aprobación.`,
+          reply: t(
+            locale,
+            `Confirmado: **${person.name}** está en tu **${distLabel}** ✅.\n\nComo ya están conectados, preparé este **mensaje directo**. Aprueba o edita antes de enviarlo:`,
+            `Confirmed: **${person.name}** is a **${distLabel}** ✅.\n\nSince you're already connected, I drafted this **direct message**. Approve or edit before sending:`,
+            `Confirmado: **${person.name}** está no seu **${distLabel}** ✅.\n\nComo vocês já estão conectados, preparei esta **mensagem direta**. Aprove ou edite antes de enviar:`
+          ),
+          spokenText: t(
+            locale,
+            `${person.name} ya es contacto de primer grado. Preparé el mensaje directo para tu aprobación.`,
+            `${person.name} is a first-degree connection. I prepared the direct message for your approval.`,
+            `${person.name} já é conexão de primeiro grau. Preparei a mensagem para sua aprovação.`
+          ),
           emotion: "excited",
           cards: [{ type: "approval", data: { approval } }],
         } as BotCommandResponse);
       } else {
-        // 2do / 3er grado → primero solicitud de conexión (máx 300 caracteres)
         const aiInvite = await callGeminiMultimodal({
-          systemPrompt: `Redacta una nota breve para solicitud de conexión en LinkedIn (ESTRICTAMENTE máximo 260 caracteres). Cercana, humana y mencionando el contexto/evento si existe. Responde SOLO con el texto de la nota.`,
+          systemPrompt: `Write a short LinkedIn connection request note (STRICTLY max 260 characters). Warm, human, mentioning context if provided. Respond ONLY with the note text in ${langName}.`,
           turns: [
             {
               role: "user",
               parts: [
                 {
-                  text: `Destinatario: ${person.name} (${person.headline})\nContexto del usuario: ${userContext || "Conectar profesionalmente"}`,
+                  text: `Recipient: ${person.name} (${person.headline})\nUser context: ${userContext || "Connect professionally"}`,
                 },
               ],
             },
@@ -539,10 +614,16 @@ export async function POST(req: NextRequest) {
           maxOutputTokens: 140,
         });
 
+        const firstName = person.name.split(" ")[0];
         const draftInvite = (
           aiInvite.ok && aiInvite.text
             ? aiInvite.text
-            : `Hola ${person.name.split(" ")[0]}, qué gusto encontrarte por aquí. Me encantaría conectar contigo en LinkedIn y mantener el contacto.`
+            : t(
+                locale,
+                `Hola ${firstName}, qué gusto encontrarte por aquí. Me encantaría conectar contigo en LinkedIn y mantener el contacto.`,
+                `Hi ${firstName}, great finding you here. I'd love to connect with you on LinkedIn and stay in touch.`,
+                `Olá ${firstName}, muito bom encontrar você por aqui. Gostaria de me conectar no LinkedIn e manter contato.`
+              )
         ).slice(0, 285);
 
         const approval: ApprovalActionPayload = {
@@ -558,20 +639,34 @@ export async function POST(req: NextRequest) {
 
         const extraHint =
           intendedAction === "message" || intendedAction === "proposal"
-            ? `\n\n*(Nota: Como aún no son 1er grado, primero enviaremos la solicitud de conexión y, apenas acepte, podrás enviarle la propuesta completa).*`
+            ? t(
+                locale,
+                `\n\n*(Nota: Como aún no son 1er grado, primero enviaremos la solicitud de conexión y, apenas acepte, podrás enviarle la propuesta completa).*`,
+                `\n\n*(Note: Since you are not 1st degree yet, we will send the connection request first and then you can send the full proposal once accepted).*`,
+                `\n\n*(Nota: Como ainda não são 1º grau, primeiro enviaremos a solicitação de conexão e, assim que aceitar, você poderá enviar a proposta).*`
+              )
             : "";
 
         return NextResponse.json({
           ok: true,
-          reply: `Confirmado: **${person.name}** está en tu **${distLabel}**.${extraHint}\n\nPreparé esta **solicitud de conexión** para que la apruebes:`,
-          spokenText: `${person.name} está en ${distLabel}. Preparé la solicitud de conexión para tu aprobación.`,
+          reply: t(
+            locale,
+            `Confirmado: **${person.name}** está en tu **${distLabel}**.${extraHint}\n\nPreparé esta **solicitud de conexión** para que la apruebes:`,
+            `Confirmed: **${person.name}** is a **${distLabel}** connection.${extraHint}\n\nI prepared this **connection request** for your approval:`,
+            `Confirmado: **${person.name}** está no seu **${distLabel}**.${extraHint}\n\nPreparei esta **solicitação de conexão** para sua aprovação:`
+          ),
+          spokenText: t(
+            locale,
+            `${person.name} está en ${distLabel}. Preparé la solicitud de conexión para tu aprobación.`,
+            `${person.name} is ${distLabel}. I prepared the connection request for your approval.`,
+            `${person.name} está em ${distLabel}. Preparei a solicitação de conexão para sua aprovação.`
+          ),
           emotion: "talking",
           cards: [{ type: "approval", data: { approval } }],
         } as BotCommandResponse);
       }
     }
 
-    // 1C. Rechazar candidato ("❌ No es él")
     if (action === "reject_profile") {
       const remaining = Array.isArray(payload.remaining)
         ? (payload.remaining as VerifiedPersonCandidate[])
@@ -579,8 +674,18 @@ export async function POST(req: NextRequest) {
       if (remaining.length > 0) {
         return NextResponse.json({
           ok: true,
-          reply: `Entendido, descartado. Aquí tienes la siguiente coincidencia encontrada en LinkedIn. **¿Es esta la persona?**`,
-          spokenText: `Te muestro la siguiente coincidencia para confirmar.`,
+          reply: t(
+            locale,
+            `Entendido, descartado. Aquí tienes la siguiente coincidencia encontrada en LinkedIn. **¿Es esta la persona?**`,
+            `Got it, skipped. Here is the next match found on LinkedIn. **Is this the right person?**`,
+            `Entendido, descartado. Aqui está a próxima correspondência encontrada no LinkedIn. **É essa pessoa?**`
+          ),
+          spokenText: t(
+            locale,
+            `Te muestro la siguiente coincidencia para confirmar.`,
+            `Showing the next match for confirmation.`,
+            `Mostrando a próxima correspondência para confirmar.`
+          ),
           emotion: "thinking",
           cards: [
             {
@@ -597,13 +702,22 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         ok: true,
-        reply: `De acuerdo, no actuaré sobre ese perfil. Por favor dime el **nombre completo + empresa**, ciudad o pega su **URL de LinkedIn** para buscar exactamente a la persona correcta.`,
-        spokenText: `De acuerdo. Dime su empresa o URL de LinkedIn para buscar de nuevo.`,
+        reply: t(
+          locale,
+          `De acuerdo, no actuaré sobre ese perfil. Por favor dime el **nombre completo + empresa**, ciudad o pega su **URL de LinkedIn** para buscar exactamente a la persona correcta.`,
+          `Understood, I won't act on that profile. Please share their **full name + company**, city, or paste their **LinkedIn URL** so I can find the exact person.`,
+          `Combinado, não farei nada nesse perfil. Por favor me informe o **nome completo + empresa**, cidade ou cole a **URL do LinkedIn** para buscar a pessoa certa.`
+        ),
+        spokenText: t(
+          locale,
+          `Dime su empresa o URL de LinkedIn para buscar de nuevo.`,
+          `Tell me their company or LinkedIn URL so I can search again.`,
+          `Informe a empresa ou URL do LinkedIn para eu buscar novamente.`
+        ),
         emotion: "idle",
       } as BotCommandResponse);
     }
 
-    // 1D. Aprobar o Agendar Acción Real ("✅ Aprobar" / "📅 Agendar")
     if ((action === "approve_action" || action === "schedule_action") && payload?.approval) {
       const approval = payload.approval as ApprovalActionPayload;
       const scheduledAt =
@@ -611,26 +725,37 @@ export async function POST(req: NextRequest) {
           ? String(payload.scheduledAt)
           : undefined;
 
-      const execRes = await executeApprovedAction(approval, scheduledAt);
+      const execRes = await executeApprovedAction(approval, scheduledAt, locale);
       return NextResponse.json({
         ok: execRes.ok,
         reply: execRes.ok
-          ? `✅ **Listo.** ${execRes.message}`
-          : `⚠️ No pude completar la acción: ${execRes.message}`,
-        spokenText: execRes.ok ? "Acción ejecutada con éxito." : "No se pudo completar la acción.",
+          ? `✅ **${t(locale, "Listo.", "Done.", "Pronto.")}** ${execRes.message}`
+          : `⚠️ ${t(
+              locale,
+              "No pude completar la acción:",
+              "Could not complete the action:",
+              "Não consegui concluir a ação:"
+            )} ${execRes.message}`,
+        spokenText: execRes.ok
+          ? t(locale, "Acción ejecutada con éxito.", "Action executed successfully.", "Ação executada com sucesso.")
+          : t(locale, "No se pudo completar la acción.", "Could not complete the action.", "Não foi possível concluir a ação."),
         emotion: execRes.ok ? "happy" : "thinking",
-        quickActions: ["Dame el resumen de hoy", "Crear post viral", "¿Cómo van las campañas?"],
+        quickActions: ui.quickActions,
       } as BotCommandResponse);
     }
 
-    // 1E. Descartar Borrador ("🗑️ Descartar")
     if (action === "discard_action") {
       return NextResponse.json({
         ok: true,
-        reply: "🗑️ **Acción descartada.** No se publicó ni se envió nada en tu cuenta de LinkedIn.",
-        spokenText: "Acción descartada.",
+        reply: t(
+          locale,
+          "🗑️ **Acción descartada.** No se publicó ni se envió nada en tu cuenta de LinkedIn.",
+          "🗑️ **Action discarded.** Nothing was published or sent from your LinkedIn account.",
+          "🗑️ **Ação descartada.** Nada foi publicado ou enviado na sua conta do LinkedIn."
+        ),
+        spokenText: t(locale, "Acción descartada.", "Action discarded.", "Ação descartada."),
         emotion: "idle",
-        quickActions: ["Crear post viral", "Dame el resumen de hoy", "¿Cómo van las campañas?"],
+        quickActions: ui.quickActions,
       } as BotCommandResponse);
     }
 
@@ -641,36 +766,65 @@ export async function POST(req: NextRequest) {
     if (
       !imageBase64 &&
       (action === "get_summary" ||
-        /^(dame el )?(resumen|reporte|m[eé]tricas|estad[ií]sticas|balance|panel|stats)/i.test(lower) ||
-        /\b(resumen de hoy|resumen del d[ií]a|estado general)\b/i.test(lower))
+        /\b(resumen|reporte|m[eé]tricas|estad[ií]sticas|summary|metrics|stats|report|resumo|m[eé]tricas|relat[oó]rio|estado general)\b/i.test(
+          lower
+        ))
     ) {
       const snap = getPlatformSummary();
       const accountsOk = snap.accounts.active > 0;
-      const reply = [
-        `Aquí tienes el **resumen ejecutivo** de tu plataforma InhubFlow:`,
-        `\n* **Cuentas de LinkedIn:** ${snap.accounts.active} activas (${snap.accounts.total} registradas).`,
-        `* **Prospectos en CRM:** ${snap.leads.total} captados (${snap.leads.qualified} con alta intención comercial).`,
-        `* **Campañas de Secuencia:** ${snap.campaigns.active} activas de ${snap.campaigns.total} totales.`,
-        `* **Publicaciones:** ${snap.posts.published} publicadas, ${snap.posts.scheduled} programadas y ${snap.posts.draft} en borrador.`,
-        `* **Signal Radar:** ${snap.signals.active} monitores escaneando activamente.`,
-        `* **Actividad de Hoy:** ${snap.pacingToday.invites} invitaciones y ${snap.pacingToday.dms} mensajes enviados bajo ritmo seguro.`,
-        `\n${accountsOk ? "¿Qué acción estratégica deseas ejecutar ahora?" : "Recuerda conectar una cuenta de LinkedIn para operar en vivo."}`,
-      ].join("\n");
+      const reply = t(
+        locale,
+        [
+          `Aquí tienes el **resumen ejecutivo** de tu plataforma InhubFlow:`,
+          `\n* **Cuentas de LinkedIn:** ${snap.accounts.active} activas (${snap.accounts.total} registradas).`,
+          `* **Prospectos en CRM:** ${snap.leads.total} captados (${snap.leads.qualified} con alta intención comercial).`,
+          `* **Campañas de Secuencia:** ${snap.campaigns.active} activas de ${snap.campaigns.total} totales.`,
+          `* **Publicaciones:** ${snap.posts.published} publicadas, ${snap.posts.scheduled} programadas y ${snap.posts.draft} en borrador.`,
+          `* **Signal Radar:** ${snap.signals.active} monitores escaneando activamente.`,
+          `* **Actividad de Hoy:** ${snap.pacingToday.invites} invitaciones y ${snap.pacingToday.dms} mensajes enviados.`,
+          `\n${accountsOk ? "¿Qué acción estratégica deseas ejecutar ahora?" : "Recuerda conectar una cuenta de LinkedIn para operar en vivo."}`,
+        ].join("\n"),
+        [
+          `Here is your InhubFlow **executive summary**:`,
+          `\n* **LinkedIn Accounts:** ${snap.accounts.active} active (${snap.accounts.total} registered).`,
+          `* **CRM Prospects:** ${snap.leads.total} captured (${snap.leads.qualified} high buying intent).`,
+          `* **Sequence Campaigns:** ${snap.campaigns.active} active out of ${snap.campaigns.total} total.`,
+          `* **Posts:** ${snap.posts.published} published, ${snap.posts.scheduled} scheduled, ${snap.posts.draft} drafts.`,
+          `* **Signal Radar:** ${snap.signals.active} monitors actively scanning.`,
+          `* **Today's Activity:** ${snap.pacingToday.invites} invites and ${snap.pacingToday.dms} messages sent.`,
+          `\n${accountsOk ? "What would you like to execute next?" : "Remember to connect a LinkedIn account to operate live."}`,
+        ].join("\n"),
+        [
+          `Aqui está o **resumo executivo** da sua plataforma InhubFlow:`,
+          `\n* **Contas do LinkedIn:** ${snap.accounts.active} ativas (${snap.accounts.total} registradas).`,
+          `* **Prospects no CRM:** ${snap.leads.total} captados (${snap.leads.qualified} com alta intenção).`,
+          `* **Campanhas de Sequência:** ${snap.campaigns.active} ativas de ${snap.campaigns.total} totais.`,
+          `* **Publicações:** ${snap.posts.published} publicadas, ${snap.posts.scheduled} agendadas e ${snap.posts.draft} em rascunho.`,
+          `* **Signal Radar:** ${snap.signals.active} monitores escaneando ativamente.`,
+          `* **Atividade de Hoje:** ${snap.pacingToday.invites} convites e ${snap.pacingToday.dms} mensagens enviadas.`,
+          `\n${accountsOk ? "Qual ação estratégica deseja executar agora?" : "Lembre-se de conectar uma conta do LinkedIn para operar ao vivo."}`,
+        ].join("\n")
+      );
 
       return NextResponse.json({
         ok: true,
         reply,
-        spokenText: `Tienes ${snap.leads.total} prospectos en CRM y ${snap.campaigns.active} campañas activas.`,
+        spokenText: t(
+          locale,
+          `Tienes ${snap.leads.total} prospectos en CRM y ${snap.campaigns.active} campañas activas.`,
+          `You have ${snap.leads.total} CRM prospects and ${snap.campaigns.active} active campaigns.`,
+          `Você tem ${snap.leads.total} prospects no CRM e ${snap.campaigns.active} campanhas ativas.`
+        ),
         emotion: "talking",
         cards: [{ type: "summary", data: snap }],
-        quickActions: ["¿Cómo van las campañas?", "Crear post viral", "Últimos prospectos del radar"],
+        quickActions: ui.quickActions,
       } as BotCommandResponse);
     }
 
     if (
       !imageBase64 &&
       (action === "list_campaigns" ||
-        /\b(c[oó]mo van las campa[ñn]as|ver campa[ñn]as|estado de campa[ñn]as|mis campa[ñn]as|secuencias lineales)\b/i.test(
+        /\b(c[oó]mo van las campa[ñn]as|ver campa[ñn]as|estado de campa[ñn]as|mis campa[ñn]as|how are campaigns|view campaigns|campaigns going|como est[aã]o as campanhas|ver campanhas|minhas campanhas)\b/i.test(
           lower
         ))
     ) {
@@ -680,18 +834,33 @@ export async function POST(req: NextRequest) {
         ok: true,
         reply:
           campaigns.length > 0
-            ? `Tienes **${campaigns.length} campañas configuradas** (${activeCount} activas). Puedes pausar o activar cualquiera directamente desde aquí:`
-            : `Aún no tienes campañas lineales creadas en tu dashboard.`,
-        spokenText: `Tienes ${activeCount} campañas activas de ${campaigns.length}.`,
+            ? t(
+                locale,
+                `Tienes **${campaigns.length} campañas configuradas** (${activeCount} activas). Puedes pausar o activar cualquiera directamente desde aquí:`,
+                `You have **${campaigns.length} campaigns configured** (${activeCount} active). You can pause or activate any right here:`,
+                `Você tem **${campaigns.length} campanhas configuradas** (${activeCount} ativas). Pode pausar ou ativar qualquer uma por aqui:`
+              )
+            : t(
+                locale,
+                "Aún no tienes campañas lineales creadas en tu dashboard.",
+                "You don't have any linear campaigns created yet.",
+                "Você ainda não tem campanhas lineares criadas no dashboard."
+              ),
+        spokenText: t(
+          locale,
+          `Tienes ${activeCount} campañas activas de ${campaigns.length}.`,
+          `You have ${activeCount} active campaigns out of ${campaigns.length}.`,
+          `Você tem ${activeCount} campanhas ativas de ${campaigns.length}.`
+        ),
         emotion: "talking",
         cards: campaigns.length > 0 ? [{ type: "campaigns", data: { campaigns } }] : [],
-        quickActions: ["Crear post viral", "Dame el resumen de hoy", "Últimos prospectos del radar"],
+        quickActions: ui.quickActions,
       } as BotCommandResponse);
     }
 
     if (
       !imageBase64 &&
-      /\b([uú]ltimos prospectos|prospectos del radar|ver prospectos|leads del radar|qui[eé]n interactu[oó])\b/i.test(
+      /\b([uú]ltimos prospectos|prospectos del radar|ver prospectos|leads del radar|latest radar prospects|radar prospects|recent leads|[uú]ltimos prospects|prospects do radar)\b/i.test(
         lower
       )
     ) {
@@ -700,37 +869,64 @@ export async function POST(req: NextRequest) {
         ok: true,
         reply:
           leads.length > 0
-            ? `Aquí tienes los **últimos prospectos con alta intención** captados por Signal Radar y secuencias:`
-            : `Aún no hay prospectos registrados en tu CRM.`,
-        spokenText:
-          leads.length > 0
-            ? `Se han detectado ${leads.length} prospectos clave en el CRM.`
-            : `Sin nuevos prospectos por el momento.`,
+            ? t(
+                locale,
+                `Aquí tienes los **últimos prospectos con alta intención** captados por Signal Radar y secuencias:`,
+                `Here are the **latest high-intent prospects** captured by Signal Radar and sequences:`,
+                `Aqui estão os **últimos prospects com alta intenção** captados pelo Signal Radar e sequências:`
+              )
+            : t(
+                locale,
+                "Aún no hay prospectos registrados en tu CRM.",
+                "No prospects recorded in your CRM yet.",
+                "Ainda não há prospects registrados no seu CRM."
+              ),
+        spokenText: t(
+          locale,
+          leads.length > 0 ? `Se han detectado ${leads.length} prospectos clave.` : "Sin nuevos prospectos por el momento.",
+          leads.length > 0 ? `Found ${leads.length} key prospects in your CRM.` : "No new prospects at the moment.",
+          leads.length > 0 ? `Foram detectados ${leads.length} prospects no CRM.` : "Sem novos prospects no momento."
+        ),
         emotion: "talking",
         cards: leads.length > 0 ? [{ type: "leads", data: { leads } }] : [],
-        quickActions: ["Dame el resumen de hoy", "Crear post viral", "¿Cómo van las campañas?"],
+        quickActions: ui.quickActions,
       } as BotCommandResponse);
     }
 
-    if (!imageBase64 && /\b(estado de mi cuenta|estado de cuentas|cuenta de linkedin)\b/i.test(lower)) {
+    if (
+      !imageBase64 &&
+      /\b(estado de mi cuenta|estado de cuentas|cuenta de linkedin|linkedin account status|account status|status da minha conta|status da conta)\b/i.test(
+        lower
+      )
+    ) {
       const snap = getPlatformSummary();
       const isConnected = snap.accounts.active > 0;
       return NextResponse.json({
         ok: true,
         reply: isConnected
-          ? `Tu cuenta de LinkedIn está **conectada y operativa**, respetando el pacing diario seguro de lunes a viernes.`
-          : `No tienes ninguna cuenta de LinkedIn activa en este momento. Conéctala en **Cuentas de LinkedIn** del dashboard.`,
+          ? t(
+              locale,
+              "Tu cuenta de LinkedIn está **conectada y operativa**, respetando el pacing diario seguro de lunes a viernes.",
+              "Your LinkedIn account is **connected and active**, operating within safe Mon–Fri daily pacing limits.",
+              "Sua conta do LinkedIn está **conectada e operacional**, respeitando os limites seguros diários de segunda a sexta."
+            )
+          : t(
+              locale,
+              "No tienes ninguna cuenta de LinkedIn activa en este momento. Conéctala en **Cuentas de LinkedIn** del dashboard.",
+              "You don't have an active LinkedIn account right now. Connect one under **LinkedIn Accounts** in the dashboard.",
+              "Você não tem nenhuma conta do LinkedIn ativa no momento. Conecte uma em **Contas do LinkedIn** no dashboard."
+            ),
         spokenText: isConnected
-          ? `Tu cuenta de LinkedIn está conectada y protegida.`
-          : `Conecta tu cuenta de LinkedIn para comenzar.`,
+          ? t(locale, "Tu cuenta de LinkedIn está conectada y protegida.", "Your LinkedIn account is connected and protected.", "Sua conta do LinkedIn está conectada e protegida.")
+          : t(locale, "Conecta tu cuenta de LinkedIn para comenzar.", "Connect your LinkedIn account to get started.", "Conecte sua conta do LinkedIn para começar."),
         emotion: isConnected ? "talking" : "thinking",
         cards: [{ type: "accounts", data: snap.accounts }],
-        quickActions: ["Dame el resumen de hoy", "Crear post viral", "¿Cómo van las campañas?"],
+        quickActions: ui.quickActions,
       } as BotCommandResponse);
     }
 
     // =========================================================================
-    // 3. FLUJO MULTIMODAL CON FOTO / IMAGEN (Revista, Artículo, Captura → Post)
+    // 3. FLUJO MULTIMODAL CON FOTO / IMAGEN
     // =========================================================================
     const kb = getApprovedKnowledgeContext();
 
@@ -738,9 +934,15 @@ export async function POST(req: NextRequest) {
       const modeled = await generatePostApprovalData({
         topicOrInstruction:
           message ||
-          "Analiza el artículo o contenido de esta foto y modélalo en un post de autoridad para nuestra empresa.",
+          t(
+            locale,
+            "Analiza el artículo o contenido de esta foto y modélalo en un post de autoridad para nuestra empresa.",
+            "Analyze the article or content in this photo and model it into an authority post for our company.",
+            "Analise o artigo ou conteúdo desta foto e modele um post de autoridade para nossa empresa."
+          ),
         kbContext: kb.contextText,
         companyName: kb.companyName,
+        locale,
         imageBase64,
         imageMimeType,
       });
@@ -751,31 +953,43 @@ export async function POST(req: NextRequest) {
         preview: modeled.content,
       };
 
+      const companyLabel = kb.companyName || t(locale, "tu empresa", "your company", "sua empresa");
       return NextResponse.json({
         ok: true,
-        reply: `📸 **Analicé tu imagen** y modelé una publicación alineada a **${
-          kb.companyName || "tu empresa"
-        }**.\n\n*${modeled.summaryNote}*\n\nComo regla de oro, **nunca publico solo**: revisa, edita, agenda o aprueba aquí:`,
-        spokenText: `Analicé la imagen y preparé el borrador del post. Revísalo para aprobarlo o agendarlo.`,
+        reply: t(
+          locale,
+          `📸 **Analicé tu imagen** y modelé una publicación alineada a **${companyLabel}**.\n\n*${modeled.summaryNote}*\n\nComo regla de oro, **nunca publico solo**: revisa, edita, agenda o aprueba aquí:`,
+          `📸 **I analyzed your image** and modeled a post tailored to **${companyLabel}**.\n\n*${modeled.summaryNote}*\n\nAs a golden rule, **I never publish without your OK**: review, edit, schedule, or approve below:`,
+          `📸 **Analisei sua imagem** e modelei uma publicação alinhada à **${companyLabel}**.\n\n*${modeled.summaryNote}*\n\nComo regra de ouro, **nunca publico sozinho**: revise, edite, agende ou aprove abaixo:`
+        ),
+        spokenText: t(
+          locale,
+          "Analicé la imagen y preparé el borrador del post para tu aprobación.",
+          "I analyzed the image and drafted the post for your approval.",
+          "Analisei a imagem e preparei o rascunho do post para sua aprovação."
+        ),
         emotion: "excited",
         cards: [{ type: "approval", data: { approval } }],
       } as BotCommandResponse);
     }
 
     // =========================================================================
-    // 4. ENRUTAMIENTO INTELIGENTE CON GEMINI (Personas, Posts Virales o Chat)
+    // 4. ENRUTAMIENTO INTELIGENTE CON GEMINI
     // =========================================================================
     const classified = await classifyBotIntent(message, kb.contextText);
 
-    // 4A. Búsqueda y Verificación de Persona (Foto + Grado de Conexión)
     if (classified.intent === "person_outreach" && classified.personQuery) {
       const searchRes = await searchLinkedInPeopleForVerification(classified.personQuery);
 
       if (!searchRes.ok && searchRes.error) {
         return NextResponse.json({
           ok: true,
-          reply: `⚠️ ${searchRes.error} Conecta tu perfil desde el dashboard para buscar personas en LinkedIn en tiempo real.`,
-          spokenText: searchRes.error,
+          reply: t(
+            locale,
+            "⚠️ No tienes una cuenta de LinkedIn conectada y activa en este momento. Conecta tu perfil en el dashboard para buscar personas en tiempo real.",
+            "⚠️ You don't have an active LinkedIn account connected right now. Connect your profile in the dashboard to search people live.",
+            "⚠️ Você não tem uma conta do LinkedIn conectada e ativa no momento. Conecte seu perfil no dashboard para buscar pessoas em tempo real."
+          ),
           emotion: "thinking",
         } as BotCommandResponse);
       }
@@ -783,20 +997,37 @@ export async function POST(req: NextRequest) {
       if (searchRes.candidates.length === 0) {
         return NextResponse.json({
           ok: true,
-          reply: `No encontré coincidencias claras para **"${classified.personQuery}"** en LinkedIn.\n\nIntenta darme su **nombre completo + empresa**, o pega directamente la **URL de su perfil de LinkedIn**.`,
-          spokenText: `No encontré coincidencias para ${classified.personQuery}.`,
+          reply: t(
+            locale,
+            `No encontré coincidencias claras para **"${classified.personQuery}"** en LinkedIn.\n\nIntenta darme su **nombre completo + empresa**, o pega directamente la **URL de su perfil de LinkedIn**.`,
+            `I couldn't find clear matches for **"${classified.personQuery}"** on LinkedIn.\n\nTry sharing their **full name + company**, or paste their **LinkedIn profile URL**.`,
+            `Não encontrei correspondências claras para **"${classified.personQuery}"** no LinkedIn.\n\nTente informar **nome completo + empresa**, ou cole diretamente a **URL do perfil no LinkedIn**.`
+          ),
+          spokenText: t(
+            locale,
+            `No encontré coincidencias para ${classified.personQuery}.`,
+            `No matches found for ${classified.personQuery}.`,
+            `Não encontrei correspondências para ${classified.personQuery}.`
+          ),
           emotion: "thinking",
         } as BotCommandResponse);
       }
 
+      const count = searchRes.candidates.length;
       return NextResponse.json({
         ok: true,
-        reply: `🔎 Encontré ${
-          searchRes.candidates.length === 1
-            ? "este perfil"
-            : `${searchRes.candidates.length} posibles coincidencias`
-        } en LinkedIn. **Antes de realizar cualquier acción, confírmame si es la persona correcta:**`,
-        spokenText: `Encontré a ${searchRes.candidates[0].name}. Por favor confirma en pantalla si es la persona correcta.`,
+        reply: t(
+          locale,
+          `🔎 Encontré ${count === 1 ? "este perfil" : `${count} posibles coincidencias`} en LinkedIn. **Antes de realizar cualquier acción, confírmame si es la persona correcta:**`,
+          `🔎 I found ${count === 1 ? "this profile" : `${count} possible matches`} on LinkedIn. **Before taking any action, please confirm if this is the right person:**`,
+          `🔎 Encontrei ${count === 1 ? "este perfil" : `${count} possíveis correspondências`} no LinkedIn. **Antes de agir, confirme se é a pessoa certa:**`
+        ),
+        spokenText: t(
+          locale,
+          `Encontré a ${searchRes.candidates[0].name}. Confirma en pantalla si es la persona correcta.`,
+          `I found ${searchRes.candidates[0].name}. Please confirm on screen if that's the right person.`,
+          `Encontrei ${searchRes.candidates[0].name}. Confirme na tela se é a pessoa certa.`
+        ),
         emotion: "talking",
         cards: [
           {
@@ -811,7 +1042,6 @@ export async function POST(req: NextRequest) {
       } as BotCommandResponse);
     }
 
-    // 4B. Creación / Modelado de Post Viral (con búsqueda real en Viral Radar + Aprobación)
     if (classified.intent === "create_viral_post") {
       const topic = classified.topic || message;
       let referencePostsText = "";
@@ -839,10 +1069,10 @@ export async function POST(req: NextRequest) {
         if (viralItems.length === 0) {
           viralItems = getNicheViralPosts(topic, "latam_us", "ALL")
             .slice(0, 5)
-            .map((t) => ({
-              text: t.fullContent,
-              reaction_counter: t.likes,
-              comment_counter: t.comments,
+            .map((item) => ({
+              text: item.fullContent,
+              reaction_counter: item.likes,
+              comment_counter: item.comments,
             }));
         }
 
@@ -850,7 +1080,7 @@ export async function POST(req: NextRequest) {
           .slice(0, 5)
           .map(
             (p, idx) =>
-              `Post #${idx + 1} (${p.reaction_counter || 0} likes, ${p.comment_counter || 0} comentarios):\n${String(
+              `Post #${idx + 1} (${p.reaction_counter || 0} likes, ${p.comment_counter || 0} comments):\n${String(
                 p.text || ""
               ).slice(0, 350)}`
           )
@@ -861,6 +1091,7 @@ export async function POST(req: NextRequest) {
         topicOrInstruction: message,
         kbContext: kb.contextText,
         companyName: kb.companyName,
+        locale,
         referencePostsText,
       });
 
@@ -871,12 +1102,27 @@ export async function POST(req: NextRequest) {
         scheduledAt: classified.scheduledDateIso || undefined,
       };
 
+      const companyLabel = kb.companyName || t(locale, "tu empresa", "your company", "sua empresa");
       return NextResponse.json({
         ok: true,
-        reply: `✍️ **Preparé este borrador** ${
-          referencePostsText ? "analizando los posts con mayor tracción del tema y " : ""
-        }usando la voz de **${kb.companyName || "tu empresa"}**.\n\n*${modeled.summaryNote}*\n\nRevisa y elige si quieres **Publicar ahora**, **Editar**, **Agendar** o **Descartar**:`,
-        spokenText: `Preparé tu publicación de LinkedIn. Revísala para aprobarla, editarla o agendarla.`,
+        reply: t(
+          locale,
+          `✍️ **Preparé este borrador** ${
+            referencePostsText ? "analizando los posts con mayor tracción del tema y " : ""
+          }usando la voz de **${companyLabel}**.\n\n*${modeled.summaryNote}*\n\nRevisa y elige si quieres **Publicar ahora**, **Editar**, **Agendar** o **Descartar**:`,
+          `✍️ **I drafted this post** ${
+            referencePostsText ? "after analyzing top-performing posts on the topic and " : ""
+          }using **${companyLabel}**'s voice.\n\n*${modeled.summaryNote}*\n\nReview and choose whether to **Publish now**, **Edit**, **Schedule**, or **Discard**:`,
+          `✍️ **Preparei este rascunho** ${
+            referencePostsText ? "analisando os posts com maior tração do tema e " : ""
+          }usando a voz da **${companyLabel}**.\n\n*${modeled.summaryNote}*\n\nRevise e escolha **Publicar agora**, **Editar**, **Agendar** ou **Descartar**:`
+        ),
+        spokenText: t(
+          locale,
+          "Preparé tu publicación de LinkedIn. Revísala para aprobarla, editarla o agendarla.",
+          "I drafted your LinkedIn post. Review it to approve, edit, or schedule.",
+          "Preparei sua publicação do LinkedIn. Revise para aprovar, editar ou agendar."
+        ),
         emotion: "excited",
         cards: [{ type: "approval", data: { approval } }],
       } as BotCommandResponse);
@@ -887,26 +1133,26 @@ export async function POST(req: NextRequest) {
     // =========================================================================
     const snap = getPlatformSummary();
     const turns = buildHistoryTurns(history);
-    turns.push({ role: "user", parts: [{ text: message || "Hola" }] });
+    turns.push({ role: "user", parts: [{ text: message || "Hello" }] });
 
     const aiReply = await callGeminiMultimodal({
-      systemPrompt: `Eres "InhubBot", el agente móvil de Social Selling en LinkedIn de InhubFlow.
-Hablas siempre en español de forma clara, ejecutiva y directa (pensado para leerse fácil en celular).
+      systemPrompt: `You are "InhubBot", InhubFlow's mobile LinkedIn Social Selling AI agent.
+CRITICAL: Always reply strictly in ${langName} (${locale}), clearly, concisely and mobile-friendly.
 
-REGLA DE ORO: Nunca inventes métricas ni ejecutes acciones externas sin confirmación.
-Capacidades que tienes en este chat:
-- Analizar fotos de revistas/artículos y modelar posts para aprobar antes de publicar.
-- Buscar personas en LinkedIn, mostrar su foto de perfil y grado de conexión (1°, 2° o 3°), y proponer conexión, comentario en su último post o mensaje/propuesta.
-- Buscar posts virales y crear borradores listos para publicar o agendar.
-- Mostrar métricas en tiempo real, campañas y prospectos del Signal Radar.
+GOLDEN RULE: Never fabricate metrics and never execute external actions without user confirmation.
+Capabilities in this chat:
+- Analyze magazine/article photos and model posts for approval before publishing.
+- Search LinkedIn people, display their profile photo and connection degree (1st, 2nd, 3rd), and propose connecting, commenting on their latest post, or sending a direct message/proposal.
+- Search viral posts and draft content ready to publish or schedule.
+- Show real-time metrics, campaigns, and Signal Radar prospects.
 
-Estado actual de la plataforma:
-- Cuentas LinkedIn activas: ${snap.accounts.active}/${snap.accounts.total}
-- Prospectos CRM: ${snap.leads.total} (${snap.leads.qualified} alta intención)
-- Campañas activas: ${snap.campaigns.active}/${snap.campaigns.total}
-- Posts: ${snap.posts.published} publicados, ${snap.posts.scheduled} programados, ${snap.posts.draft} borradores
+Live platform snapshot:
+- Active LinkedIn accounts: ${snap.accounts.active}/${snap.accounts.total}
+- CRM Prospects: ${snap.leads.total} (${snap.leads.qualified} high intent)
+- Active campaigns: ${snap.campaigns.active}/${snap.campaigns.total}
+- Posts: ${snap.posts.published} published, ${snap.posts.scheduled} scheduled, ${snap.posts.draft} drafts
 
-Base de Conocimiento de la empresa (${kb.companyName || "InhubFlow"}):
+Company Knowledge Base (${kb.companyName || "InhubFlow"}):
 ${kb.contextText.slice(0, 3500)}`,
       turns,
       temperature: 0.7,
@@ -916,28 +1162,28 @@ ${kb.contextText.slice(0, 3500)}`,
     const finalReply =
       aiReply.ok && aiReply.text
         ? aiReply.text
-        : `Entendido. Puedo ayudarte a:\n\n* **Buscar a una persona** (*"Busca a Juan Pérez de TechCorp y envíale propuesta"*)\n* **Comentar un post** (*"Comenta la última publicación de Carlos Ruiz"*)\n* **Modelar desde foto** (adjunta una foto de revista o artículo)\n* **Crear posts virales** o ver tu **resumen del día**.\n\n¿Qué hacemos ahora?`;
+        : t(
+            locale,
+            `Entendido. Puedo ayudarte a buscar personas en LinkedIn, comentar su último post, modelar un post desde una foto o ver el resumen de hoy. ¿Qué hacemos ahora?`,
+            `Got it. I can help you find people on LinkedIn, comment on their latest post, model a post from a photo, or check today's summary. What should we do next?`,
+            `Entendido. Posso ajudar a buscar pessoas no LinkedIn, comentar no último post delas, modelar um post a partir de uma foto ou ver o resumo de hoje. O que fazemos agora?`
+          );
 
     return NextResponse.json({
       ok: true,
       reply: finalReply,
       spokenText: finalReply.replace(/[*_#`[\]()]/g, "").slice(0, 220),
       emotion: "talking",
-      quickActions: [
-        "Dame el resumen de hoy",
-        "Crear post viral",
-        "¿Cómo van las campañas?",
-        "Últimos prospectos del radar",
-      ],
+      quickActions: ui.quickActions,
     } as BotCommandResponse);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Error al procesar el comando del bot";
+    const message = error instanceof Error ? error.message : "Bot command error";
     console.error("[Bot Command API Error]:", error);
     return NextResponse.json(
       {
         ok: false,
-        reply: `Ocurrió un error al procesar tu solicitud: ${message}`,
-        spokenText: "Ocurrió un error al procesar el comando.",
+        reply: message,
+        spokenText: message,
         emotion: "thinking",
       },
       { status: 500 }
