@@ -15,6 +15,11 @@ import {
   Circle,
   Send,
   X,
+  Pencil,
+  Zap,
+  MessageCircle,
+  BookOpen,
+  BarChart2,
 } from "lucide-react";
 import { useLocale } from "next-intl";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -492,179 +497,206 @@ export default function InHubCopilotWidget() {
       }`}
     >
       {/* ===================================================================== */}
-      {/* 1. CLEAN MINIMAL CHAT PANEL                                           */}
+      {/* 1. GEMINI-STYLE DARK CHAT PANEL                                       */}
       {/* ===================================================================== */}
       {isOpen && (
-        <div className="mb-2.5 w-[310px] sm:w-[340px] max-h-[min(490px,calc(100dvh-180px))] rounded-2xl border border-slate-200/90 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-2xl shadow-slate-900/20 overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-3 duration-200">
-          {/* Clean Light Header */}
-          <div className="px-3.5 py-2.5 bg-white dark:bg-gray-900 border-b border-slate-100 dark:border-gray-800 shrink-0">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="shrink-0">
-                  <InHubLiveAvatar emotion={emotion} size="sm" hideStatusDot />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-none">
-                      {labels.assistantTitle}
-                    </h4>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-gray-400 truncate mt-0.5">
-                    {labels.subtitlePrefix} · {routeCtx.sectionTitle}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5 shrink-0">
-                {accountStatus && (
-                  <button
-                    type="button"
-                    onClick={() => setShowProgressMenu((prev) => !prev)}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-gray-800 hover:bg-slate-200/70 dark:hover:bg-gray-700 text-[11px] font-semibold text-slate-700 dark:text-gray-200 transition cursor-pointer"
-                  >
-                    <span className="text-[#0099ff]">
-                      {accountStatus.completedStepsCount}/{accountStatus.totalStepsCount}
-                    </span>
-                    <ChevronDown
-                      className={`w-3 h-3 text-slate-400 transition-transform ${
-                        showProgressMenu ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-                )}
-
+        <div className="mb-2.5 w-[340px] sm:w-[380px] max-h-[min(600px,calc(100dvh-160px))] rounded-3xl overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-3 duration-200 shadow-2xl shadow-black/40"
+          style={{ background: "linear-gradient(160deg, #0d1117 0%, #111827 60%, #0d1117 100%)", border: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          {/* ── TOP BAR ── */}
+          <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold tracking-widest text-[#0099ff] uppercase">Inhub</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            </div>
+            <div className="flex items-center gap-2">
+              {accountStatus && (
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
-                  aria-label="Cerrar"
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800 transition cursor-pointer"
+                  onClick={() => setShowProgressMenu((prev) => !prev)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 text-[11px] font-semibold text-gray-300 transition cursor-pointer border border-white/10"
                 >
-                  <X className="w-4 h-4" />
+                  <span className="text-[#0099ff]">{accountStatus.completedStepsCount}/{accountStatus.totalStepsCount}</span>
+                  <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${showProgressMenu ? "rotate-180" : ""}`} />
                 </button>
-              </div>
-            </div>
-
-            {/* Collapsible Progress Checklist (hidden by default for clean look) */}
-            {showProgressMenu && checklistItems.length > 0 && (
-              <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-gray-800 space-y-1">
-                {checklistItems.map((item, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={item.onClick}
-                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-800/80 text-xs transition cursor-pointer text-left"
-                  >
-                    <span className="flex items-center gap-2 text-slate-700 dark:text-gray-200">
-                      {item.done ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      ) : (
-                        <Circle className="w-3.5 h-3.5 text-slate-300 dark:text-gray-600 shrink-0" />
-                      )}
-                      <span className={item.done ? "line-through text-slate-400" : "font-medium"}>
-                        {item.label}
-                      </span>
-                    </span>
-                    {!item.done && (
-                      <span className="text-[11px] font-semibold text-[#0099ff]">→</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Messages Area */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50/70 dark:bg-gray-950">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex flex-col ${
-                  msg.sender === "user" ? "items-end" : "items-start"
-                }`}
+              )}
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                aria-label="Cerrar"
+                className="p-1.5 rounded-full text-gray-500 hover:text-white hover:bg-white/10 transition cursor-pointer"
               >
-                <div
-                  className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-[12.5px] leading-relaxed ${
-                    msg.sender === "user"
-                      ? "bg-[#0099ff] text-white rounded-br-sm"
-                      : "bg-white dark:bg-gray-900 text-slate-700 dark:text-gray-200 border border-slate-200/70 dark:border-gray-800 rounded-bl-sm"
-                  }`}
-                >
-                  {msg.sender === "inhub" ? renderFormattedText(msg.text) : msg.text}
-                </div>
-
-                {msg.sender === "inhub" && msg.actions && msg.actions.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[90%]">
-                    {msg.actions.map((act, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleActionClick(act)}
-                        className="px-2.5 py-1 rounded-full bg-white dark:bg-gray-800 text-[#0099ff] border border-[#0099ff]/25 hover:bg-[#e6f4fe]/70 text-[11px] font-semibold transition cursor-pointer"
-                      >
-                        {act.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* Clean inline starter suggestions only before conversation grows */}
-            {messages.length <= 1 && trainingStep === "idle" && !isSending && (
-              <div className="pt-1 flex flex-wrap gap-1.5">
-                {routeCtx.quickChips.slice(0, 3).map((chip, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => sendMessage(chip)}
-                    className="px-3 py-1.5 rounded-full bg-white dark:bg-gray-900 hover:bg-[#e6f4fe]/70 dark:hover:bg-[#0099ff]/15 text-slate-600 dark:text-gray-300 hover:text-[#0099ff] text-[11px] font-medium border border-slate-200/80 dark:border-gray-800 transition cursor-pointer"
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {isSending && (
-              <div className="text-[11px] text-slate-400 px-1">{labels.typingText}</div>
-            )}
-            <div ref={chatEndRef} />
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          {/* Minimal Input Bar */}
+          {/* ── PROGRESS CHECKLIST (collapsible) ── */}
+          {showProgressMenu && checklistItems.length > 0 && (
+            <div className="mx-4 mb-2 rounded-2xl bg-white/5 border border-white/8 overflow-hidden">
+              {checklistItems.map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={item.onClick}
+                  className="w-full flex items-center justify-between px-3.5 py-2 hover:bg-white/8 text-xs transition cursor-pointer text-left border-b border-white/5 last:border-0"
+                >
+                  <span className="flex items-center gap-2 text-gray-200">
+                    {item.done ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    ) : (
+                      <Circle className="w-3.5 h-3.5 text-gray-600 shrink-0" />
+                    )}
+                    <span className={item.done ? "line-through text-gray-500" : "font-medium"}>{item.label}</span>
+                  </span>
+                  {!item.done && <span className="text-[11px] font-bold text-[#0099ff]">→</span>}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ── GEMINI HERO: Avatar + greeting (only shown before conversation grows) ── */}
+          {messages.length <= 1 && !isSending && (
+            <div className="flex flex-col items-center pt-4 pb-5 px-4 shrink-0">
+              {/* Inhub bot with glow halo */}
+              <div className="relative mb-5">
+                <div
+                  className="absolute inset-0 rounded-full blur-2xl opacity-50"
+                  style={{ background: "radial-gradient(circle, #0099ff 0%, #6366f1 50%, transparent 80%)", transform: "scale(1.6)" }}
+                />
+                <InHubLiveAvatar emotion={emotion} size="xl" hideStatusDot />
+              </div>
+
+              {/* Greeting text */}
+              <h2 className="text-2xl font-bold text-white tracking-tight mb-1">
+                {locale === "pt-BR" ? "Olá!" : locale === "en" ? "Hello!" : "¡Hola!"}
+              </h2>
+              <p className="text-sm text-gray-400 text-center leading-snug">
+                {locale === "pt-BR"
+                  ? "Como posso ajudar você hoje?"
+                  : locale === "en"
+                  ? "How can I help you today?"
+                  : "¿En qué puedo ayudarte hoy?"}
+              </p>
+            </div>
+          )}
+
+          {/* ── MESSAGES AREA (shown when conversation starts) ── */}
+          {messages.length > 1 && (
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-3">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
+                >
+                  {msg.sender === "inhub" && (
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <InHubLiveAvatar emotion={emotion} size="sm" hideStatusDot />
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-[12.5px] leading-relaxed ${
+                      msg.sender === "user"
+                        ? "bg-[#0099ff] text-white rounded-br-sm"
+                        : "bg-white/8 text-gray-200 border border-white/10 rounded-bl-sm"
+                    }`}
+                  >
+                    {msg.sender === "inhub" ? renderFormattedText(msg.text) : msg.text}
+                  </div>
+                  {msg.sender === "inhub" && msg.actions && msg.actions.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[90%]">
+                      {msg.actions.map((act, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleActionClick(act)}
+                          className="px-2.5 py-1 rounded-full bg-white/5 text-[#0099ff] border border-[#0099ff]/30 hover:bg-[#0099ff]/15 text-[11px] font-semibold transition cursor-pointer"
+                        >
+                          {act.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {isSending && (
+                <div className="flex items-center gap-2 text-[11px] text-gray-500 px-1">
+                  <span className="flex gap-0.5">
+                    <span className="w-1.5 h-1.5 bg-[#0099ff]/60 rounded-full animate-bounce [animation-delay:0ms]" />
+                    <span className="w-1.5 h-1.5 bg-[#0099ff]/60 rounded-full animate-bounce [animation-delay:150ms]" />
+                    <span className="w-1.5 h-1.5 bg-[#0099ff]/60 rounded-full animate-bounce [animation-delay:300ms]" />
+                  </span>
+                  {labels.typingText}
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+          )}
+
+          {/* ── QUICK-ACTION CHIPS (Gemini style, icons + labels) ── */}
+          {messages.length <= 1 && trainingStep === "idle" && !isSending && (
+            <div className="px-4 pb-4 grid grid-cols-2 gap-2 shrink-0">
+              {[
+                { icon: <Pencil className="w-3.5 h-3.5" />, label: routeCtx.quickChips[0] || (locale === "en" ? "Explain section" : locale === "pt-BR" ? "Explicar seção" : "Explicar sección") },
+                { icon: <Zap className="w-3.5 h-3.5" />, label: routeCtx.quickChips[1] || (locale === "en" ? "Quick tips" : locale === "pt-BR" ? "Dicas rápidas" : "Tips rápidos") },
+                { icon: <MessageCircle className="w-3.5 h-3.5" />, label: routeCtx.quickChips[2] || (locale === "en" ? "Best practices" : locale === "pt-BR" ? "Boas práticas" : "Buenas prácticas") },
+                { icon: <BarChart2 className="w-3.5 h-3.5" />, label: locale === "en" ? "Show my progress" : locale === "pt-BR" ? "Ver meu progresso" : "Ver mi progreso" },
+              ].map((chip, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => idx === 3 ? setShowProgressMenu(true) : sendMessage(chip.label)}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/8 text-gray-300 hover:text-white text-[11px] font-medium transition cursor-pointer text-left leading-snug"
+                >
+                  <span className="text-[#0099ff] shrink-0">{chip.icon}</span>
+                  <span className="line-clamp-2">{chip.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ── INPUT BAR ── */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               sendMessage(inputValue);
             }}
-            className="p-3 bg-white dark:bg-gray-900 border-t border-slate-100 dark:border-gray-800 flex items-center gap-2 shrink-0"
+            className="shrink-0 px-3 pb-3"
           >
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={
-                trainingStep !== "idle"
-                  ? labels.trainingPlaceholder
-                  : labels.inputPlaceholder
-              }
-              className="flex-1 bg-slate-100/80 dark:bg-gray-800 text-slate-900 dark:text-white placeholder-slate-400 text-xs rounded-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0099ff]/25"
-            />
-            <button
-              type="submit"
-              disabled={!inputValue.trim() || isSending}
-              aria-label="Enviar"
-              className="w-9 h-9 rounded-full bg-[#0099ff] hover:bg-[#0082db] disabled:opacity-35 text-white flex items-center justify-center transition cursor-pointer shrink-0"
+            <div
+              className="flex items-center gap-2 rounded-full px-4 py-2.5"
+              style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)" }}
             >
-              <Send className="w-3.5 h-3.5" />
-            </button>
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder={
+                  trainingStep !== "idle"
+                    ? labels.trainingPlaceholder
+                    : locale === "en"
+                    ? "Type, talk or share..."
+                    : locale === "pt-BR"
+                    ? "Digite, fale ou compartilhe..."
+                    : "Escribe, habla o comparte..."
+                }
+                className="flex-1 bg-transparent text-gray-200 placeholder-gray-500 text-xs focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={!inputValue.trim() || isSending}
+                aria-label="Enviar"
+                className="w-8 h-8 rounded-full bg-[#0099ff] hover:bg-[#0082db] disabled:opacity-30 text-white flex items-center justify-center transition cursor-pointer shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </form>
         </div>
       )}
 
       {/* ===================================================================== */}
-      {/* 2. MINIMAL SPEECH BUBBLE + FLOATING INHUB AVATAR                      */}
+      {/* 2. SPEECH BUBBLE + FLOATING INHUB AVATAR                              */}
       {/* ===================================================================== */}
       <div className="flex items-end gap-2.5">
         {showProactiveBubble && !isOpen && (
@@ -685,7 +717,6 @@ export default function InHubCopilotWidget() {
             >
               <X className="w-3 h-3" />
             </button>
-
             <p className="text-[11px] text-slate-600 dark:text-gray-300 leading-snug pr-3.5">
               {proactiveConfig.text}
             </p>
