@@ -12,8 +12,13 @@ import "simplebar-react/dist/simplebar.min.css";
 import "swiper/css/bundle";
 import "../globals.css";
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { PwaRegister } from "@/components/common/PwaRegister";
+
+export const viewport: Viewport = {
+  themeColor: "#000000",
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: {

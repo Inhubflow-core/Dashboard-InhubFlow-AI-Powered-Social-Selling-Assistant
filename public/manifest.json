@@ -5,8 +5,8 @@
   "start_url": "/bot",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0a0f1d",
-  "theme_color": "#0099ff",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "orientation": "portrait-primary",
   "icons": [
     {

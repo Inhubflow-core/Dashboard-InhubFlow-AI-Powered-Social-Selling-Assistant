@@ -278,7 +278,7 @@ export default function InhubBotAppPage() {
 
   return (
     <div
-      className="flex flex-col h-[100dvh] w-full overflow-hidden font-sans text-slate-100"
+      className="fixed inset-0 flex flex-col w-full overflow-hidden font-sans text-slate-100"
       style={{ background: "#000000" }}
     >
       {/* Top Header */}
@@ -318,7 +318,7 @@ export default function InhubBotAppPage() {
 
       {/* ── GEMINI HERO (only shown before conversation starts) ── */}
       {messages.length <= 1 && !isSending && (
-        <div className="flex flex-col items-center justify-center flex-1 px-6 pb-4">
+        <div className="flex flex-col items-center justify-center flex-1 min-h-0 overflow-y-auto px-6 py-4">
           {/* 1. Greeting text */}
           <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-1 text-center">
             ¡Hola!
@@ -656,8 +656,9 @@ export default function InhubBotAppPage() {
       )}
 
       {/* Bottom Command Input Bar */}
-      <footer className="p-3 shrink-0 border-t border-[#0099ff]/12"
-        style={{ background: "rgba(0,0,0,0.9)" }}
+      <footer
+        className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0 border-t border-[#0099ff]/12"
+        style={{ background: "#000000" }}
       >
         <form
           onSubmit={(e) => {
