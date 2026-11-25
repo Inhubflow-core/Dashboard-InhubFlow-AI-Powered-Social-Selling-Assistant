@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Link, useRouter } from "@/i18n/navigation";
 import { InHubLiveAvatar, type InHubEmotion } from "@/components/copilot/InHubLiveAvatar";
 import {
   Mic,
@@ -10,20 +9,14 @@ import {
   Volume2,
   VolumeX,
   RotateCcw,
-  ArrowLeft,
   Sparkles,
   BarChart3,
   Layers,
   FileText,
   Users,
   Globe,
-  CheckCircle2,
   PauseCircle,
   PlayCircle,
-  ExternalLink,
-  ChevronRight,
-  ShieldCheck,
-  Share2,
 } from "lucide-react";
 
 interface ActionCard {
@@ -49,7 +42,6 @@ const DEFAULT_QUICK_ACTIONS = [
 ];
 
 export default function InhubBotAppPage() {
-  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -285,36 +277,34 @@ export default function InhubBotAppPage() {
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] w-full bg-[#0a0f1d] text-slate-100 overflow-hidden font-sans">
+    <div
+      className="flex flex-col h-[100dvh] w-full overflow-hidden font-sans text-slate-100"
+      style={{ background: "linear-gradient(170deg, #0a1628 0%, #0d1f3c 55%, #061020 100%)" }}
+    >
       {/* Top Header */}
-      <header className="flex items-center justify-between px-4 py-3 bg-[#0f172a]/95 border-b border-slate-800 backdrop-blur z-20">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700 transition"
-            title="Volver al Dashboard"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div className="flex items-center gap-2.5">
-            <div className="relative">
-              <InHubLiveAvatar emotion={emotion} size="sm" />
-              {speechActive && (
-                <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0099ff] opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-[#0099ff]"></span>
-                </span>
-              )}
+      <header className="flex items-center justify-between px-4 py-3 shrink-0 border-b border-[#0099ff]/15 backdrop-blur z-20"
+        style={{ background: "rgba(10,22,40,0.85)" }}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="relative">
+            <InHubLiveAvatar emotion={emotion} size="sm" />
+            {speechActive && (
+              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0099ff] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-[#0099ff]"></span>
+              </span>
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-white tracking-tight">InhubBot</span>
+              <span className="text-[9px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded-md border border-[#0099ff]/30"
+                style={{ background: "rgba(0,153,255,0.12)", color: "#0099ff" }}
+              >
+                AI App
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-white tracking-tight">InhubBot</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#0099ff]/20 text-[#0099ff] border border-[#0099ff]/30">
-                  AI App
-                </span>
-              </div>
-              <span className="text-xs text-slate-400">Social Selling LinkedIn</span>
-            </div>
+            <span className="text-[11px] text-[#5abaff]">Social Selling LinkedIn</span>
           </div>
         </div>
 
@@ -322,10 +312,10 @@ export default function InhubBotAppPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setVoiceEnabled(!voiceEnabled)}
-            className={`flex items-center justify-center w-9 h-9 rounded-xl transition ${
+            className={`flex items-center justify-center w-9 h-9 rounded-xl transition border ${
               voiceEnabled
-                ? "bg-[#0099ff] text-white shadow-lg shadow-[#0099ff]/20"
-                : "bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-700"
+                ? "bg-[#0099ff] text-white shadow-lg shadow-[#0099ff]/20 border-[#0099ff]/50"
+                : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 border-white/8"
             }`}
             title={voiceEnabled ? "Desactivar respuesta por voz" : "Activar respuesta por voz (TTS $0)"}
           >
@@ -333,7 +323,7 @@ export default function InhubBotAppPage() {
           </button>
           <button
             onClick={handleClearChat}
-            className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-700 transition"
+            className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition border border-white/8"
             title="Reiniciar conversación"
           >
             <RotateCcw className="w-4 h-4" />
@@ -341,312 +331,349 @@ export default function InhubBotAppPage() {
         </div>
       </header>
 
-      {/* Main Conversation Stream */}
-      <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {messages.map((m) => {
-          const isUser = m.sender === "user";
-          return (
+      {/* ── GEMINI HERO (only shown before conversation starts) ── */}
+      {messages.length <= 1 && !isSending && (
+        <div className="flex flex-col items-center justify-center flex-1 px-6 pb-4">
+          {/* 1. Greeting text */}
+          <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-1 text-center">
+            ¡Hola!
+          </h1>
+          <p className="text-base sm:text-lg text-[#5abaff] text-center leading-snug mb-8">
+            ¿En qué puedo ayudarte hoy?
+          </p>
+
+          {/* 2. Inhub bot avatar with radial glow */}
+          <div className="relative mb-10">
             <div
-              key={m.id}
-              className={`flex flex-col ${isUser ? "items-end" : "items-start"} max-w-full`}
-            >
-              <div
-                className={`max-w-[90%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-md ${
-                  isUser
-                    ? "bg-[#0099ff] text-white rounded-br-xs"
-                    : "bg-[#162032] text-slate-100 border border-slate-800 rounded-bl-xs"
-                }`}
+              className="absolute inset-0 rounded-full blur-3xl"
+              style={{
+                background: "radial-gradient(circle, rgba(0,153,255,0.5) 0%, rgba(99,102,241,0.2) 50%, transparent 80%)",
+                transform: "scale(2.5)",
+              }}
+            />
+            <div
+              className="absolute inset-0 rounded-full blur-xl"
+              style={{
+                background: "radial-gradient(circle, rgba(0,153,255,0.3) 0%, transparent 65%)",
+                transform: "scale(1.8)",
+              }}
+            />
+            <InHubLiveAvatar emotion={emotion} size="2xl" hideStatusDot />
+          </div>
+
+          {/* 3. Quick action chips (Gemini 2x2 grid) */}
+          <div className="w-full max-w-sm grid grid-cols-2 gap-2.5">
+            {[
+              { icon: <BarChart3 className="w-4 h-4" />, label: "Dame el resumen de hoy" },
+              { icon: <Layers className="w-4 h-4" />, label: "¿Cómo van las campañas?" },
+              { icon: <FileText className="w-4 h-4" />, label: "Crear post viral" },
+              { icon: <Users className="w-4 h-4" />, label: "Últimos prospectos del radar" },
+            ].map((chip, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleSend(chip.label)}
+                disabled={isSending || isListening}
+                className="flex items-center gap-2.5 px-3.5 py-3 rounded-2xl text-[13px] font-medium transition cursor-pointer text-left leading-snug disabled:opacity-50"
+                style={{
+                  background: "rgba(0,153,255,0.08)",
+                  border: "1px solid rgba(0,153,255,0.2)",
+                  color: "#a8d8f8",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,153,255,0.18)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,153,255,0.45)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,153,255,0.08)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,153,255,0.2)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#a8d8f8";
+                }}
               >
-                {!isUser && (
-                  <div className="flex items-center gap-2 mb-1.5 text-xs text-[#0099ff] font-medium">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>InhubBot</span>
-                  </div>
-                )}
+                <span className="text-[#0099ff] shrink-0">{chip.icon}</span>
+                <span>{chip.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-                <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                  {m.text.split("\n").map((line, idx) => {
-                    const formatted = line.split(/(\*\*[^*]+\*\*)/g).map((part, pidx) => {
-                      if (part.startsWith("**") && part.endsWith("**")) {
-                        return (
-                          <strong key={pidx} className="font-semibold text-white">
-                            {part.slice(2, -2)}
-                          </strong>
-                        );
-                      }
-                      return <span key={pidx}>{part}</span>;
-                    });
-                    return (
-                      <React.Fragment key={idx}>
-                        {idx > 0 && <br />}
-                        {formatted}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
+      {/* ── CONVERSATION STREAM (shown when messages > 1) ── */}
+      {messages.length > 1 && (
+        <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          {messages.map((m) => {
+            const isUser = m.sender === "user";
+            return (
+              <div
+                key={m.id}
+                className={`flex flex-col ${isUser ? "items-end" : "items-start"} max-w-full`}
+              >
+                <div
+                  className={`max-w-[90%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-md ${
+                    isUser
+                      ? "bg-[#0099ff] text-white rounded-br-xs"
+                      : "text-slate-100 rounded-bl-xs"
+                  }`}
+                  style={!isUser ? { background: "rgba(0,153,255,0.08)", border: "1px solid rgba(0,153,255,0.15)" } : {}}
+                >
+                  {!isUser && (
+                    <div className="flex items-center gap-2 mb-1.5 text-xs text-[#0099ff] font-medium">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>InhubBot</span>
+                    </div>
+                  )}
 
-                {/* Interactive Cards */}
-                {m.cards && m.cards.length > 0 && (
-                  <div className="mt-3 space-y-3 pt-2 border-t border-slate-700/60">
-                    {m.cards.map((card, cidx) => {
-                      if (card.type === "summary") {
-                        const s = card.data;
-                        return (
-                          <div
-                            key={cidx}
-                            className="bg-[#0b1329] p-3 rounded-xl border border-slate-700/80 space-y-2.5"
-                          >
-                            <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
-                              <span className="flex items-center gap-1.5">
-                                <BarChart3 className="w-3.5 h-3.5 text-[#0099ff]" />
-                                Métricas Clave
-                              </span>
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
-                                En tiempo real
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                              <div className="bg-slate-800/60 p-2 rounded-lg">
-                                <span className="text-slate-400 block text-[11px]">Prospectos CRM</span>
-                                <span className="text-lg font-bold text-white">{s.leads?.total || 0}</span>
-                              </div>
-                              <div className="bg-slate-800/60 p-2 rounded-lg">
-                                <span className="text-slate-400 block text-[11px]">Alta Intención</span>
-                                <span className="text-lg font-bold text-emerald-400">
-                                  {s.leads?.qualified || 0}
-                                </span>
-                              </div>
-                              <div className="bg-slate-800/60 p-2 rounded-lg">
-                                <span className="text-slate-400 block text-[11px]">Campañas Activas</span>
-                                <span className="text-lg font-bold text-[#0099ff]">
-                                  {s.campaigns?.active || 0} / {s.campaigns?.total || 0}
-                                </span>
-                              </div>
-                              <div className="bg-slate-800/60 p-2 rounded-lg">
-                                <span className="text-slate-400 block text-[11px]">Posts Prog.</span>
-                                <span className="text-lg font-bold text-amber-400">
-                                  {s.posts?.scheduled || 0}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      if (card.type === "campaigns") {
-                        const { campaigns } = card.data;
-                        return (
-                          <div
-                            key={cidx}
-                            className="bg-[#0b1329] p-3 rounded-xl border border-slate-700/80 space-y-2"
-                          >
-                            <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
-                              <span className="flex items-center gap-1.5">
-                                <Layers className="w-3.5 h-3.5 text-[#0099ff]" />
-                                Secuencias Lineales
-                              </span>
-                            </div>
-                            <div className="space-y-1.5">
-                              {campaigns.map((camp: any) => {
-                                const isActive = camp.status === "active";
-                                return (
-                                  <div
-                                    key={camp.id}
-                                    className="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 border border-slate-700/40 text-xs"
-                                  >
-                                    <div className="min-w-0 pr-2">
-                                      <span className="font-medium text-white block truncate">
-                                        {camp.name}
-                                      </span>
-                                      <span className="text-[10px] text-slate-400">
-                                        Código: {camp.code}
-                                      </span>
-                                    </div>
-                                    <button
-                                      onClick={() =>
-                                        handleToggleCampaign(camp.id, camp.name, camp.status)
-                                      }
-                                      className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition ${
-                                        isActive
-                                          ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30"
-                                          : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
-                                      }`}
-                                    >
-                                      {isActive ? (
-                                        <>
-                                          <PauseCircle className="w-3 h-3" />
-                                          Pausar
-                                        </>
-                                      ) : (
-                                        <>
-                                          <PlayCircle className="w-3 h-3" />
-                                          Activar
-                                        </>
-                                      )}
-                                    </button>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      if (card.type === "post") {
-                        const post = card.data;
-                        return (
-                          <div
-                            key={cidx}
-                            className="bg-[#0b1329] p-3 rounded-xl border border-slate-700/80 space-y-2 text-xs"
-                          >
-                            <div className="flex items-center justify-between font-semibold text-slate-300">
-                              <span className="flex items-center gap-1.5">
-                                <FileText className="w-3.5 h-3.5 text-[#0099ff]" />
-                                {post.title}
-                              </span>
-                              <span
-                                className={`text-[10px] px-2 py-0.5 rounded-full ${
-                                  post.status === "scheduled"
-                                    ? "bg-amber-500/20 text-amber-400"
-                                    : "bg-blue-500/20 text-blue-400"
-                                }`}
-                              >
-                                {post.status === "scheduled" ? "Programado" : "Borrador"}
-                              </span>
-                            </div>
-                            <p className="text-slate-300 line-clamp-3 bg-slate-800/60 p-2 rounded-lg font-mono text-[11px]">
-                              {post.content}
-                            </p>
-                            <div className="flex justify-end gap-2 pt-1">
-                              <Link
-                                href="/viral-posts"
-                                className="flex items-center gap-1 text-[11px] text-[#0099ff] hover:underline"
-                              >
-                                Ver en Viral Post Engine
-                                <ChevronRight className="w-3 h-3" />
-                              </Link>
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      if (card.type === "leads") {
-                        const { leads } = card.data;
-                        return (
-                          <div
-                            key={cidx}
-                            className="bg-[#0b1329] p-3 rounded-xl border border-slate-700/80 space-y-2 text-xs"
-                          >
-                            <div className="flex items-center justify-between font-semibold text-slate-300">
-                              <span className="flex items-center gap-1.5">
-                                <Users className="w-3.5 h-3.5 text-[#0099ff]" />
-                                Prospectos Calificados
-                              </span>
-                            </div>
-                            <div className="space-y-1.5">
-                              {leads.map((l: any) => (
-                                <div
-                                  key={l.id}
-                                  className="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 text-xs"
-                                >
-                                  <div className="min-w-0 pr-2">
-                                    <span className="font-medium text-white block truncate">
-                                      {l.name}
-                                    </span>
-                                    <span className="text-[10px] text-slate-400 block truncate">
-                                      {l.headline}
-                                    </span>
-                                  </div>
-                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
-                                    {l.score} pts
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      if (card.type === "accounts") {
-                        const acc = card.data;
-                        return (
-                          <div
-                            key={cidx}
-                            className="bg-[#0b1329] p-3 rounded-xl border border-slate-700/80 space-y-2 text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Globe className="w-4 h-4 text-[#0099ff]" />
-                              <span className="font-semibold text-white">Estado de LinkedIn</span>
-                            </div>
-                            <div className="p-2 rounded-lg bg-slate-800/60 flex items-center justify-between">
-                              <span className="text-slate-300">Cuentas activas:</span>
-                              <span className="font-bold text-white">
-                                {acc.active} / {acc.total}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      return null;
+                  <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                    {m.text.split("\n").map((line, idx) => {
+                      const formatted = line.split(/(\*\*[^*]+\*\*)/g).map((part, pidx) => {
+                        if (part.startsWith("**") && part.endsWith("**")) {
+                          return (
+                            <strong key={pidx} className="font-semibold text-white">
+                              {part.slice(2, -2)}
+                            </strong>
+                          );
+                        }
+                        return <span key={pidx}>{part}</span>;
+                      });
+                      return (
+                        <React.Fragment key={idx}>
+                          {idx > 0 && <br />}
+                          {formatted}
+                        </React.Fragment>
+                      );
                     })}
                   </div>
-                )}
 
-                <span
-                  className={`block text-[10px] mt-2 ${
-                    isUser ? "text-blue-100" : "text-slate-500"
-                  }`}
-                >
-                  {m.timestamp}
-                </span>
+                  {/* Interactive Cards */}
+                  {m.cards && m.cards.length > 0 && (
+                    <div className="mt-3 space-y-3 pt-2 border-t border-[#0099ff]/15">
+                      {m.cards.map((card, cidx) => {
+                        if (card.type === "summary") {
+                          const s = card.data;
+                          return (
+                            <div
+                              key={cidx}
+                              className="p-3 rounded-xl space-y-2.5"
+                              style={{ background: "rgba(0,153,255,0.06)", border: "1px solid rgba(0,153,255,0.15)" }}
+                            >
+                              <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                                <span className="flex items-center gap-1.5">
+                                  <BarChart3 className="w-3.5 h-3.5 text-[#0099ff]" />
+                                  Métricas Clave
+                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
+                                  En tiempo real
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="p-2 rounded-lg" style={{ background: "rgba(255,255,255,0.05)" }}>
+                                  <span className="text-[#5abaff] block text-[11px]">Prospectos CRM</span>
+                                  <span className="text-lg font-bold text-white">{s.leads?.total || 0}</span>
+                                </div>
+                                <div className="p-2 rounded-lg" style={{ background: "rgba(255,255,255,0.05)" }}>
+                                  <span className="text-[#5abaff] block text-[11px]">Alta Intención</span>
+                                  <span className="text-lg font-bold text-emerald-400">{s.leads?.qualified || 0}</span>
+                                </div>
+                                <div className="p-2 rounded-lg" style={{ background: "rgba(255,255,255,0.05)" }}>
+                                  <span className="text-[#5abaff] block text-[11px]">Campañas Activas</span>
+                                  <span className="text-lg font-bold text-[#0099ff]">{s.campaigns?.active || 0} / {s.campaigns?.total || 0}</span>
+                                </div>
+                                <div className="p-2 rounded-lg" style={{ background: "rgba(255,255,255,0.05)" }}>
+                                  <span className="text-[#5abaff] block text-[11px]">Posts Prog.</span>
+                                  <span className="text-lg font-bold text-amber-400">{s.posts?.scheduled || 0}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        if (card.type === "campaigns") {
+                          const { campaigns } = card.data;
+                          return (
+                            <div key={cidx} className="p-3 rounded-xl space-y-2"
+                              style={{ background: "rgba(0,153,255,0.06)", border: "1px solid rgba(0,153,255,0.15)" }}
+                            >
+                              <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                                <span className="flex items-center gap-1.5">
+                                  <Layers className="w-3.5 h-3.5 text-[#0099ff]" />
+                                  Secuencias Lineales
+                                </span>
+                              </div>
+                              <div className="space-y-1.5">
+                                {campaigns.map((camp: any) => {
+                                  const isActive = camp.status === "active";
+                                  return (
+                                    <div key={camp.id} className="flex items-center justify-between p-2 rounded-lg text-xs"
+                                      style={{ background: "rgba(255,255,255,0.05)" }}
+                                    >
+                                      <div className="min-w-0 pr-2">
+                                        <span className="font-medium text-white block truncate">{camp.name}</span>
+                                        <span className="text-[10px] text-[#5abaff]">Código: {camp.code}</span>
+                                      </div>
+                                      <button
+                                        onClick={() => handleToggleCampaign(camp.id, camp.name, camp.status)}
+                                        className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition ${
+                                          isActive
+                                            ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30"
+                                            : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
+                                        }`}
+                                      >
+                                        {isActive ? (<><PauseCircle className="w-3 h-3" /> Pausar</>) : (<><PlayCircle className="w-3 h-3" /> Activar</>)}
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        if (card.type === "post") {
+                          const post = card.data;
+                          return (
+                            <div key={cidx} className="p-3 rounded-xl space-y-2 text-xs"
+                              style={{ background: "rgba(0,153,255,0.06)", border: "1px solid rgba(0,153,255,0.15)" }}
+                            >
+                              <div className="flex items-center justify-between font-semibold text-slate-300">
+                                <span className="flex items-center gap-1.5">
+                                  <FileText className="w-3.5 h-3.5 text-[#0099ff]" />
+                                  {post.title}
+                                </span>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                                  post.status === "scheduled" ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"
+                                }`}>
+                                  {post.status === "scheduled" ? "Programado" : "Borrador"}
+                                </span>
+                              </div>
+                              <p className="text-slate-300 line-clamp-3 p-2 rounded-lg font-mono text-[11px]"
+                                style={{ background: "rgba(255,255,255,0.05)" }}
+                              >
+                                {post.content}
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        if (card.type === "leads") {
+                          const { leads } = card.data;
+                          return (
+                            <div key={cidx} className="p-3 rounded-xl space-y-2 text-xs"
+                              style={{ background: "rgba(0,153,255,0.06)", border: "1px solid rgba(0,153,255,0.15)" }}
+                            >
+                              <div className="flex items-center justify-between font-semibold text-slate-300">
+                                <span className="flex items-center gap-1.5">
+                                  <Users className="w-3.5 h-3.5 text-[#0099ff]" />
+                                  Prospectos Calificados
+                                </span>
+                              </div>
+                              <div className="space-y-1.5">
+                                {leads.map((l: any) => (
+                                  <div key={l.id} className="flex items-center justify-between p-2 rounded-lg text-xs"
+                                    style={{ background: "rgba(255,255,255,0.05)" }}
+                                  >
+                                    <div className="min-w-0 pr-2">
+                                      <span className="font-medium text-white block truncate">{l.name}</span>
+                                      <span className="text-[10px] text-[#5abaff] block truncate">{l.headline}</span>
+                                    </div>
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
+                                      {l.score} pts
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        if (card.type === "accounts") {
+                          const acc = card.data;
+                          return (
+                            <div key={cidx} className="p-3 rounded-xl space-y-2 text-xs"
+                              style={{ background: "rgba(0,153,255,0.06)", border: "1px solid rgba(0,153,255,0.15)" }}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Globe className="w-4 h-4 text-[#0099ff]" />
+                                <span className="font-semibold text-white">Estado de LinkedIn</span>
+                              </div>
+                              <div className="p-2 rounded-lg flex items-center justify-between"
+                                style={{ background: "rgba(255,255,255,0.05)" }}
+                              >
+                                <span className="text-[#5abaff]">Cuentas activas:</span>
+                                <span className="font-bold text-white">{acc.active} / {acc.total}</span>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return null;
+                      })}
+                    </div>
+                  )}
+
+                  <span className={`block text-[10px] mt-2 ${isUser ? "text-blue-100" : "text-[#5abaff]/60"}`}>
+                    {m.timestamp}
+                  </span>
+                </div>
               </div>
+            );
+          })}
+
+          {isSending && (
+            <div className="flex items-center gap-2 text-xs text-[#5abaff] pl-2">
+              <span className="flex gap-0.5">
+                <span className="w-1.5 h-1.5 bg-[#0099ff]/60 rounded-full animate-bounce [animation-delay:0ms]" />
+                <span className="w-1.5 h-1.5 bg-[#0099ff]/60 rounded-full animate-bounce [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 bg-[#0099ff]/60 rounded-full animate-bounce [animation-delay:300ms]" />
+              </span>
+              InhubBot está pensando...
             </div>
-          );
-        })}
+          )}
 
-        {isSending && (
-          <div className="flex items-center gap-2 text-xs text-slate-400 pl-2">
-            <span className="inline-block w-2 h-2 rounded-full bg-[#0099ff] animate-ping" />
-            <span>InhubBot está pensando...</span>
-          </div>
-        )}
+          <div ref={chatEndRef} />
+        </main>
+      )}
 
-        <div ref={chatEndRef} />
-      </main>
-
-      {/* Suggested Quick Action Chips */}
-      <div className="px-3 py-1.5 overflow-x-auto flex gap-2 no-scrollbar bg-[#0a0f1d] border-t border-slate-800/80">
-        {DEFAULT_QUICK_ACTIONS.map((chip, idx) => (
-          <button
-            key={idx}
-            onClick={() => handleSend(chip)}
-            disabled={isSending || isListening}
-            className="shrink-0 text-xs px-3 py-1.5 rounded-full bg-slate-800/90 text-slate-300 hover:text-white hover:bg-[#0099ff]/20 hover:border-[#0099ff]/40 border border-slate-700/60 transition disabled:opacity-50"
-          >
-            {chip}
-          </button>
-        ))}
-      </div>
+      {/* Quick Action Chips (shown after conversation starts) */}
+      {messages.length > 1 && (
+        <div className="px-3 py-2 overflow-x-auto flex gap-2 no-scrollbar shrink-0 border-t border-[#0099ff]/12">
+          {DEFAULT_QUICK_ACTIONS.map((chip, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleSend(chip)}
+              disabled={isSending || isListening}
+              className="shrink-0 text-xs px-3 py-1.5 rounded-full transition disabled:opacity-50"
+              style={{
+                background: "rgba(0,153,255,0.08)",
+                border: "1px solid rgba(0,153,255,0.2)",
+                color: "#a8d8f8",
+              }}
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Voice Active Listening Notification Bar */}
       {isListening && (
-        <div className="bg-[#0099ff] px-4 py-2 flex items-center justify-between text-white text-xs animate-pulse">
+        <div className="px-4 py-2 flex items-center justify-between text-white text-xs animate-pulse shrink-0"
+          style={{ background: "linear-gradient(135deg, #0099ff, #0070cc)" }}
+        >
           <div className="flex items-center gap-2">
             <Mic className="w-4 h-4" />
             <span className="font-medium">Escuchando tu comando de voz en español...</span>
           </div>
-          <button
-            onClick={toggleListening}
-            className="text-[11px] underline font-bold hover:text-blue-100"
-          >
+          <button onClick={toggleListening} className="text-[11px] underline font-bold hover:text-blue-100">
             Detener
           </button>
         </div>
       )}
 
       {/* Bottom Command Input Bar */}
-      <footer className="p-3 bg-[#0f172a] border-t border-slate-800">
+      <footer className="p-3 shrink-0 border-t border-[#0099ff]/12"
+        style={{ background: "rgba(10,22,40,0.9)" }}
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -662,15 +689,16 @@ export default function InhubBotAppPage() {
               className={`flex items-center justify-center w-11 h-11 rounded-2xl transition shadow-lg shrink-0 ${
                 isListening
                   ? "bg-red-500 text-white animate-bounce shadow-red-500/30"
-                  : "bg-[#0099ff] text-white hover:bg-[#0088e6] shadow-[#0099ff]/25"
+                  : "text-white hover:opacity-90"
               }`}
+              style={!isListening ? { background: "linear-gradient(135deg, #0099ff, #0070cc)", boxShadow: "0 4px 15px rgba(0,153,255,0.3)" } : {}}
               title={isListening ? "Detener escucha" : "Hablar con InhubBot (Voz $0)"}
             >
               {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
             </button>
           ) : (
             <div
-              className="flex items-center justify-center w-11 h-11 rounded-2xl bg-slate-800 text-slate-500 shrink-0"
+              className="flex items-center justify-center w-11 h-11 rounded-2xl bg-white/5 text-slate-500 shrink-0 border border-white/8"
               title="Reconocimiento de voz no soportado en este navegador"
             >
               <MicOff className="w-5 h-5" />
@@ -683,9 +711,13 @@ export default function InhubBotAppPage() {
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder={isListening ? "Escuchando..." : "Escribe un comando o pregunta..."}
+              placeholder={isListening ? "Escuchando..." : "Escribe, habla o comparte..."}
               disabled={isSending || isListening}
-              className="w-full h-11 pl-4 pr-10 rounded-2xl bg-[#1e293b] border border-slate-700/80 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-[#0099ff] focus:ring-1 focus:ring-[#0099ff] transition"
+              className="w-full h-11 pl-4 pr-10 rounded-2xl text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition"
+              style={{
+                background: "rgba(0,153,255,0.08)",
+                border: "1px solid rgba(0,153,255,0.25)",
+              }}
             />
           </div>
 
@@ -693,7 +725,8 @@ export default function InhubBotAppPage() {
           <button
             type="submit"
             disabled={!inputValue.trim() || isSending || isListening}
-            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-[#0099ff] text-white hover:bg-[#0088e6] disabled:opacity-40 disabled:hover:bg-[#0099ff] transition shadow-lg shadow-[#0099ff]/20 shrink-0"
+            className="flex items-center justify-center w-11 h-11 rounded-2xl text-white disabled:opacity-30 transition shadow-lg shrink-0"
+            style={{ background: "linear-gradient(135deg, #0099ff, #0070cc)", boxShadow: "0 4px 15px rgba(0,153,255,0.25)" }}
             title="Enviar mensaje"
           >
             <Send className="w-4 h-4" />
