@@ -279,11 +279,11 @@ export default function InhubBotAppPage() {
   return (
     <div
       className="flex flex-col h-[100dvh] w-full overflow-hidden font-sans text-slate-100"
-      style={{ background: "linear-gradient(170deg, #0a1628 0%, #0d1f3c 55%, #061020 100%)" }}
+      style={{ background: "#000000" }}
     >
       {/* Top Header */}
       <header className="flex items-center justify-between px-4 py-3 shrink-0 border-b border-[#0099ff]/15 backdrop-blur z-20"
-        style={{ background: "rgba(10,22,40,0.85)" }}
+        style={{ background: "rgba(0,0,0,0.85)" }}
       >
         <div className="flex items-center">
           <img
@@ -657,7 +657,7 @@ export default function InhubBotAppPage() {
 
       {/* Bottom Command Input Bar */}
       <footer className="p-3 shrink-0 border-t border-[#0099ff]/12"
-        style={{ background: "rgba(10,22,40,0.9)" }}
+        style={{ background: "rgba(0,0,0,0.9)" }}
       >
         <form
           onSubmit={(e) => {
