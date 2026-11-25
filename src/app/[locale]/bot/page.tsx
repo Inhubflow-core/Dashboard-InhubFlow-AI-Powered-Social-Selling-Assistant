@@ -285,27 +285,12 @@ export default function InhubBotAppPage() {
       <header className="flex items-center justify-between px-4 py-3 shrink-0 border-b border-[#0099ff]/15 backdrop-blur z-20"
         style={{ background: "rgba(10,22,40,0.85)" }}
       >
-        <div className="flex items-center gap-2.5">
-          <div className="relative">
-            <InHubLiveAvatar emotion={emotion} size="sm" />
-            {speechActive && (
-              <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0099ff] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-[#0099ff]"></span>
-              </span>
-            )}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-white tracking-tight">InhubBot</span>
-              <span className="text-[9px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded-md border border-[#0099ff]/30"
-                style={{ background: "rgba(0,153,255,0.12)", color: "#0099ff" }}
-              >
-                AI App
-              </span>
-            </div>
-            <span className="text-[11px] text-[#5abaff]">Social Selling LinkedIn</span>
-          </div>
+        <div className="flex items-center">
+          <img
+            src="/images/logo/inhubflow-icon-light.png"
+            alt="InhubFlow"
+            className="h-9 w-9 object-contain"
+          />
         </div>
 
         {/* Actions Header */}
