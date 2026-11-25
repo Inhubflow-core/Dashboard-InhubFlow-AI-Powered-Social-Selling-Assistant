@@ -8,6 +8,19 @@ const basePath = process.env.BASE_PATH || process.env.NEXT_PUBLIC_BASE_PATH || u
 const nextConfig: NextConfig = {
   ...(basePath ? { basePath } : {}),
   /* config options here */
+  async headers() {
+    return [
+      {
+        // Force browsers to always revalidate the service worker
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Pragma", value: "no-cache" },
+          { key: "Expires", value: "0" },
+        ],
+      },
+    ];
+  },
   webpack(config) {
     config.module.rules.push({
       test: /\.svg$/,
