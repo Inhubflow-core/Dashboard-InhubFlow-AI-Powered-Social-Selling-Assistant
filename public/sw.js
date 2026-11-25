@@ -1,6 +1,6 @@
 // InhubBot Progressive Web App Service Worker
 // Bump version on every deploy to force cache invalidation
-const CACHE_VERSION = "2026-11-25T13-02";
+const CACHE_VERSION = "2026-11-25T13-15";
 const CACHE_NAME = `inhubbot-${CACHE_VERSION}`;
 const STATIC_ASSETS = [
   "/manifest.json",
@@ -14,8 +14,12 @@ self.addEventListener("install", (event) => {
       return cache.addAll(STATIC_ASSETS);
     })
   );
-  // Skip waiting to activate immediately (force update on all clients)
-  self.skipWaiting();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {
