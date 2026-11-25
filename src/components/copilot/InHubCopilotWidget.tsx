@@ -501,23 +501,23 @@ export default function InHubCopilotWidget() {
       {/* ===================================================================== */}
       {isOpen && (
         <div className="mb-2.5 w-[340px] sm:w-[380px] max-h-[min(600px,calc(100dvh-160px))] rounded-3xl overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-3 duration-200 shadow-2xl shadow-black/40"
-          style={{ background: "linear-gradient(160deg, #0d1117 0%, #111827 60%, #0d1117 100%)", border: "1px solid rgba(255,255,255,0.08)" }}
+          style={{ background: "linear-gradient(170deg, #0a1628 0%, #0d1f3c 55%, #061020 100%)", border: "1px solid rgba(0,153,255,0.18)" }}
         >
           {/* ── TOP BAR ── */}
           <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold tracking-widest text-[#0099ff] uppercase">Inhub</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span className="text-xs font-bold tracking-widest text-[#0099ff] uppercase">InhubFlow</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             </div>
             <div className="flex items-center gap-2">
               {accountStatus && (
                 <button
                   type="button"
                   onClick={() => setShowProgressMenu((prev) => !prev)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 text-[11px] font-semibold text-gray-300 transition cursor-pointer border border-white/10"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold text-[#0099ff] transition cursor-pointer border border-[#0099ff]/25 hover:bg-[#0099ff]/10"
                 >
-                  <span className="text-[#0099ff]">{accountStatus.completedStepsCount}/{accountStatus.totalStepsCount}</span>
-                  <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${showProgressMenu ? "rotate-180" : ""}`} />
+                  <span>{accountStatus.completedStepsCount}/{accountStatus.totalStepsCount}</span>
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showProgressMenu ? "rotate-180" : ""}`} />
                 </button>
               )}
               <button
@@ -555,29 +555,40 @@ export default function InHubCopilotWidget() {
             </div>
           )}
 
-          {/* ── GEMINI HERO: Avatar + greeting (only shown before conversation grows) ── */}
+          {/* ── GEMINI HERO: greeting → avatar → chips (only shown before conversation grows) ── */}
           {messages.length <= 1 && !isSending && (
-            <div className="flex flex-col items-center pt-4 pb-5 px-4 shrink-0">
-              {/* Inhub bot with glow halo */}
-              <div className="relative mb-5">
-                <div
-                  className="absolute inset-0 rounded-full blur-2xl opacity-50"
-                  style={{ background: "radial-gradient(circle, #0099ff 0%, #6366f1 50%, transparent 80%)", transform: "scale(1.6)" }}
-                />
-                <InHubLiveAvatar emotion={emotion} size="xl" hideStatusDot />
-              </div>
-
-              {/* Greeting text */}
-              <h2 className="text-2xl font-bold text-white tracking-tight mb-1">
+            <div className="flex flex-col items-center pt-5 pb-4 px-4 shrink-0">
+              {/* 1. Greeting text at top */}
+              <h2 className="text-[22px] font-bold text-white tracking-tight mb-0.5 text-center">
                 {locale === "pt-BR" ? "Olá!" : locale === "en" ? "Hello!" : "¡Hola!"}
               </h2>
-              <p className="text-sm text-gray-400 text-center leading-snug">
+              <p className="text-sm text-[#5abaff] text-center leading-snug mb-6">
                 {locale === "pt-BR"
                   ? "Como posso ajudar você hoje?"
                   : locale === "en"
                   ? "How can I help you today?"
                   : "¿En qué puedo ayudarte hoy?"}
               </p>
+
+              {/* 2. Inhub bot avatar centered with radial glow */}
+              <div className="relative mb-6">
+                {/* Outer glow rings */}
+                <div
+                  className="absolute inset-0 rounded-full blur-3xl"
+                  style={{
+                    background: "radial-gradient(circle, rgba(0,153,255,0.45) 0%, rgba(0,153,255,0.12) 55%, transparent 80%)",
+                    transform: "scale(2.2)",
+                  }}
+                />
+                <div
+                  className="absolute inset-0 rounded-full blur-xl"
+                  style={{
+                    background: "radial-gradient(circle, rgba(99,102,241,0.3) 0%, transparent 70%)",
+                    transform: "scale(1.7)",
+                  }}
+                />
+                <InHubLiveAvatar emotion={emotion} size="xl" hideStatusDot />
+              </div>
             </div>
           )}
 
@@ -633,7 +644,7 @@ export default function InHubCopilotWidget() {
             </div>
           )}
 
-          {/* ── QUICK-ACTION CHIPS (Gemini style, icons + labels) ── */}
+          {/* ── QUICK-ACTION CHIPS (InhubFlow brand, icons + labels) ── */}
           {messages.length <= 1 && trainingStep === "idle" && !isSending && (
             <div className="px-4 pb-4 grid grid-cols-2 gap-2 shrink-0">
               {[
@@ -646,7 +657,22 @@ export default function InHubCopilotWidget() {
                   key={idx}
                   type="button"
                   onClick={() => idx === 3 ? setShowProgressMenu(true) : sendMessage(chip.label)}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/8 text-gray-300 hover:text-white text-[11px] font-medium transition cursor-pointer text-left leading-snug"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-2xl text-[11px] font-medium transition cursor-pointer text-left leading-snug"
+                  style={{
+                    background: "rgba(0,153,255,0.07)",
+                    border: "1px solid rgba(0,153,255,0.2)",
+                    color: "#a8d8f8",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,153,255,0.16)";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,153,255,0.45)";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,153,255,0.07)";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,153,255,0.2)";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#a8d8f8";
+                  }}
                 >
                   <span className="text-[#0099ff] shrink-0">{chip.icon}</span>
                   <span className="line-clamp-2">{chip.label}</span>
@@ -655,17 +681,17 @@ export default function InHubCopilotWidget() {
             </div>
           )}
 
-          {/* ── INPUT BAR ── */}
+          {/* ── INPUT BAR (InhubFlow brand) ── */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               sendMessage(inputValue);
             }}
-            className="shrink-0 px-3 pb-3"
+            className="shrink-0 px-3 pb-4"
           >
             <div
               className="flex items-center gap-2 rounded-full px-4 py-2.5"
-              style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)" }}
+              style={{ background: "rgba(0,153,255,0.08)", border: "1px solid rgba(0,153,255,0.25)" }}
             >
               <input
                 type="text"
@@ -680,13 +706,14 @@ export default function InHubCopilotWidget() {
                     ? "Digite, fale ou compartilhe..."
                     : "Escribe, habla o comparte..."
                 }
-                className="flex-1 bg-transparent text-gray-200 placeholder-gray-500 text-xs focus:outline-none"
+                className="flex-1 bg-transparent text-white placeholder-[#4a7fa0] text-xs focus:outline-none"
               />
               <button
                 type="submit"
                 disabled={!inputValue.trim() || isSending}
                 aria-label="Enviar"
-                className="w-8 h-8 rounded-full bg-[#0099ff] hover:bg-[#0082db] disabled:opacity-30 text-white flex items-center justify-center transition cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-full text-white flex items-center justify-center transition cursor-pointer shrink-0 disabled:opacity-30"
+                style={{ background: "linear-gradient(135deg, #0099ff, #0070cc)" }}
               >
                 <Send className="w-3.5 h-3.5" />
               </button>
