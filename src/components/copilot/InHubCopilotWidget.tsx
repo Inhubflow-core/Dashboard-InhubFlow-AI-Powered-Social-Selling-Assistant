@@ -2,7 +2,7 @@
 
 import type { CopilotAccountStatus } from "@/app/api/copilot/status/route";
 import type { TrainingDraft, TrainingStep } from "@/app/api/copilot/chat/route";
-import { usePathname, useRouter } from "@/i18n/navigation";
+import { usePathname } from "@/i18n/navigation";
 import {
   getRouteCopilotContext,
   normalizeCopilotLocale,
@@ -144,7 +144,6 @@ export default function InHubCopilotWidget() {
   const rawLocale = useLocale();
   const locale = normalizeCopilotLocale(rawLocale);
   const pathname = usePathname() || "/";
-  const router = useRouter();
   const labels = UI_LABELS[locale];
 
   const routeCtx = useMemo(
@@ -386,13 +385,13 @@ export default function InHubCopilotWidget() {
   );
 
   const handleActionClick = (act: CopilotActionLink) => {
+    // El bot nunca navega — solo ejecuta acciones internas de chat
     if (act.actionType === "start_training" || act.href === "#train") {
       sendMessage(labels.trainNowBtn.replace(" →", ""), {
         triggerAction: "start_training",
       });
-      return;
     }
-    router.push(act.href);
+    // Cualquier otra acción con href externo: el bot la ignora y no navega
   };
 
   const handleDismissBubble = (e: React.MouseEvent) => {
@@ -402,13 +401,14 @@ export default function InHubCopilotWidget() {
   };
 
   const proactiveConfig = useMemo(() => {
+    // El bot nunca navega al dashboard — solo abre el chat para dar contexto
     if (accountStatus && !accountStatus.hasLinkedInAccount && routeCtx.routeKey === "dashboard") {
       return {
         text: labels.onboardingMissingLinkedIn,
-        ctaLabel: labels.startNowBtn,
+        ctaLabel: labels.yesExplainBtn,
         onCta: () => {
           setShowProactiveBubble(false);
-          router.push("/linkedin-accounts");
+          sendMessage(labels.startNowBtn.replace(" →", ""));
         },
       };
     }
@@ -437,7 +437,7 @@ export default function InHubCopilotWidget() {
         sendMessage(routeCtx.quickChips[0] || "¿Cómo funciona esta sección?");
       },
     };
-  }, [accountStatus, routeCtx, labels, router, sendMessage]);
+  }, [accountStatus, routeCtx, labels, sendMessage]);
 
   const hasPendingOnboarding =
     accountStatus !== null &&
@@ -448,10 +448,12 @@ export default function InHubCopilotWidget() {
         {
           label: labels.stepLinkedIn,
           done: accountStatus.hasLinkedInAccount,
-          onClick: () => {
-            setShowProgressMenu(false);
-            router.push("/linkedin-accounts");
-          },
+          // Bot no navega: le dice al usuario dónde ir
+          onClick: () => sendMessage(
+            locale === "en" ? "How do I connect my LinkedIn account?"
+            : locale === "pt-BR" ? "Como conecto minha conta do LinkedIn?"
+            : "¿Cómo conecto mi cuenta de LinkedIn?"
+          ),
         },
         {
           label: labels.stepTrain,
@@ -464,26 +466,29 @@ export default function InHubCopilotWidget() {
         {
           label: labels.stepPosts,
           done: accountStatus.viralPostsCount > 0,
-          onClick: () => {
-            setShowProgressMenu(false);
-            router.push("/viral-posts");
-          },
+          onClick: () => sendMessage(
+            locale === "en" ? "How do I create a viral post?"
+            : locale === "pt-BR" ? "Como crio um post viral?"
+            : "¿Cómo creo un post viral?"
+          ),
         },
         {
           label: labels.stepSignals,
           done: accountStatus.signalMonitorsCount > 0,
-          onClick: () => {
-            setShowProgressMenu(false);
-            router.push("/signals");
-          },
+          onClick: () => sendMessage(
+            locale === "en" ? "How does Signal Radar work?"
+            : locale === "pt-BR" ? "Como funciona o Signal Radar?"
+            : "¿Cómo funciona el Signal Radar?"
+          ),
         },
         {
           label: labels.stepCampaigns,
           done: accountStatus.campaignsCount > 0,
-          onClick: () => {
-            setShowProgressMenu(false);
-            router.push("/campaigns");
-          },
+          onClick: () => sendMessage(
+            locale === "en" ? "How do I create a campaign?"
+            : locale === "pt-BR" ? "Como crio uma campanha?"
+            : "¿Cómo creo una campaña?"
+          ),
         },
       ]
     : [];
