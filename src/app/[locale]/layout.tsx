@@ -35,10 +35,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/images/logo/inhubflow-icon-dark.png", type: "image/png" },
+      { url: "/images/logo/pwa-icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/images/logo/pwa-icon-512.png", sizes: "512x512", type: "image/png" },
     ],
-    shortcut: "/images/logo/inhubflow-icon-dark.png",
-    apple: "/images/logo/inhubflow-icon-dark.png",
+    shortcut: "/images/logo/pwa-icon-192.png",
+    apple: "/images/logo/pwa-icon-192.png",
   },
 };
 
