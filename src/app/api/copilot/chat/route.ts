@@ -21,6 +21,12 @@ export interface TrainingDraft {
   icpAndBookingLink?: string;
 }
 
+interface ApprovalData {
+  type: "post" | "connection" | "comment" | "message";
+  preview: string;
+  target?: string;
+}
+
 interface ChatRequestBody {
   message?: string;
   pathname?: string;
@@ -29,6 +35,49 @@ interface ChatRequestBody {
   trainingDraft?: TrainingDraft;
   triggerAction?: "start_training" | "check_account" | "explain_section";
   history?: Array<{ role: "user" | "model" | "assistant"; text?: string; content?: string }>;
+  imageBase64?: string;
+  imageMimeType?: string;
+}
+
+/** Detect if the user intends to execute a real LinkedIn action */
+function detectLinkedInAction(msg: string): ApprovalData | null {
+  const lower = msg.toLowerCase();
+
+  const isPost =
+    /\b(publica|publicar|post|postear|publish|postar|crear post|crea un post|genera un post|redact|escribe un post|crea una publicaci[oó]n)\b/i.test(lower);
+  const isConnection =
+    /\b(solicitud de conexi[oó]n|conecta con|envía una invitaci[oó]n|enviar invitaci[oó]n|connect with|send connection|send invite)\b/i.test(lower);
+  const isComment =
+    /\b(comenta|comentar|deja un comentario|leave a comment|post a comment)\b/i.test(lower);
+  const isMessage =
+    /\b(env[íi]a un mensaje|manda un mensaje|manda un dm|send a message|send dm|enviar mensaje)\b/i.test(lower);
+
+  if (isPost) {
+    return {
+      type: "post",
+      preview: `📝 Propuesta de publicación generada por Inhub basada en: "${msg.slice(0, 120)}..."`,
+    };
+  }
+  if (isConnection) {
+    return {
+      type: "connection",
+      preview: `Hola [Nombre], vi tu perfil y me gustaría conectar contigo. Creo que podemos generar valor mutuamente. ¿Te parece bien?`,
+    };
+  }
+  if (isComment) {
+    return {
+      type: "comment",
+      preview: `Excelente punto. En nuestra experiencia trabajando con empresas similares, hemos visto que esta estrategia puede triplicar los resultados en menos de 90 días. ¡Gracias por compartir!`,
+    };
+  }
+  if (isMessage) {
+    return {
+      type: "message",
+      preview: `Hola [Nombre], vi que te interesa [tema relevante]. En [Tu Empresa] hemos ayudado a empresas como la tuya a [resultado específico]. ¿Tienes 15 minutos esta semana para explorarlo juntos?`,
+    };
+  }
+
+  return null;
 }
 
 function saveCompanyTrainingToKnowledgeBase(draft: Required<TrainingDraft>, locale: CopilotLocale) {
@@ -549,10 +598,55 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================================================
+    // 4.5 HUMAN-IN-THE-LOOP: Detectar acciones LinkedIn que requieren aprobación
+    // =========================================================================
+    if (rawMsg && currentStep === "idle") {
+      const actionData = detectLinkedInAction(rawMsg);
+      if (actionData) {
+        const replyMap: Record<CopilotLocale, string> = {
+          es: `Aquí está mi propuesta para **${
+            actionData.type === "post" ? "publicar en LinkedIn"
+            : actionData.type === "connection" ? "enviar una solicitud de conexión"
+            : actionData.type === "comment" ? "dejar un comentario"
+            : "enviar un mensaje"
+          }**. ¿La apruebas antes de ejecutarla?`,
+          en: `Here is my proposal to **${
+            actionData.type === "post" ? "publish on LinkedIn"
+            : actionData.type === "connection" ? "send a connection request"
+            : actionData.type === "comment" ? "leave a comment"
+            : "send a message"
+          }**. Do you approve before I execute it?`,
+          "pt-BR": `Aqui está minha proposta para **${
+            actionData.type === "post" ? "publicar no LinkedIn"
+            : actionData.type === "connection" ? "enviar uma solicitação de conexão"
+            : actionData.type === "comment" ? "deixar um comentário"
+            : "enviar uma mensagem"
+          }**. Você aprova antes de executar?`,
+        };
+
+        return NextResponse.json({
+          ok: true,
+          reply: replyMap[locale],
+          approvalRequired: true,
+          approvalData: actionData,
+          emotion: "thinking",
+          trainingStep: "idle",
+          actions: [],
+        });
+      }
+    }
+
+    // =========================================================================
     // 5. MOTOR COGNITIVO GEMINI 3.6-FLASH: SOCIO COMERCIAL Y CONSULTOR B2B
     // =========================================================================
     const snap = getQuickAccountSnapshot();
-    const systemPrompt = `Eres "Inhub", la Inteligencia Artificial oficial (potenciada con Google Gemini) y el Asistente SDR / Copiloto de Crecimiento Comercial dentro de InhubFlow Social Selling Suite.
+
+    // If image was sent, note it in the prompt context
+    const imageContext = body.imageBase64
+      ? `\n\n[CONTEXTO: El usuario ha compartido una imagen/archivo adjunto (tipo: ${body.imageMimeType || "desconocido"}). Acúsale recibo de forma natural y ofrece ayuda relacionada con lo que podría mostrar esa imagen en el contexto de LinkedIn y Social Selling.]`
+      : "";
+
+    const systemPrompt = `Eres "Inhub", la Inteligencia Artificial oficial (potenciada con Google Gemini) y el Asistente SDR / Copiloto de Crecimiento Comercial dentro de InhubFlow Social Selling Suite.${imageContext}
 
 TU IDENTIDAD, ALMA Y PERSONALIDAD:
 - Hablas con la inteligencia, dinamismo, empatía y adaptabilidad de Gemini, pero con una especialización profunda en:
