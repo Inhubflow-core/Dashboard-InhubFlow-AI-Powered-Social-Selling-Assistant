@@ -1,6 +1,6 @@
 // InhubBot Progressive Web App Service Worker
 // Bump version on every deploy to force cache invalidation
-const CACHE_VERSION = "2026-11-25T14-26";
+const CACHE_VERSION = "2026-11-25T15-40";
 const CACHE_NAME = `inhubbot-${CACHE_VERSION}`;
 const STATIC_ASSETS = [
   "/manifest.json",

@@ -692,8 +692,11 @@ ESTADO EN TIEMPO REAL DE LA CUENTA DEL USUARIO:
 - Campañas activas: ${snap.campaigns}
 - Pantalla actual: ${routeCtx.sectionTitle} (${pathname})`;
 
-    // Construir historial multi-turno ordenado para Gemini
-    const conversationTurns: Array<{ role: "user" | "model"; parts: [{ text: string }] }> = [];
+    // Construir historial multi-turno ordenado para Gemini (incluyendo imagen inline_data si fue adjuntada)
+    type GeminiPart =
+      | { text: string }
+      | { inline_data: { mime_type: string; data: string } };
+    const conversationTurns: Array<{ role: "user" | "model"; parts: GeminiPart[] }> = [];
     if (Array.isArray(body.history) && body.history.length > 0) {
       for (const h of body.history.slice(-6)) {
         const text = String(h.text || h.content || "").trim();
@@ -701,21 +704,34 @@ ESTADO EN TIEMPO REAL DE LA CUENTA DEL USUARIO:
         const role = h.role === "user" ? "user" : "model";
         const lastTurn = conversationTurns[conversationTurns.length - 1];
         if (lastTurn && lastTurn.role === role) {
-          lastTurn.parts[0].text += `\n${text}`;
+          lastTurn.parts.push({ text });
         } else {
           conversationTurns.push({ role, parts: [{ text }] });
         }
       }
     }
 
+    const userParts: GeminiPart[] = [];
+    if (body.imageBase64 && body.imageMimeType) {
+      userParts.push({
+        inline_data: {
+          mime_type: body.imageMimeType,
+          data: body.imageBase64,
+        },
+      });
+    }
+    userParts.push({
+      text: rawMsg || "Analiza la imagen adjunta y propón cómo aprovecharla en Social Selling / LinkedIn.",
+    });
+
     const lastTurn = conversationTurns[conversationTurns.length - 1];
     if (lastTurn && lastTurn.role === "user") {
-      lastTurn.parts[0].text += `\n\n${rawMsg}`;
+      lastTurn.parts.push(...userParts);
     } else {
-      conversationTurns.push({ role: "user", parts: [{ text: rawMsg }] });
+      conversationTurns.push({ role: "user", parts: userParts });
     }
 
-    // 1. LLAMADA PRINCIPAL A GOOGLE GEMINI (3.6-flash / 3.5-flash)
+    // 1. LLAMADA PRINCIPAL A GOOGLE GEMINI (Multimodal Visión + Texto)
     const geminiKey = (
       process.env.GEMINI_API_KEY ||
       process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
@@ -723,16 +739,17 @@ ESTADO EN TIEMPO REAL DE LA CUENTA DEL USUARIO:
       ""
     ).trim();
 
-    if (geminiKey && rawMsg) {
+    if (geminiKey && (rawMsg || body.imageBase64)) {
       const configuredModel = (process.env.GEMINI_MODEL || "").trim();
       const candidateModels = Array.from(
         new Set(
           [
             configuredModel,
+            "gemini-2.5-flash",
+            "gemini-flash-latest",
             "gemini-3.6-flash",
             "gemini-3.5-flash",
             "gemini-3.8-flash",
-            "gemini-flash-latest",
           ].filter(Boolean)
         )
       );
@@ -793,7 +810,11 @@ ESTADO EN TIEMPO REAL DE LA CUENTA DEL USUARIO:
               { role: "system", content: systemPrompt },
               ...conversationTurns.map((c) => ({
                 role: c.role === "model" ? "assistant" : "user",
-                content: c.parts[0].text,
+                content:
+                  c.parts
+                    .map((p) => ("text" in p ? p.text : ""))
+                    .filter(Boolean)
+                    .join("\n") || "[Imagen adjunta]",
               })),
             ],
             temperature: 0.7,
