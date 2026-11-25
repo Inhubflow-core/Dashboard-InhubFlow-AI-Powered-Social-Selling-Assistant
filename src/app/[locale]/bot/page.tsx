@@ -320,10 +320,10 @@ export default function InhubBotAppPage() {
       {messages.length <= 1 && !isSending && (
         <div className="flex flex-col items-center justify-center flex-1 min-h-0 overflow-y-auto px-6 py-4">
           {/* 1. Greeting text */}
-          <h1 className="text-3xl sm:text-4xl font-light text-white tracking-tight mb-1 text-center">
+          <h1 className="text-[28px] sm:text-4xl font-light text-white tracking-tight mb-1 text-center">
             ¡Hola!
           </h1>
-          <p className="text-base sm:text-lg font-light text-white text-center leading-snug mb-8">
+          <p className="text-[18px] sm:text-lg font-light text-white text-center leading-snug mb-8">
             ¿En qué puedo ayudarte hoy?
           </p>
 
