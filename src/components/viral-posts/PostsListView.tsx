@@ -2,7 +2,11 @@
 
 import ComponentCard from "@/components/common/ComponentCard";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import { useCreatedPosts } from "@/lib/viral-posts/store";
+import {
+  setPostToEditInStudio,
+  setSelectedTemplateForModeling,
+  useCreatedPosts,
+} from "@/lib/viral-posts/store";
 import type { CreatedPost, PostFormat, PostStatus } from "@/lib/viral-posts/types";
 import { useSignalRadar, upsertLevel1MonitorFromPost } from "@/lib/signals/store";
 import type { SignalLeadItem } from "@/lib/signals/types";
@@ -11,6 +15,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useTranslations } from "next-intl";
 import { getActiveAccountForUser } from "@/lib/unipile/store";
 import { Link } from "@/i18n/navigation";
+import { useRouter } from "next/navigation";
 import { ExternalLink, Pencil, RefreshCw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -86,6 +91,7 @@ export default function PostsListView({
   hideBreadcrumb?: boolean;
 } = {}) {
   const t = useTranslations("viralPosts.list");
+  const router = useRouter();
   const { posts, isLoaded, updatePost, deletePost } = useCreatedPosts();
   const { l1Monitors, updateLevel1Monitor, recordDiscoveredLeads } = useSignalRadar();
   const { lists: allLeadLists, leads: crmLeads, importSignalLeads, getOrCreateLevel1List } = useLeadsStore();
@@ -97,32 +103,14 @@ export default function PostsListView({
   const [isSyncingMetrics, setIsSyncingMetrics] = useState(false);
   const [feedback, setFeedback] = useState<{ id: string; type: "success" | "error"; message: string } | null>(null);
 
-  // Estados para modal de edición
-  const [editingPost, setEditingPost] = useState<CreatedPost | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editKeyword, setEditKeyword] = useState("");
-  const [editContent, setEditContent] = useState("");
-
   const handleOpenEdit = (post: CreatedPost) => {
-    setEditingPost(post);
-    setEditTitle(post.title || "");
-    setEditKeyword(post.leadMagnetKeyword || "");
-    setEditContent(post.content || "");
-  };
-
-  const handleSaveEditPost = () => {
-    if (!editingPost) return;
-    updatePost(editingPost.id, {
-      title: editTitle.trim(),
-      leadMagnetKeyword: editKeyword.trim().toUpperCase(),
-      content: editContent.trim(),
-    });
-    setEditingPost(null);
-    setFeedback({
-      id: editingPost.id,
-      type: "success",
-      message: t("updatedSuccess"),
-    });
+    setSelectedTemplateForModeling(null);
+    setPostToEditInStudio(post);
+    if (onTabChange) {
+      onTabChange("create");
+    } else {
+      router.push("/viral-posts?tab=create");
+    }
   };
 
   const syncAllPublishedPostsMetrics = useCallback(
@@ -696,82 +684,6 @@ export default function PostsListView({
           </div>
         )}
       </ComponentCard>
-
-      {/* Modal para {t("editModalTitle")} */}
-      {editingPost && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-gray-900 border border-gray-300 dark:border-gray-800 space-y-4">
-            <div className="flex items-center justify-between border-b border-gray-300 pb-3 dark:border-gray-800">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                {t("editModalTitle")}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setEditingPost(null)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  {t("editTitleLabel")}
-                </label>
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  {t("editKeywordLabel")}
-                </label>
-                <input
-                  type="text"
-                  value={editKeyword}
-                  onChange={(e) => setEditKeyword(e.target.value.toUpperCase())}
-                  placeholder={t("editKeywordPlaceholder")}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs font-mono font-semibold focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  {t("editContentLabel")}
-                </label>
-                <textarea
-                  rows={5}
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  className="custom-scrollbar w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-sans leading-relaxed focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-300 dark:border-gray-800">
-              <button
-                type="button"
-                onClick={() => setEditingPost(null)}
-                className="rounded-lg border border-gray-300 px-3.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveEditPost}
-                className="rounded-lg bg-brand-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 transition"
-              >
-                Guardar Cambios
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

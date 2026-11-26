@@ -7,6 +7,7 @@ import type { CreatedPost, PostFormat, ViralPostTemplate } from "./types";
 const TEMPLATES_KEY = "inhubflow_viral_templates";
 const CREATED_POSTS_KEY = "inhubflow_created_posts";
 const SELECTED_FOR_MODELING_KEY = "inhubflow_modeling_template";
+const EDITING_POST_KEY = "inhubflow_editing_created_post";
 export const CREATED_POSTS_CHANGE_EVENT = "inhubflow_created_posts_changed";
 
 function enrichTemplateWithVirality(t: ViralPostTemplate): ViralPostTemplate {
@@ -166,6 +167,25 @@ export function getSelectedTemplateForModeling(): ViralPostTemplate | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(SELECTED_FOR_MODELING_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setPostToEditInStudio(post: CreatedPost | null): void {
+  if (typeof window === "undefined") return;
+  if (!post) {
+    localStorage.removeItem(EDITING_POST_KEY);
+  } else {
+    localStorage.setItem(EDITING_POST_KEY, JSON.stringify(post));
+  }
+}
+
+export function getPostToEditInStudio(): CreatedPost | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(EDITING_POST_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;

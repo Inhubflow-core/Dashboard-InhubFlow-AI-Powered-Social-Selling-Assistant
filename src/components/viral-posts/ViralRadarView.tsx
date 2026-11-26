@@ -22,6 +22,7 @@ import {
 } from "@/lib/viral-posts/filters";
 import {
   setSelectedTemplateForModeling,
+  setPostToEditInStudio,
   getStoredRadarState,
   saveStoredRadarState,
   generateMonthScheduleDates,
@@ -516,6 +517,7 @@ export default function ViralRadarView({
   }, [livePosts, selectedFormat, viralityTierFilter, excludeJobs]);
 
   const handleModelWithAi = (post: ViralPostTemplate) => {
+    setPostToEditInStudio(null);
     setSelectedTemplateForModeling(post);
     if (onTabChange) {
       onTabChange("create");

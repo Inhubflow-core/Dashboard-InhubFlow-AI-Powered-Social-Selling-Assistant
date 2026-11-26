@@ -14,7 +14,9 @@ import { exportCarouselToPdf } from "@/lib/viral-posts/carousel-exporter";
 import { getStoredKnowledgeSources } from "@/lib/sdr/store";
 import { upsertLevel1MonitorFromPost } from "@/lib/signals/store";
 import {
+  getPostToEditInStudio,
   getSelectedTemplateForModeling,
+  setPostToEditInStudio,
   setSelectedTemplateForModeling,
   useCreatedPosts,
 } from "@/lib/viral-posts/store";
@@ -134,7 +136,11 @@ export default function CreateViralPostView({
   const t = useTranslations("viralPosts.create");
   const router = useRouter();
   const { currentUser } = useAuth();
-  const { addPost } = useCreatedPosts();
+  const { addPost, updatePost } = useCreatedPosts();
+
+  // Modo edición cuando se abre una publicación existente desde Publicaciones
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingScheduledIso, setEditingScheduledIso] = useState<string | undefined>(undefined);
 
   // 1. Selector de 3 Vías de Entrada (Origen del Post) — inicialización determinista SSR/cliente
   const [sourceMode, setSourceMode] = useState<"viral" | "external" | "scratch">("scratch");
@@ -255,7 +261,7 @@ export default function CreateViralPostView({
     return () => window.removeEventListener("storage", syncAccounts);
   }, [currentUser]);
 
-  // Carga inicial según URL, plantilla de Radar o borrador previo (evita hydration mismatch)
+  // Carga inicial según URL, publicación en edición, plantilla de Radar o borrador previo
   useEffect(() => {
     const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
     const tab = params?.get("tab")?.toLowerCase();
@@ -265,6 +271,44 @@ export default function CreateViralPostView({
       setSourceMode("scratch");
     } else if (tab === "external") {
       setSourceMode("external");
+    }
+
+    const postToEdit = getPostToEditInStudio();
+    if (!hasExplicitTabOverride && postToEdit) {
+      setEditingPostId(postToEdit.id);
+      setEditingScheduledIso(postToEdit.scheduledAt);
+      setSourceMode(postToEdit.sourceMode || "scratch");
+      setFormat(postToEdit.format || "text");
+      setContent(postToEdit.content || "");
+      if (postToEdit.targetAccountId) setSelectedAccountId(postToEdit.targetAccountId);
+      if (postToEdit.leadMagnetKeyword) setLeadMagnetKeyword(postToEdit.leadMagnetKeyword);
+      setAutoDmEnabled(Boolean(postToEdit.autoDmEnabled || postToEdit.leadMagnetKeyword));
+      if (postToEdit.autoDmMessage) setAutoDmMessage(postToEdit.autoDmMessage);
+      if (postToEdit.autoLikeComment !== undefined) setAutoLikeComment(postToEdit.autoLikeComment);
+      if (postToEdit.coverImage || postToEdit.mediaUrl) {
+        setPreviewImage(postToEdit.coverImage || postToEdit.mediaUrl || null);
+      }
+      if (postToEdit.imagePrompt) setImagePrompt(postToEdit.imagePrompt);
+      if (postToEdit.carouselPdfUrl) setCarouselPdfUrl(postToEdit.carouselPdfUrl);
+      if (postToEdit.carouselPageCount) setCarouselPageCount(postToEdit.carouselPageCount);
+      if (postToEdit.carouselThumbnail) setCarouselThumbnail(postToEdit.carouselThumbnail);
+      if (Array.isArray(postToEdit.carouselSlides) && postToEdit.carouselSlides.length > 0) {
+        setSlides(postToEdit.carouselSlides);
+      }
+      if (postToEdit.carouselTheme) setCarouselTheme(postToEdit.carouselTheme);
+      if (postToEdit.scheduledAt) {
+        const dt = new Date(postToEdit.scheduledAt);
+        if (!Number.isNaN(dt.getTime())) {
+          const yyyy = dt.getFullYear();
+          const mm = String(dt.getMonth() + 1).padStart(2, "0");
+          const dd = String(dt.getDate()).padStart(2, "0");
+          const hh = String(dt.getHours()).padStart(2, "0");
+          const min = String(dt.getMinutes()).padStart(2, "0");
+          setScheduledDate(`${yyyy}-${mm}-${dd}`);
+          setScheduledTime(`${hh}:${min}`);
+        }
+      }
+      return;
     }
 
     const selected = getSelectedTemplateForModeling();
@@ -312,7 +356,8 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
 
 ¿Cuál ha sido tu mayor reto de prospección este trimestre? Comenta "${leadMagnetKeyword}" y te envío el recurso completo.`);
     }
-  }, [leadMagnetKeyword]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Manejo de apertura / cierre del Editor Visual sincronizado con URL
   useEffect(() => {
@@ -505,8 +550,15 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
       }
     }
 
-    const newPost: CreatedPost = {
-      id: `post-${Date.now()}`,
+    const resolvedScheduledAt =
+      status === "scheduled"
+        ? customScheduledAt || editingScheduledIso || new Date(Date.now() + 86400000).toISOString()
+        : editingPostId
+        ? editingScheduledIso
+        : undefined;
+
+    const postPayload: CreatedPost = {
+      id: editingPostId || `post-${Date.now()}`,
       title: content.split("\n")[0].substring(0, 70) || `Publicación sobre ${topic}`,
       format,
       content,
@@ -526,18 +578,24 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
       status,
       targetAccountId: selectedAccountId,
       linkedinPostId,
-      scheduledAt:
-        status === "scheduled" ? (customScheduledAt || new Date(Date.now() + 86400000).toISOString()) : undefined,
+      scheduledAt: resolvedScheduledAt,
       publishedAt: status === "published" ? new Date().toISOString() : undefined,
       createdAt: new Date().toISOString(),
       metrics:
         status === "published" ? { likes: 0, comments: 0, impressions: 0, leadsCaptured: 0 } : undefined,
     };
 
-    addPost(newPost);
-    if (autoDmEnabled) {
-      upsertLevel1MonitorFromPost(newPost);
+    if (editingPostId) {
+      updatePost(editingPostId, postPayload);
+    } else {
+      addPost(postPayload);
     }
+    if (autoDmEnabled) {
+      upsertLevel1MonitorFromPost(postPayload);
+    }
+    setPostToEditInStudio(null);
+    setEditingPostId(null);
+    setEditingScheduledIso(undefined);
     setSelectedTemplateForModeling(null);
 
     if (onTabChange) {
@@ -554,6 +612,31 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
   return (
     <div className="w-full space-y-6">
       {!hideBreadcrumb && <PageBreadcrumb pageTitle="Creador de Publicaciones LinkedIn" />}
+
+      {/* Banner informativo cuando se edita una publicación existente */}
+      {editingPostId && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
+          <span>
+            <strong>Editando publicación:</strong> puedes modificar el texto, agregar una imagen o carrusel PDF, activar palabra clave y guardar los cambios.
+            {editingScheduledIso && (
+              <span className="ml-1.5 font-semibold">
+                (Programada: {new Date(editingScheduledIso).toLocaleDateString()} {new Date(editingScheduledIso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})
+              </span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setPostToEditInStudio(null);
+              setEditingPostId(null);
+              setEditingScheduledIso(undefined);
+            }}
+            className="rounded-lg border border-blue-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300 transition cursor-pointer"
+          >
+            Salir de edición
+          </button>
+        </div>
+      )}
 
       {/* Alerta de Feedback */}
       {publishFeedback && (
@@ -1230,26 +1313,36 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
                 <button
                   type="button"
                   onClick={() => handleSavePost("draft")}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
                 >
                   Guardar Borrador
                 </button>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                  {editingPostId && editingScheduledIso && (
+                    <button
+                      type="button"
+                      onClick={() => handleSavePost("scheduled", editingScheduledIso)}
+                      className="flex-1 sm:flex-initial px-4 py-2.5 rounded-lg border border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <span>Guardar Cambios</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => setShowScheduleModal(true)}
-                    className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-[#0099ff] text-[#0099ff] text-xs font-bold hover:bg-blue-50 dark:hover:bg-blue-950/30 transition flex items-center justify-center gap-1.5"
+                    className="flex-1 sm:flex-initial px-4 py-2.5 rounded-lg border border-[#0099ff] text-[#0099ff] text-xs font-semibold hover:bg-blue-50 dark:hover:bg-blue-950/30 transition flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Calendar className="size-3.5" />
-                    <span>Programar</span>
+                    <span>{editingPostId && editingScheduledIso ? "Reprogramar" : "Programar"}</span>
                   </button>
 
                   <button
                     type="button"
                     disabled={isPublishing || !content.trim()}
                     onClick={() => handleSavePost("published")}
-                    className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-[#0099ff] hover:bg-[#0082db] text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                    className="flex-1 sm:flex-initial px-5 py-2.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
                   >
                     {isPublishing ? (
                       <>
