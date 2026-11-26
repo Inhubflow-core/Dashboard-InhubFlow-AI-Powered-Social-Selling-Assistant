@@ -202,18 +202,18 @@ function generateDynamicConsultativeReply(
     if (locale === "en") {
       return {
         emotion: "excited",
-        text: `**Yes, absolutely.** That is literally my #1 reason for existing. I'm not here for vanity likes—my mission is turning your LinkedIn profile into a predictable revenue channel.\n\nHere is our 3-step monetization formula:\n1. **High-Authority Content:** We model viral posts and PDF carousels in **Viral Post Engine** with lead magnets (e.g. *"Comment 'SYSTEM' to get the guide"*).\n2. **Buyer Intent Capture:** Through **Signal Radar**, we identify decision-makers engaging with your content or your competitors.\n3. **24/7 AI Outreach:** I initiate genuine conversations, handle objections, and send your calendar link to book sales calls.\n\nWhat exact service or offer do you sell, and what is your average deal size? Tell me so we can map out your campaign!`,
+        text: `**Yes, absolutely.** That is literally my #1 reason for existing. I'm not here for vanity likes—my mission is turning your LinkedIn profile into a predictable revenue channel.\n\nHere is our 3-step monetization formula:\n1. **High-Authority Content:** We model viral posts and PDF carousels in **Viral Post Creator** with lead magnets (e.g. *"Comment 'SYSTEM' to get the guide"*).\n2. **Buyer Intent Capture:** Through **Signal Radar**, we identify decision-makers engaging with your content or your competitors.\n3. **24/7 AI Outreach:** I initiate genuine conversations, handle objections, and send your calendar link to book sales calls.\n\nWhat exact service or offer do you sell, and what is your average deal size? Tell me so we can map out your campaign!`,
       };
     }
     if (locale === "pt-BR") {
       return {
         emotion: "excited",
-        text: `**Com certeza!** Esse é literalmente meu principal objetivo. Não estou aqui para curtidas vazias de vaidade—minha meta é transformar seu LinkedIn em um canal previsível de faturamento.\n\nNossa estratégia em 3 passos para monetizar:\n1. **Conteúdo de Autoridade:** Modelamos posts virais e carrosséis no **Viral Post Engine** com iscas digitais (ex: *"Comente 'SISTEMA' para receber"*).\n2. **Captura por Sinais:** Pelo **Signal Radar**, detectamos decisores que interagiram com você ou com concorrentes.\n3. **Prospecção 24/7:** Eu abro conversas humanizadas, quebro objeções e envio seu link de agenda para fechar reuniões.\n\nQual serviço você vende e qual o ticket médio? Me conte para desenharmos sua rota de clientes!`,
+        text: `**Com certeza!** Esse é literalmente meu principal objetivo. Não estou aqui para curtidas vazias de vaidade—minha meta é transformar seu LinkedIn em um canal previsível de faturamento.\n\nNossa estratégia em 3 passos para monetizar:\n1. **Conteúdo de Autoridade:** Modelamos posts virais e carrosséis no **Criador de Post Viral** com iscas digitais (ex: *"Comente 'SISTEMA' para receber"*).\n2. **Captura por Sinais:** Pelo **Signal Radar**, detectamos decisores que interagiram com você ou com concorrentes.\n3. **Prospecção 24/7:** Eu abro conversas humanizadas, quebro objeções e envio seu link de agenda para fechar reuniões.\n\nQual serviço você vende e qual o ticket médio? Me conte para desenharmos sua rota de clientes!`,
       };
     }
     return {
       emotion: "excited",
-      text: `**¡Totalmente!** Esa es literalmente mi única razón de existir. No estoy aquí para buscar likes vacíos de vanidad, sino para convertir tu presencia en LinkedIn en un canal constante de facturación y reuniones de venta calificadas.\n\nNuestra fórmula de monetización en 3 pasos:\n\n1. **Autoridad con Lead Magnets:** En **Viral Post Engine**, modelamos publicaciones de alto impacto y carruseles PDF con llamadas a la acción irresistibles (por ejemplo: *"Comenta 'SISTEMA' y te lo envío por DM"*).\n2. **Detección de compradores calificados:** Con **Signal Radar**, capturamos al instante a directores y decisores que interactúan con tus publicaciones o las de tus competidores directos.\n3. **Prospección y agendamiento 24/7:** Inicio conversaciones respetuosas y personalizadas en tu nombre, resuelvo objeciones de tu oferta y envío tu link de agenda para llenar tu calendario.\n\n¿Qué tipo de servicios o productos vendes exactamente y qué precio promedio manejas? ¡Cuéntame y te armo la estrategia ahora mismo!`,
+      text: `**¡Totalmente!** Esa es literalmente mi única razón de existir. No estoy aquí para buscar likes vacíos de vanidad, sino para convertir tu presencia en LinkedIn en un canal constante de facturación y reuniones de venta calificadas.\n\nNuestra fórmula de monetización en 3 pasos:\n\n1. **Autoridad con Lead Magnets:** En **Creador de Post Viral**, modelamos publicaciones de alto impacto y carruseles PDF con llamadas a la acción irresistibles (por ejemplo: *"Comenta 'SISTEMA' y te lo envío por DM"*).\n2. **Detección de compradores calificados:** Con **Signal Radar**, capturamos al instante a directores y decisores que interactúan con tus publicaciones o las de tus competidores directos.\n3. **Prospección y agendamiento 24/7:** Inicio conversaciones respetuosas y personalizadas en tu nombre, resuelvo objeciones de tu oferta y envío tu link de agenda para llenar tu calendario.\n\n¿Qué tipo de servicios o productos vendes exactamente y qué precio promedio manejas? ¡Cuéntame y te armo la estrategia ahora mismo!`,
     };
   }
 
@@ -241,7 +241,7 @@ function generateDynamicConsultativeReply(
   if (/post|carrusel|publica|contenido|gancho|hook|radar viral|calendario/i.test(lower)) {
     return {
       emotion: "talking",
-      text: `El contenido en LinkedIn es tu mejor vendedor silencioso. En InhubFlow lo resolvemos con **Viral Post Engine**:\n\n1. **Radar Viral:** Rastreamos las publicaciones con mayor interacción en tu industria y te mostramos su estructura y puntuación de viralidad.\n2. **Modelado con IA:** Adaptamos el ángulo persuasivo de ese post a tu empresa, oferta y tono de voz.\n3. **Editor de Carruseles PDF:** Diseñas diapositivas visuales de alto valor y las agendas en tu calendario para publicar 3 veces por semana (**Lunes, Miércoles y Viernes**).\n\n¿Quieres que modelemos juntos una publicación de alto impacto para tu sector ahora mismo?`,
+      text: `El contenido en LinkedIn es tu mejor vendedor silencioso. En InhubFlow lo resolvemos con **Creador de Post Viral**:\n\n1. **Radar Viral:** Rastreamos las publicaciones con mayor interacción en tu industria y te mostramos su estructura y puntuación de viralidad.\n2. **Modelado con IA:** Adaptamos el ángulo persuasivo de ese post a tu empresa, oferta y tono de voz.\n3. **Editor de Carruseles PDF:** Diseñas diapositivas visuales de alto valor y las agendas en tu calendario para publicar 3 veces por semana (**Lunes, Miércoles y Viernes**).\n\n¿Quieres que modelemos juntos una publicación de alto impacto para tu sector ahora mismo?`,
     };
   }
 
@@ -256,7 +256,7 @@ function generateDynamicConsultativeReply(
   // 5. Saludo general o pregunta abierta
   return {
     emotion: "talking",
-    text: `¡Qué gusto saludarte! Como tu socio y SDR IA en InhubFlow, estoy aquí para ayudarte a diseñar tu estrategia comercial, posicionar tu marca con contenido viral y convertir LinkedIn en un canal constante de reuniones de venta.\n\nPodemos trabajar en:\n1. **Encontrar clientes potenciales** mediante señales de intención en **Signal Radar**.\n2. **Modelar tu mes de contenido (12 posts y carruseles PDF)** en **Viral Post Engine**.\n3. **Entrenarme con tu empresa** para que responda dudas y agende llamadas por ti en el Inbox.\n\nCuéntame: ¿qué desafío comercial tienes en mente hoy o qué servicio vendes en tu empresa?`,
+    text: `¡Qué gusto saludarte! Como tu socio y SDR IA en InhubFlow, estoy aquí para ayudarte a diseñar tu estrategia comercial, posicionar tu marca con contenido viral y convertir LinkedIn en un canal constante de reuniones de venta.\n\nPodemos trabajar en:\n1. **Encontrar clientes potenciales** mediante señales de intención en **Signal Radar**.\n2. **Modelar tu mes de contenido (12 posts y carruseles PDF)** en **Creador de Post Viral**.\n3. **Entrenarme con tu empresa** para que responda dudas y agende llamadas por ti en el Inbox.\n\nCuéntame: ¿qué desafío comercial tienes en mente hoy o qué servicio vendes en tu empresa?`,
   };
 }
 
@@ -341,7 +341,7 @@ export async function POST(req: NextRequest) {
 
       const replyMap: Record<CopilotLocale, { text: string; actions: CopilotActionLink[] }> = {
         es: {
-          text: `🎉 **¡Entrenamiento completado!** Ya guardé y aprobé el perfil oficial de **${finalDraft.companyName}** en mi **Base de Conocimiento**.\n\nA partir de ahora usaré tus productos, tu cliente ideal y tu enlace para:\n1. Modelar tus 12 publicaciones del mes en **Viral Post Engine**.\n2. Responder dudas, manejar objeciones y agendar reuniones como tu **Asistente SDR IA**.`,
+          text: `🎉 **¡Entrenamiento completado!** Ya guardé y aprobé el perfil oficial de **${finalDraft.companyName}** en mi **Base de Conocimiento**.\n\nA partir de ahora usaré tus productos, tu cliente ideal y tu enlace para:\n1. Modelar tus 12 publicaciones del mes en **Creador de Post Viral**.\n2. Responder dudas, manejar objeciones y agendar reuniones como tu **Asistente SDR IA**.`,
           actions: [
             { label: "Ver mi Base de Conocimiento →", href: "/sdr" },
             { label: "Crear 12 Posts del Mes →", href: "/viral-posts" },
@@ -349,7 +349,7 @@ export async function POST(req: NextRequest) {
           ],
         },
         en: {
-          text: `🎉 **Training complete!** I saved and approved **${finalDraft.companyName}**'s official profile in my **Knowledge Base**.\n\nFrom now on I will use your products, ideal buyer, and booking link to:\n1. Model your 12 monthly posts in **Viral Post Engine**.\n2. Answer questions, handle objections, and book calls as your **AI SDR Assistant**.`,
+          text: `🎉 **Training complete!** I saved and approved **${finalDraft.companyName}**'s official profile in my **Knowledge Base**.\n\nFrom now on I will use your products, ideal buyer, and booking link to:\n1. Model your 12 monthly posts in **Viral Post Creator**.\n2. Answer questions, handle objections, and book calls as your **AI SDR Assistant**.`,
           actions: [
             { label: "View Knowledge Base →", href: "/sdr" },
             { label: "Create 12 Monthly Posts →", href: "/viral-posts" },
@@ -357,7 +357,7 @@ export async function POST(req: NextRequest) {
           ],
         },
         "pt-BR": {
-          text: `🎉 **Treinamento concluído!** Já salvei e aprovei o perfil oficial de **${finalDraft.companyName}** na minha **Base de Conhecimento**.\n\nA partir de agora usarei seus produtos, cliente ideal e link para:\n1. Modelar seus 12 posts do mês no **Viral Post Engine**.\n2. Responder dúvidas, quebrar objeções e agendar reuniões como seu **Assistente SDR IA**.`,
+          text: `🎉 **Treinamento concluído!** Já salvei e aprovei o perfil oficial de **${finalDraft.companyName}** na minha **Base de Conhecimento**.\n\nA partir de agora usarei seus produtos, cliente ideal e link para:\n1. Modelar seus 12 posts do mês no **Criador de Post Viral**.\n2. Responder dúvidas, quebrar objeções e agendar reuniões como seu **Assistente SDR IA**.`,
           actions: [
             { label: "Ver Base de Conhecimento →", href: "/sdr" },
             { label: "Criar 12 Posts do Mês →", href: "/viral-posts" },
@@ -666,7 +666,7 @@ TU CONOCIMIENTO INTEGRAL DE LA PLATAFORMA INHUBFLOW:
     - Nivel 2 (Competidores): Monitorea posts y perfiles de competidores para extraer decisores que interactúan con ellos.
     - Nivel 3 (Radar Global): Rastrea palabras clave y hashtags de la industria para detectar prospectos activos.
     - Nivel 4 (Grupos de LinkedIn): Extrae miembros calificados.
-  * Viral Post Engine:
+  * Creador de Post Viral (Viral Post Creator):
     - Radar Viral con Viral Score para modelar publicaciones de alto impacto.
     - Modelador con IA adaptado al nicho de la empresa.
     - Editor visual integrado para crear carruseles PDF y publicaciones con imagen.

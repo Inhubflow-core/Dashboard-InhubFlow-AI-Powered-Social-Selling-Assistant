@@ -37,9 +37,9 @@ export function getRouteCopilotContext(
     const map: Record<CopilotLocale, RouteCopilotContext> = {
       es: {
         routeKey: "viral-posts",
-        sectionTitle: "Viral Post Engine",
+        sectionTitle: "Creador de Post Viral",
         proactiveBubble:
-          "Estás en Viral Post Engine. ¿Quieres que te explique cómo generar 12 posts para todo el mes o diseñar un carrusel PDF?",
+          "Estás en Creador de Post Viral. ¿Quieres que te explique cómo generar 12 posts para todo el mes o diseñar un carrusel PDF?",
         quickChips: [
           "¿Cómo funciona esta sección?",
           "¿Cómo genero 12 posts para 1 mes?",
@@ -47,7 +47,7 @@ export function getRouteCopilotContext(
           "Entrenar a Inhub con mi empresa",
         ],
         sectionExplanation:
-          "En **Viral Post Engine** construyes tu autoridad en LinkedIn en minutos:\n\n1. **Buscador Viral (Radar):** escribe tu temática y encuentra publicaciones con alta tracción real.\n2. **Modelado con IA (12 posts/mes):** selecciona un post o pega cualquier enlace para que yo lo reescriba con la voz de tu empresa y programe tu calendario Lunes, Miércoles y Viernes.\n3. **Editor Visual Integrado:** diseña imágenes y carruseles PDF diapositiva por diapositiva sin salir de InhubFlow.",
+          "En **Creador de Post Viral** construyes tu autoridad en LinkedIn en minutos:\n\n1. **Buscador Viral (Radar):** escribe tu temática y encuentra publicaciones con alta tracción real.\n2. **Modelado con IA (12 posts/mes):** selecciona un post o pega cualquier enlace para que yo lo reescriba con la voz de tu empresa y programe tu calendario Lunes, Miércoles y Viernes.\n3. **Editor Visual Integrado:** diseña imágenes y carruseles PDF diapositiva por diapositiva sin salir de InhubFlow.",
         defaultActions: [
           { label: "Abrir Radar Viral →", href: "/viral-posts/radar" },
           { label: "Crear Post / Carrusel →", href: "/viral-posts/create" },
@@ -56,9 +56,9 @@ export function getRouteCopilotContext(
       },
       en: {
         routeKey: "viral-posts",
-        sectionTitle: "Viral Post Engine",
+        sectionTitle: "Viral Post Creator",
         proactiveBubble:
-          "You're in Viral Post Engine. Want me to explain how to generate 12 monthly posts or design a PDF carousel?",
+          "You're in Viral Post Creator. Want me to explain how to generate 12 monthly posts or design a PDF carousel?",
         quickChips: [
           "How does this section work?",
           "How do I generate 12 posts for 1 month?",
@@ -66,7 +66,7 @@ export function getRouteCopilotContext(
           "Train Inhub on my company",
         ],
         sectionExplanation:
-          "In **Viral Post Engine** you build LinkedIn authority in minutes:\n\n1. **Viral Finder (Radar):** enter your niche to discover top-performing LinkedIn posts.\n2. **AI Modeling (12 posts/month):** pick any viral post or paste a link so I can rewrite it in your brand voice and schedule your Mon/Wed/Fri calendar.\n3. **Built-in Visual Editor:** design images and multi-slide PDF carousels right inside InhubFlow.",
+          "In **Viral Post Creator** you build LinkedIn authority in minutes:\n\n1. **Viral Finder (Radar):** enter your niche to discover top-performing LinkedIn posts.\n2. **AI Modeling (12 posts/month):** pick any viral post or paste a link so I can rewrite it in your brand voice and schedule your Mon/Wed/Fri calendar.\n3. **Built-in Visual Editor:** design images and multi-slide PDF carousels right inside InhubFlow.",
         defaultActions: [
           { label: "Open Viral Radar →", href: "/viral-posts/radar" },
           { label: "Create Post / Carousel →", href: "/viral-posts/create" },
@@ -75,9 +75,9 @@ export function getRouteCopilotContext(
       },
       "pt-BR": {
         routeKey: "viral-posts",
-        sectionTitle: "Viral Post Engine",
+        sectionTitle: "Criador de Post Viral",
         proactiveBubble:
-          "Você está no Viral Post Engine. Quer que eu explique como gerar 12 posts para o mês ou criar um carrossel PDF?",
+          "Você está no Criador de Post Viral. Quer que eu explique como gerar 12 posts para o mês ou criar um carrossel PDF?",
         quickChips: [
           "Como funciona esta seção?",
           "Como gero 12 posts para 1 mês?",
@@ -85,7 +85,7 @@ export function getRouteCopilotContext(
           "Treinar o Inhub com minha empresa",
         ],
         sectionExplanation:
-          "No **Viral Post Engine** você constrói autoridade no LinkedIn em minutos:\n\n1. **Buscador Viral (Radar):** digite seu tema e encontre publicações com alto engajamento.\n2. **Modelagem com IA (12 posts/mês):** escolha um post ou cole um link para eu reescrever com a voz da sua empresa e agendar Seg, Qua e Sex.\n3. **Editor Visual Integrado:** crie imagens e carrosséis PDF slide por slide sem sair da plataforma.",
+          "No **Criador de Post Viral** você constrói autoridade no LinkedIn em minutos:\n\n1. **Buscador Viral (Radar):** digite seu tema e encontre publicações com alto engajamento.\n2. **Modelagem com IA (12 posts/mês):** escolha um post ou cole um link para eu reescrever com a voz da sua empresa e agendar Seg, Qua e Sex.\n3. **Editor Visual Integrado:** crie imagens e carrosséis PDF slide por slide sem sair da plataforma.",
         defaultActions: [
           { label: "Abrir Radar Viral →", href: "/viral-posts/radar" },
           { label: "Criar Post / Carrossel →", href: "/viral-posts/create" },
@@ -497,7 +497,7 @@ export function getRouteCopilotContext(
         "¿Cómo detecto señales de compra?",
       ],
       sectionExplanation:
-        "¡Bienvenido a **InhubFlow Social Selling Suite**! Este es el orden ideal de 4 pasos para llenar tu calendario en LinkedIn:\n\n1. **Conectar tu cuenta de LinkedIn** en Configuración → Cuentas de LinkedIn.\n2. **Entrenarme a mí (Inhub)** con el nombre de tu empresa, tus productos/servicios y tu link de agenda.\n3. **Crear tu mes de contenido** en Viral Post Engine (12 posts Lun/Mié/Vie + carruseles PDF).\n4. **Activar Signal Radar y tu primera Campaña** para convertir interacciones en reuniones.",
+        "¡Bienvenido a **InhubFlow Social Selling Suite**! Este es el orden ideal de 4 pasos para llenar tu calendario en LinkedIn:\n\n1. **Conectar tu cuenta de LinkedIn** en Configuración → Cuentas de LinkedIn.\n2. **Entrenarme a mí (Inhub)** con el nombre de tu empresa, tus productos/servicios y tu link de agenda.\n3. **Crear tu mes de contenido** en Creador de Post Viral (12 posts Lun/Mié/Vie + carruseles PDF).\n4. **Activar Signal Radar y tu primera Campaña** para convertir interacciones en reuniones.",
       defaultActions: [
         { label: "1. Conectar LinkedIn →", href: "/linkedin-accounts" },
         {
@@ -505,7 +505,7 @@ export function getRouteCopilotContext(
           href: "#train",
           actionType: "start_training",
         },
-        { label: "3. Ir a Viral Post Engine →", href: "/viral-posts" },
+        { label: "3. Ir a Creador de Post Viral →", href: "/viral-posts" },
       ],
     },
     en: {
@@ -520,7 +520,7 @@ export function getRouteCopilotContext(
         "How do I detect buying signals?",
       ],
       sectionExplanation:
-        "Welcome to **InhubFlow Social Selling Suite**! Here is the ideal 4-step path to book meetings on LinkedIn:\n\n1. **Connect your LinkedIn account** in Settings → LinkedIn Accounts.\n2. **Train me (Inhub)** with your company name, products/services, and booking link.\n3. **Create your month of content** in Viral Post Engine (12 Mon/Wed/Fri posts + PDF carousels).\n4. **Activate Signal Radar & your first Campaign** to turn engagement into meetings.",
+        "Welcome to **InhubFlow Social Selling Suite**! Here is the ideal 4-step path to book meetings on LinkedIn:\n\n1. **Connect your LinkedIn account** in Settings → LinkedIn Accounts.\n2. **Train me (Inhub)** with your company name, products/services, and booking link.\n3. **Create your month of content** in Viral Post Creator (12 Mon/Wed/Fri posts + PDF carousels).\n4. **Activate Signal Radar & your first Campaign** to turn engagement into meetings.",
       defaultActions: [
         { label: "1. Connect LinkedIn →", href: "/linkedin-accounts" },
         {
@@ -528,7 +528,7 @@ export function getRouteCopilotContext(
           href: "#train",
           actionType: "start_training",
         },
-        { label: "3. Open Viral Post Engine →", href: "/viral-posts" },
+        { label: "3. Open Viral Post Creator →", href: "/viral-posts" },
       ],
     },
     "pt-BR": {
@@ -543,7 +543,7 @@ export function getRouteCopilotContext(
         "Como detecto sinais de compra?",
       ],
       sectionExplanation:
-        "Bem-vindo ao **InhubFlow Social Selling Suite**! Este é o passo a passo ideal em 4 etapas para lotar sua agenda no LinkedIn:\n\n1. **Conectar sua conta do LinkedIn** em Configurações → Contas do LinkedIn.\n2. **Me treinar (Inhub)** com o nome da sua empresa, produtos/serviços e link de agenda.\n3. **Criar 1 mês de conteúdo** no Viral Post Engine (12 posts Seg/Qua/Sex + carrosséis PDF).\n4. **Ativar o Signal Radar e sua primeira Campanha** para transformar sinais em reuniões.",
+        "Bem-vindo ao **InhubFlow Social Selling Suite**! Este é o passo a passo ideal em 4 etapas para lotar sua agenda no LinkedIn:\n\n1. **Conectar sua conta do LinkedIn** em Configurações → Contas do LinkedIn.\n2. **Me treinar (Inhub)** com o nome da sua empresa, produtos/serviços e link de agenda.\n3. **Criar 1 mês de conteúdo** no Criador de Post Viral (12 posts Seg/Qua/Sex + carrosséis PDF).\n4. **Ativar o Signal Radar e sua primeira Campanha** para transformar sinais em reuniões.",
       defaultActions: [
         { label: "1. Conectar LinkedIn →", href: "/linkedin-accounts" },
         {
@@ -551,7 +551,7 @@ export function getRouteCopilotContext(
           href: "#train",
           actionType: "start_training",
         },
-        { label: "3. Abrir Viral Post Engine →", href: "/viral-posts" },
+        { label: "3. Abrir Criador de Post Viral →", href: "/viral-posts" },
       ],
     },
   };

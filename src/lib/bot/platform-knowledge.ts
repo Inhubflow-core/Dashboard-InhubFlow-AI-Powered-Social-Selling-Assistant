@@ -9,7 +9,7 @@ InhubFlow Social Selling Suite es una plataforma SaaS B2B todo-en-uno para conve
 1. MÓDULOS PRINCIPALES Y DÓNDE ESTÁN EN EL DASHBOARD:
 - Panel Principal (/): KPIs en vivo (cuentas activas, prospectos CRM, campañas, publicaciones, pacing diario).
 - Cuentas de LinkedIn (/linkedin-accounts): Conexión segura de perfiles vía Unipile (Hosted Auth, credenciales o cookie). Multi-cuenta según plan. Estado saludable = OK/CONNECTED.
-- Viral Post Engine (/viral-posts):
+- Viral Post Creator / Creador de Post Viral (/viral-posts):
   * Radar Viral (/viral-posts/radar): Busca publicaciones con mayor tracción en cualquier nicho y calcula su Viral Score.
   * Creador y Modelador IA (/viral-posts/create): Reescribe posts virales adaptándolos a la Base de Conocimiento (RAG) de la empresa; genera posts de texto, posts con imagen o carruseles PDF multi-diapositiva.
   * Editor Visual Integrado (Fabric.js): Diseña portadas, imágenes y carruseles PDF diapositiva por diapositiva, con buscador de imágenes Pixabay y removedor de fondo.
