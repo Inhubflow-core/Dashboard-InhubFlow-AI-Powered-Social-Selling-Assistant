@@ -28,7 +28,7 @@ import {
   Globe,
   PauseCircle,
   PlayCircle,
-  Camera,
+  Paperclip,
   X,
   Check,
   Pencil,
@@ -51,18 +51,52 @@ interface Message {
   sender: "user" | "bot";
   text: string;
   imagePreviewUrl?: string;
+  attachmentName?: string;
+  attachmentSize?: string;
   cards?: ActionCard[];
   quickActions?: string[];
   timestamp: string;
 }
 
-interface PendingImage {
+interface PendingAttachment {
   base64: string;
   mimeType: string;
-  previewUrl: string;
+  fileName: string;
+  sizeLabel: string;
+  isImage: boolean;
+  previewUrl?: string;
 }
 
-function compressImageToBase64(file: File): Promise<PendingImage> {
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function readFileAsBase64(file: File): Promise<PendingAttachment> {
+  if (file.type.startsWith("image/")) {
+    return compressImageToBase64(file);
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      const [hdr, b64] = dataUrl.split(",");
+      const mime = hdr?.split(":")[1]?.split(";")[0] || file.type || "application/pdf";
+      resolve({
+        base64: b64 || "",
+        mimeType: mime,
+        fileName: file.name,
+        sizeLabel: formatFileSize(file.size),
+        isImage: false,
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function compressImageToBase64(file: File): Promise<PendingAttachment> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("Could not read image"));
@@ -87,18 +121,39 @@ function compressImageToBase64(file: File): Promise<PendingImage> {
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           const [, b64] = dataUrl.split(",");
-          resolve({ base64: b64 || "", mimeType: file.type || "image/jpeg", previewUrl: dataUrl });
+          resolve({
+            base64: b64 || "",
+            mimeType: file.type || "image/jpeg",
+            fileName: file.name,
+            sizeLabel: formatFileSize(file.size),
+            isImage: true,
+            previewUrl: dataUrl,
+          });
           return;
         }
         ctx.drawImage(img, 0, 0, width, height);
         const outUrl = canvas.toDataURL("image/jpeg", 0.82);
         const [, b64] = outUrl.split(",");
-        resolve({ base64: b64 || "", mimeType: "image/jpeg", previewUrl: outUrl });
+        resolve({
+          base64: b64 || "",
+          mimeType: "image/jpeg",
+          fileName: file.name,
+          sizeLabel: formatFileSize(file.size),
+          isImage: true,
+          previewUrl: outUrl,
+        });
       };
       img.onerror = () => {
         const [hdr, b64] = dataUrl.split(",");
         const mime = hdr?.split(":")[1]?.split(";")[0] || file.type || "image/jpeg";
-        resolve({ base64: b64 || "", mimeType: mime, previewUrl: dataUrl });
+        resolve({
+          base64: b64 || "",
+          mimeType: mime,
+          fileName: file.name,
+          sizeLabel: formatFileSize(file.size),
+          isImage: true,
+          previewUrl: dataUrl,
+        });
       };
       img.src = dataUrl;
     };
@@ -445,7 +500,8 @@ export default function InhubBotAppPage() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
+  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
@@ -488,30 +544,34 @@ export default function InhubBotAppPage() {
       customText?: string,
       explicitAction?: string,
       explicitPayload?: Record<string, unknown>,
-      overrideImage?: PendingImage | null
+      overrideAttachment?: PendingAttachment | null
     ) => {
       const textToSend = (customText !== undefined ? customText : inputValue).trim();
-      const imageToSend = overrideImage !== undefined ? overrideImage : pendingImage;
+      const attachmentToSend =
+        overrideAttachment !== undefined ? overrideAttachment : pendingAttachment;
 
-      if (!textToSend && !explicitAction && !imageToSend) return;
+      if (!textToSend && !explicitAction && !attachmentToSend) return;
 
       const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-      if (textToSend || imageToSend) {
+      if (textToSend || attachmentToSend) {
         setMessages((prev) => [
           ...prev,
           {
             id: `user-${Date.now()}`,
             sender: "user",
             text: textToSend,
-            imagePreviewUrl: imageToSend?.previewUrl,
+            imagePreviewUrl: attachmentToSend?.previewUrl,
+            attachmentName: attachmentToSend && !attachmentToSend.isImage ? attachmentToSend.fileName : undefined,
+            attachmentSize: attachmentToSend && !attachmentToSend.isImage ? attachmentToSend.sizeLabel : undefined,
             timestamp: time,
           },
         ]);
       }
 
       if (customText === undefined) setInputValue("");
-      if (imageToSend) setPendingImage(null);
+      if (attachmentToSend) setPendingAttachment(null);
+      setFileError(null);
       setIsSending(true);
       setEmotion("thinking");
 
@@ -523,8 +583,11 @@ export default function InhubBotAppPage() {
             message: textToSend,
             action: explicitAction,
             payload: explicitPayload,
-            imageBase64: imageToSend?.base64,
-            imageMimeType: imageToSend?.mimeType,
+            fileBase64: attachmentToSend?.base64,
+            fileMimeType: attachmentToSend?.mimeType,
+            fileName: attachmentToSend?.fileName,
+            imageBase64: attachmentToSend?.base64,
+            imageMimeType: attachmentToSend?.mimeType,
             history: messagesRef.current.slice(-6).map((m) => {
               const cardSnippets = (m.cards || [])
                 .map((c) => {
@@ -595,7 +658,7 @@ export default function InhubBotAppPage() {
         setIsSending(false);
       }
     },
-    [inputValue, pendingImage, speakText, voiceEnabled, locale, ui.quickActions, ui.genericError, ui.connectionError]
+    [inputValue, pendingAttachment, speakText, voiceEnabled, locale, ui.quickActions, ui.genericError, ui.connectionError]
   );
 
   const handleSendRef = useRef(handleSend);
@@ -675,12 +738,18 @@ export default function InhubBotAppPage() {
     }
   };
 
-  const handleImagePicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAttachmentPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setFileError(null);
+    if (!file.type.startsWith("image/") && file.size > 10 * 1024 * 1024) {
+      setFileError(ui.fileTooLargeError);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     try {
-      const compressed = await compressImageToBase64(file);
-      setPendingImage(compressed);
+      const processed = await readFileAsBase64(file);
+      setPendingAttachment(processed);
     } catch {
       // ignore invalid file
     } finally {
@@ -702,7 +771,8 @@ export default function InhubBotAppPage() {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
-    setPendingImage(null);
+    setPendingAttachment(null);
+    setFileError(null);
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     setMessages([
       {
@@ -849,6 +919,16 @@ export default function InhubBotAppPage() {
                         alt="Photo"
                         className="rounded-xl max-h-52 object-cover border border-white/20"
                       />
+                    </div>
+                  )}
+
+                  {m.attachmentName && (
+                    <div className="mb-2 flex items-center gap-2 px-2.5 py-2 rounded-xl bg-black/25 border border-white/20 text-xs text-white">
+                      <FileText className="w-4 h-4 shrink-0 text-white" />
+                      <span className="truncate max-w-[200px] font-medium">{m.attachmentName}</span>
+                      {m.attachmentSize && (
+                        <span className="text-[10px] text-blue-100 shrink-0">{m.attachmentSize}</span>
+                      )}
                     </div>
                   )}
 
@@ -1171,25 +1251,56 @@ export default function InhubBotAppPage() {
         className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0 border-t border-[#0099ff]/12"
         style={{ background: "#000000" }}
       >
-        {pendingImage && (
+        {fileError && (
+          <div className="max-w-4xl mx-auto mb-2 px-3 py-1.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-300 flex items-center justify-between">
+            <span>{fileError}</span>
+            <button type="button" onClick={() => setFileError(null)} className="ml-2 text-rose-200 cursor-pointer">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {pendingAttachment && (
           <div className="max-w-4xl mx-auto mb-2.5 flex items-center gap-2.5 px-1">
-            <div className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={pendingImage.previewUrl}
-                alt="Preview"
-                className="w-14 h-14 rounded-xl object-cover border border-[#0099ff]/40"
-              />
-              <button
-                type="button"
-                onClick={() => setPendingImage(null)}
-                aria-label="Remove image"
-                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black text-white border border-white/25 flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-            <span className="text-xs text-[#70c4ff]">{ui.imageReadyHint}</span>
+            {pendingAttachment.isImage && pendingAttachment.previewUrl ? (
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={pendingAttachment.previewUrl}
+                  alt="Preview"
+                  className="w-14 h-14 rounded-xl object-cover border border-[#0099ff]/40"
+                />
+                <button
+                  type="button"
+                  onClick={() => setPendingAttachment(null)}
+                  aria-label="Remove file"
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black text-white border border-white/25 flex items-center justify-center cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#0099ff]/12 border border-[#0099ff]/35 text-xs text-white max-w-[260px]">
+                <FileText className="w-4 h-4 text-[#0099ff] shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{pendingAttachment.fileName}</p>
+                  <p className="text-[10px] text-[#70c4ff]">{pendingAttachment.sizeLabel}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPendingAttachment(null)}
+                  aria-label="Remove file"
+                  className="p-0.5 rounded-full text-slate-300 hover:text-white cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            <span className="text-xs text-[#70c4ff]">
+              {pendingAttachment.isImage
+                ? ui.imageReadyHint
+                : ui.attachmentReadyHint(pendingAttachment.fileName)}
+            </span>
           </div>
         )}
 
@@ -1231,14 +1342,14 @@ export default function InhubBotAppPage() {
             title={ui.cameraTitle}
             aria-label={ui.cameraTitle}
           >
-            <Camera className="w-5 h-5" />
+            <Paperclip className="w-5 h-5" />
           </button>
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.pdf,.txt,.md,.csv,application/pdf,text/plain"
             className="hidden"
-            onChange={handleImagePicked}
+            onChange={handleAttachmentPicked}
           />
 
           <div className="relative flex-1">
@@ -1249,7 +1360,7 @@ export default function InhubBotAppPage() {
               placeholder={
                 isListening
                   ? ui.inputListeningPlaceholder
-                  : pendingImage
+                  : pendingAttachment
                     ? ui.inputImagePlaceholder
                     : ui.inputDefaultPlaceholder
               }
@@ -1264,7 +1375,7 @@ export default function InhubBotAppPage() {
 
           <button
             type="submit"
-            disabled={(!inputValue.trim() && !pendingImage) || isSending || isListening}
+            disabled={(!inputValue.trim() && !pendingAttachment) || isSending || isListening}
             className="flex items-center justify-center w-11 h-11 rounded-2xl text-white disabled:opacity-30 transition shadow-lg shrink-0 cursor-pointer"
             style={{ background: "linear-gradient(135deg, #0099ff, #0070cc)", boxShadow: "0 4px 15px rgba(0,153,255,0.25)" }}
             title={ui.sendTitle}

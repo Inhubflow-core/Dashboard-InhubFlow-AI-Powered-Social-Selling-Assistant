@@ -318,24 +318,40 @@ async function generatePostApprovalData(params: {
   referencePostsText?: string;
   imageBase64?: string;
   imageMimeType?: string;
+  attachmentName?: string;
 }): Promise<{ title: string; content: string; summaryNote: string }> {
   const langName = getLocaleDisplayName(params.locale);
   const parts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [];
+  let extractedTextDoc = "";
 
   if (params.imageBase64 && params.imageMimeType) {
-    parts.push({
-      inline_data: {
-        mime_type: params.imageMimeType,
-        data: params.imageBase64,
-      },
-    });
+    const mime = params.imageMimeType.toLowerCase();
+    if (mime.startsWith("image/") || mime === "application/pdf") {
+      parts.push({
+        inline_data: {
+          mime_type: params.imageMimeType,
+          data: params.imageBase64,
+        },
+      });
+    } else if (mime.startsWith("text/") || /\.(txt|md|csv)$/i.test(params.attachmentName || "")) {
+      try {
+        extractedTextDoc = Buffer.from(params.imageBase64, "base64").toString("utf8").slice(0, 12000);
+      } catch {}
+    }
   }
 
+  const isPdf = (params.imageMimeType || "").toLowerCase() === "application/pdf";
+  const attachmentIntro = params.imageBase64
+    ? isPdf
+      ? `The user attached a PDF document ("${params.attachmentName || "documento.pdf"}"). Read and extract all key arguments, data, and insights from this PDF.`
+      : extractedTextDoc
+        ? `The user attached a text document ("${params.attachmentName || "archivo.txt"}"):\n"""\n${extractedTextDoc}\n"""`
+        : "The user attached an IMAGE (e.g., magazine article photo, screenshot, or chart). Extract all key text, insights, and framing from it."
+    : "";
+
   const promptText = [
-    params.imageBase64
-      ? "The user attached an IMAGE (e.g., magazine article photo, screenshot, or chart). Extract all key text, insights, and framing from it."
-      : "",
-    `User instruction: "${params.topicOrInstruction || "Model this into an authority LinkedIn post for our company."}"`,
+    attachmentIntro,
+    `User instruction: "${params.topicOrInstruction || "Model this content into an authority LinkedIn post aligned with our company's solutions and value proposition."}"`,
     params.referencePostsText
       ? `\nTop viral LinkedIn posts to model structure & hook from:\n${params.referencePostsText}`
       : "",
@@ -419,8 +435,21 @@ export async function POST(req: NextRequest) {
     const message = String(body.message || "").trim();
     const action = String(body.action || "").trim();
     const payload = (body.payload || {}) as Record<string, unknown>;
-    const imageBase64 = typeof body.imageBase64 === "string" ? body.imageBase64 : undefined;
-    const imageMimeType = typeof body.imageMimeType === "string" ? body.imageMimeType : undefined;
+    const fileBase64 =
+      typeof body.fileBase64 === "string"
+        ? body.fileBase64
+        : typeof body.imageBase64 === "string"
+          ? body.imageBase64
+          : undefined;
+    const fileMimeType =
+      typeof body.fileMimeType === "string"
+        ? body.fileMimeType
+        : typeof body.imageMimeType === "string"
+          ? body.imageMimeType
+          : undefined;
+    const fileName = typeof body.fileName === "string" ? body.fileName : undefined;
+    const imageBase64 = fileBase64;
+    const imageMimeType = fileMimeType;
     const history = Array.isArray(body.history) ? (body.history as HistoryItem[]) : [];
     const lower = message.toLowerCase();
 
@@ -963,20 +992,22 @@ export async function POST(req: NextRequest) {
     const kb = getApprovedKnowledgeContext();
 
     if (imageBase64 && imageMimeType) {
+      const isImageFile = imageMimeType.toLowerCase().startsWith("image/");
       const modeled = await generatePostApprovalData({
         topicOrInstruction:
           message ||
           t(
             locale,
-            "Analiza el artículo o contenido de esta foto y modélalo en un post de autoridad para nuestra empresa.",
-            "Analyze the article or content in this photo and model it into an authority post for our company.",
-            "Analise o artigo ou conteúdo desta foto e modele um post de autoridade para nossa empresa."
+            "Analiza este artículo o archivo adjunto y modélalo en un post de autoridad enfocado en nuestras soluciones y propuesta de valor.",
+            "Analyze this attached article or file and model it into an authority post focused on our solutions and value proposition.",
+            "Analise este artigo ou arquivo anexado e modele um post de autoridade focado em nossas soluções e proposta de valor."
           ),
         kbContext: kb.contextText,
         companyName: kb.companyName,
         locale,
         imageBase64,
         imageMimeType,
+        attachmentName: fileName,
       });
 
       const approval: ApprovalActionPayload = {
@@ -986,19 +1017,27 @@ export async function POST(req: NextRequest) {
       };
 
       const companyLabel = kb.companyName || t(locale, "tu empresa", "your company", "sua empresa");
+      const docLabel = fileName || (isImageFile ? "imagen" : "archivo");
       return NextResponse.json({
         ok: true,
-        reply: t(
-          locale,
-          `📸 **Analicé tu imagen** y modelé una publicación alineada a **${companyLabel}**.\n\n*${modeled.summaryNote}*\n\nComo regla de oro, **nunca publico solo**: revisa, edita, agenda o aprueba aquí:`,
-          `📸 **I analyzed your image** and modeled a post tailored to **${companyLabel}**.\n\n*${modeled.summaryNote}*\n\nAs a golden rule, **I never publish without your OK**: review, edit, schedule, or approve below:`,
-          `📸 **Analisei sua imagem** e modelei uma publicação alinhada à **${companyLabel}**.\n\n*${modeled.summaryNote}*\n\nComo regra de ouro, **nunca publico sozinho**: revise, edite, agende ou aprove abaixo:`
-        ),
+        reply: isImageFile
+          ? t(
+              locale,
+              `📸 **Analicé tu imagen** y modelé una publicación alineada a **${companyLabel}**.\n\n*${modeled.summaryNote}*\n\nComo regla de oro, **nunca publico solo**: revisa, edita, agenda o aprueba aquí:`,
+              `📸 **I analyzed your image** and modeled a post tailored to **${companyLabel}**.\n\n*${modeled.summaryNote}*\n\nAs a golden rule, **I never publish without your OK**: review, edit, schedule, or approve below:`,
+              `📸 **Analisei sua imagem** e modelei uma publicação alinhada à **${companyLabel}**.\n\n*${modeled.summaryNote}*\n\nComo regra de ouro, **nunca publico sozinho**: revise, edite, agende ou aprove abaixo:`
+            )
+          : t(
+              locale,
+              `📎 **Analicé el archivo "${docLabel}"** y modelé una publicación enfocada en la propuesta de valor de **${companyLabel}**.\n\n*${modeled.summaryNote}*\n\nComo regla de oro, **nunca publico solo**: revisa, edita, agenda o aprueba aquí:`,
+              `📎 **I analyzed "${docLabel}"** and modeled a post focused on **${companyLabel}**'s value proposition.\n\n*${modeled.summaryNote}*\n\nAs a golden rule, **I never publish without your OK**: review, edit, schedule, or approve below:`,
+              `📎 **Analisei o arquivo "${docLabel}"** e modelei uma publicação focada na proposta de valor da **${companyLabel}**.\n\n*${modeled.summaryNote}*\n\nComo regra de ouro, **nunca publico sozinho**: revise, edite, agende ou aprove abaixo:`
+            ),
         spokenText: t(
           locale,
-          "Analicé la imagen y preparé el borrador del post para tu aprobación.",
-          "I analyzed the image and drafted the post for your approval.",
-          "Analisei a imagem e preparei o rascunho do post para sua aprovação."
+          "Analicé el archivo y preparé el borrador del post para tu aprobación.",
+          "I analyzed the file and drafted the post for your approval.",
+          "Analisei o arquivo e preparei o rascunho do post para sua aprovação."
         ),
         emotion: "excited",
         cards: [{ type: "approval", data: { approval } }],
