@@ -15,11 +15,12 @@ import {
   getSpeechLang,
   type BotUiLabels,
 } from "@/lib/bot/i18n";
-import { cleanTextForSpeech, pickBestVoice } from "@/lib/bot/voice-engine";
+import { cleanTextForSpeech, listVoicesForLang, pickBestVoice } from "@/lib/bot/voice-engine";
 import {
   Mic,
   MicOff,
   Radio,
+  SlidersHorizontal,
   Send,
   Volume2,
   VolumeX,
@@ -739,6 +740,9 @@ export default function InhubBotAppPage() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [liveMode, setLiveMode] = useState(false);
   const [isBotSpeaking, setIsBotSpeaking] = useState(false);
+  const [isVoiceMenuOpen, setIsVoiceMenuOpen] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceUri, setSelectedVoiceUri] = useState<string>("");
   const [emotion, setEmotion] = useState<InHubEmotion>("idle");
   const [recognitionSupported, setRecognitionSupported] = useState(true);
   const sessionsHydratedRef = useRef(false);
@@ -753,6 +757,8 @@ export default function InhubBotAppPage() {
   isSendingRef.current = isSending;
   const isSpeakingRef = useRef(false);
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
+  const selectedVoiceUriRef = useRef("");
+  selectedVoiceUriRef.current = selectedVoiceUri;
   const voiceBaseTextRef = useRef("");
   const sessionFinalTextRef = useRef("");
   const liveVoiceTranscriptRef = useRef("");
@@ -867,12 +873,22 @@ export default function InhubBotAppPage() {
   }, [startLiveListening, stopVoiceSession]);
 
   useEffect(() => {
+    try {
+      const savedVoice = window.localStorage.getItem(`inhub_bot_voice_uri_${locale}`) || "";
+      setSelectedVoiceUri(savedVoice);
+    } catch {}
+  }, [locale]);
+
+  useEffect(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     const loadVoices = () => {
       try {
-        voicesRef.current = window.speechSynthesis.getVoices() || [];
+        const all = window.speechSynthesis.getVoices() || [];
+        voicesRef.current = all;
+        setAvailableVoices(listVoicesForLang(all, speechLang));
       } catch {
         voicesRef.current = [];
+        setAvailableVoices([]);
       }
     };
     loadVoices();
@@ -880,7 +896,45 @@ export default function InhubBotAppPage() {
     return () => {
       window.speechSynthesis.removeEventListener?.("voiceschanged", loadVoices);
     };
-  }, []);
+  }, [speechLang]);
+
+  const previewAndSelectVoice = useCallback(
+    (voiceUri: string) => {
+      setSelectedVoiceUri(voiceUri);
+      selectedVoiceUriRef.current = voiceUri;
+      setVoiceEnabled(true);
+      try {
+        if (voiceUri) {
+          window.localStorage.setItem(`inhub_bot_voice_uri_${locale}`, voiceUri);
+        } else {
+          window.localStorage.removeItem(`inhub_bot_voice_uri_${locale}`);
+        }
+      } catch {}
+
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const all = window.speechSynthesis.getVoices() || voicesRef.current;
+          voicesRef.current = all;
+          const chosen = pickBestVoice(all, speechLang, voiceUri || undefined);
+          const utterance = new SpeechSynthesisUtterance(ui.voiceSampleText);
+          if (chosen) {
+            utterance.voice = chosen;
+            utterance.lang = chosen.lang || speechLang;
+          } else {
+            utterance.lang = speechLang;
+          }
+          utterance.rate = chosen?.name.toLowerCase().includes("natural") ? 1.02 : 1.04;
+          utterance.onstart = () => setEmotion("talking");
+          utterance.onend = () => setEmotion("idle");
+          utterance.onerror = () => setEmotion("idle");
+          window.speechSynthesis.speak(utterance);
+        } catch {}
+      }
+      setIsVoiceMenuOpen(false);
+    },
+    [locale, speechLang, ui.voiceSampleText]
+  );
 
   const speakText = useCallback(
     (text: string) => {
@@ -903,7 +957,11 @@ export default function InhubBotAppPage() {
         if (voicesRef.current.length === 0) {
           voicesRef.current = window.speechSynthesis.getVoices() || [];
         }
-        const bestVoice = pickBestVoice(voicesRef.current, speechLang);
+        const bestVoice = pickBestVoice(
+          voicesRef.current,
+          speechLang,
+          selectedVoiceUriRef.current || undefined
+        );
         const utterance = new SpeechSynthesisUtterance(clean);
         if (bestVoice) {
           utterance.voice = bestVoice;
@@ -1790,10 +1848,23 @@ export default function InhubBotAppPage() {
         </button>
 
         {/* Actions Header */}
-        <div className="flex items-center gap-2">
+        <div className="relative flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsVoiceMenuOpen((prev) => !prev)}
+            className={`flex items-center justify-center w-9 h-9 rounded-xl transition border cursor-pointer ${
+              isVoiceMenuOpen
+                ? "bg-[#0099ff]/20 text-white border-[#0099ff]/50"
+                : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 border-white/8"
+            }`}
+            title={ui.voicePickerTitle}
+            aria-label={ui.voicePickerTitle}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
           <button
             onClick={() => setVoiceEnabled(!voiceEnabled)}
-            className={`flex items-center justify-center w-9 h-9 rounded-xl transition border ${
+            className={`flex items-center justify-center w-9 h-9 rounded-xl transition border cursor-pointer ${
               voiceEnabled
                 ? "bg-[#0099ff] text-white shadow-lg shadow-[#0099ff]/20 border-[#0099ff]/50"
                 : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 border-white/8"
@@ -1804,11 +1875,71 @@ export default function InhubBotAppPage() {
           </button>
           <button
             onClick={handleClearChat}
-            className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition border border-white/8"
+            className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition border border-white/8 cursor-pointer"
             title={ui.resetChatTitle}
           >
             <RotateCcw className="w-4 h-4" />
           </button>
+
+          {isVoiceMenuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-30"
+                onClick={() => setIsVoiceMenuOpen(false)}
+              />
+              <div
+                className="absolute right-0 top-11 z-40 w-72 max-h-80 overflow-y-auto rounded-2xl border border-[#0099ff]/25 p-2 shadow-2xl"
+                style={{ background: "rgba(10, 14, 22, 0.97)", backdropFilter: "blur(16px)" }}
+              >
+                <div className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#70c4ff] border-b border-white/10 mb-1">
+                  {ui.voicePickerTitle}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => previewAndSelectVoice("")}
+                  className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between transition cursor-pointer ${
+                    !selectedVoiceUri
+                      ? "bg-[#0099ff]/20 text-white border border-[#0099ff]/40"
+                      : "text-slate-300 hover:bg-white/8"
+                  }`}
+                >
+                  <span className="truncate font-medium">{ui.voiceAutoOption}</span>
+                  {!selectedVoiceUri && <Check className="w-3.5 h-3.5 text-[#0099ff] shrink-0" />}
+                </button>
+                {availableVoices.length === 0 ? (
+                  <p className="px-2.5 py-3 text-xs text-slate-400">{ui.noVoicesFound}</p>
+                ) : (
+                  <div className="mt-1 space-y-0.5">
+                    {availableVoices.map((voice) => {
+                      const isSelected = selectedVoiceUri === voice.voiceURI;
+                      const isNatural = voice.name.toLowerCase().includes("natural");
+                      return (
+                        <button
+                          key={voice.voiceURI}
+                          type="button"
+                          onClick={() => previewAndSelectVoice(voice.voiceURI)}
+                          className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between gap-2 transition cursor-pointer ${
+                            isSelected
+                              ? "bg-[#0099ff]/20 text-white border border-[#0099ff]/40"
+                              : "text-slate-300 hover:bg-white/8"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{voice.name}</p>
+                            <p className="text-[10px] text-slate-400">
+                              {voice.lang}
+                              {isNatural ? " · Natural" : ""}
+                            </p>
+                          </div>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-[#0099ff] shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </header>
 

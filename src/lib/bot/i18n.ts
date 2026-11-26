@@ -135,6 +135,10 @@ export interface BotUiLabels {
   liveModeOffTitle: string;
   liveModeListeningLabel: string;
   liveModeSpeakingLabel: string;
+  voicePickerTitle: string;
+  voiceAutoOption: string;
+  voiceSampleText: string;
+  noVoicesFound: string;
 }
 
 export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
@@ -266,6 +270,10 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     liveModeOffTitle: "Activar conversación en vivo (manos libres)",
     liveModeListeningLabel: "Modo en vivo · Habla libremente...",
     liveModeSpeakingLabel: "InhubBot hablando...",
+    voicePickerTitle: "Elegir voz de InhubBot",
+    voiceAutoOption: "Automática (Voz masculina)",
+    voiceSampleText: "Hola, soy InhubBot, tu asistente de Social Selling.",
+    noVoicesFound: "No se detectaron voces adicionales en este navegador.",
   },
   en: {
     greetingTitle: "Hello!",
@@ -395,6 +403,10 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     liveModeOffTitle: "Enable live conversation (hands-free)",
     liveModeListeningLabel: "Live mode · Speak naturally...",
     liveModeSpeakingLabel: "InhubBot speaking...",
+    voicePickerTitle: "Choose InhubBot voice",
+    voiceAutoOption: "Automatic (Male voice)",
+    voiceSampleText: "Hi, I'm InhubBot, your Social Selling assistant.",
+    noVoicesFound: "No additional voices detected in this browser.",
   },
   "pt-BR": {
     greetingTitle: "Olá!",
@@ -524,5 +536,9 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     liveModeOffTitle: "Ativar conversa ao vivo (mãos livres)",
     liveModeListeningLabel: "Modo ao vivo · Fale livremente...",
     liveModeSpeakingLabel: "InhubBot falando...",
+    voicePickerTitle: "Escolher voz do InhubBot",
+    voiceAutoOption: "Automática (Voz masculina)",
+    voiceSampleText: "Olá, sou o InhubBot, seu assistente de Social Selling.",
+    noVoicesFound: "Nenhuma voz adicional detectada neste navegador.",
   },
 };

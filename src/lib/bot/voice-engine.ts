@@ -1,6 +1,39 @@
 import type { BotLocale } from "@/lib/bot/i18n";
 
-const PREFERRED_VOICE_NAMES = [
+const PREFERRED_MALE_VOICE_NAMES = [
+  "alvaro",
+  "jorge",
+  "tomas",
+  "dario",
+  "pablo",
+  "raul",
+  "alonso",
+  "antonio",
+  "daniel",
+  "donato",
+  "fabio",
+  "julio",
+  "nicolau",
+  "valerio",
+  "humberto",
+  "guy",
+  "andrew",
+  "brian",
+  "christopher",
+  "eric",
+  "steffan",
+  "davis",
+  "tony",
+  "ryan",
+  "liam",
+  "george",
+  "arthur",
+  "male",
+  "hombre",
+  "masculino",
+];
+
+const KNOWN_FEMALE_VOICE_NAMES = [
   "elena",
   "dalia",
   "paloma",
@@ -17,6 +50,12 @@ const PREFERRED_VOICE_NAMES = [
   "ava",
   "samantha",
   "karen",
+  "helena",
+  "laura",
+  "maria",
+  "female",
+  "mujer",
+  "feminino",
 ];
 
 /**
@@ -34,7 +73,7 @@ export function cleanTextForSpeech(text: string): string {
 
 /**
  * Scores a SpeechSynthesisVoice deterministically for a target speech language
- * (e.g. "es-ES", "pt-BR", "en-US"), prioritizing Online/Natural/Google neural voices.
+ * (e.g. "es-ES", "pt-BR", "en-US"), prioritizing Online/Natural/Google neural male voices.
  */
 function scoreVoice(voice: SpeechSynthesisVoice, targetLang: string): number {
   const voiceLang = (voice.lang || "").toLowerCase().replace("_", "-");
@@ -78,39 +117,52 @@ function scoreVoice(voice: SpeechSynthesisVoice, targetLang: string): number {
     score += 120;
   }
 
-  if (PREFERRED_VOICE_NAMES.some((preferred) => name.includes(preferred))) {
-    score += 60;
+  if (PREFERRED_MALE_VOICE_NAMES.some((preferred) => name.includes(preferred))) {
+    score += 80;
+  } else if (KNOWN_FEMALE_VOICE_NAMES.some((female) => name.includes(female))) {
+    score -= 40;
   }
 
   return score;
 }
 
 /**
- * Picks the highest-quality, consistent voice available in the browser for the given locale.
+ * Returns all voices matching the target language sorted by quality (best first).
+ */
+export function listVoicesForLang(
+  voices: SpeechSynthesisVoice[],
+  speechLang: string
+): SpeechSynthesisVoice[] {
+  if (!voices || voices.length === 0) return [];
+  return voices
+    .map((voice) => ({ voice, score: scoreVoice(voice, speechLang) }))
+    .filter((item) => item.score >= 0)
+    .sort((a, b) =>
+      b.score !== a.score
+        ? b.score - a.score
+        : a.voice.name.localeCompare(b.voice.name)
+    )
+    .map((item) => item.voice);
+}
+
+/**
+ * Picks the user's preferred voice if available, otherwise the highest-quality
+ * consistent male neural voice available in the browser for the given locale.
  */
 export function pickBestVoice(
   voices: SpeechSynthesisVoice[],
-  speechLang: string
+  speechLang: string,
+  preferredVoiceUri?: string
 ): SpeechSynthesisVoice | null {
   if (!voices || voices.length === 0) return null;
 
-  let bestVoice: SpeechSynthesisVoice | null = null;
-  let bestScore = -1;
-
-  for (const voice of voices) {
-    const score = scoreVoice(voice, speechLang);
-    if (score < 0) continue;
-
-    if (
-      score > bestScore ||
-      (score === bestScore && bestVoice && voice.name.localeCompare(bestVoice.name) < 0)
-    ) {
-      bestScore = score;
-      bestVoice = voice;
-    }
+  if (preferredVoiceUri) {
+    const manual = voices.find((v) => v.voiceURI === preferredVoiceUri);
+    if (manual) return manual;
   }
 
-  return bestVoice;
+  const ranked = listVoicesForLang(voices, speechLang);
+  return ranked[0] || null;
 }
 
 export function getVoiceLocaleHint(locale: BotLocale): string {
