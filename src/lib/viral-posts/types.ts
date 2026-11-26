@@ -40,6 +40,8 @@ export interface ViralPostTemplate {
   viralityBadge?: string;
   viralityTier?: "mega" | "high" | "trending";
   mediaUrl?: string;
+  mediaUrls?: string[];
+  documentUrl?: string;
   hasMedia?: boolean;
   marketOrigin?: string;
   detectedLanguage?: "es" | "pt" | "en" | "other";

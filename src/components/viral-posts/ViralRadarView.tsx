@@ -58,6 +58,16 @@ export type TargetMarket =
   | "only_us"
   | "global_west";
 
+function getProxiedAssetUrl(url?: string | null): string | undefined {
+  if (!url || typeof url !== "string") return undefined;
+  const trimmed = url.trim();
+  if (!trimmed.startsWith("http")) return trimmed;
+  if (trimmed.includes("licdn.com") || trimmed.includes("linkedin.com")) {
+    return `/api/proxy-image?url=${encodeURIComponent(trimmed)}`;
+  }
+  return trimmed;
+}
+
 export interface DetectedMarketInfo {
   country: string;
   market: TargetMarket;
@@ -1202,7 +1212,7 @@ export default function ViralRadarView({
                     <div className="flex items-start gap-2.5 min-w-0 pr-2">
                       {post.authorAvatar ? (
                         <img
-                          src={post.authorAvatar}
+                          src={getProxiedAssetUrl(post.authorAvatar)}
                           alt={post.author}
                           className="h-10 w-10 rounded-full object-cover shrink-0 border border-gray-300 dark:border-gray-700"
                           onError={(e) => {
@@ -1382,8 +1392,23 @@ export default function ViralRadarView({
                       onClick={() => setSelectedPostForModal(post)}
                       title="Haz clic para ver todas las diapositivas del carrusel"
                     >
-                      {/* Fondo decorativo con brillo sutil */}
-                      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-brand-500/15 via-transparent to-transparent pointer-events-none" />
+                      {/* Fondo real (portada del PDF si existe) o decorativo */}
+                      {post.mediaUrl ? (
+                        <>
+                          <img
+                            src={getProxiedAssetUrl(post.mediaUrl)}
+                            alt={post.hook || "Portada PDF"}
+                            loading="lazy"
+                            className="absolute inset-0 h-full w-full object-cover opacity-45 group-hover:scale-105 transition-transform duration-300 pointer-events-none"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = "none";
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/60 to-slate-950/70 pointer-events-none" />
+                        </>
+                      ) : (
+                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-brand-500/15 via-transparent to-transparent pointer-events-none" />
+                      )}
 
                       {/* Barra superior de documento estilo LinkedIn */}
                       <div className="relative z-10 flex items-center justify-between text-xs">
@@ -1428,7 +1453,7 @@ export default function ViralRadarView({
                     <div className="relative mb-4 h-32 sm:h-36 w-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-800 group">
                       {post.mediaUrl ? (
                         <img
-                          src={post.mediaUrl}
+                          src={getProxiedAssetUrl(post.mediaUrl)}
                           alt={post.hook || "Recurso visual"}
                           loading="lazy"
                           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
@@ -1589,7 +1614,7 @@ export default function ViralRadarView({
                 <div className="flex items-start gap-3 min-w-0">
                   {selectedPostForModal.authorAvatar ? (
                     <img
-                      src={selectedPostForModal.authorAvatar}
+                      src={getProxiedAssetUrl(selectedPostForModal.authorAvatar)}
                       alt={selectedPostForModal.author}
                       className="h-12 w-12 rounded-full object-cover shrink-0 border border-gray-300 dark:border-gray-700"
                       onError={(e) => {
@@ -1731,13 +1756,28 @@ export default function ViralRadarView({
               {selectedPostForModal.mediaUrl && (
                 <div className="w-full overflow-hidden bg-black/5 dark:bg-black/50 border-y border-gray-300 dark:border-gray-800">
                   <img
-                    src={selectedPostForModal.mediaUrl}
+                    src={getProxiedAssetUrl(selectedPostForModal.mediaUrl)}
                     alt={selectedPostForModal.author}
                     className="w-full h-auto max-h-[620px] object-contain mx-auto"
                     onError={(e) => {
                       (e.currentTarget as HTMLElement).style.display = "none";
                     }}
                   />
+                  {selectedPostForModal.mediaUrls && selectedPostForModal.mediaUrls.length > 1 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 border-t border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/60">
+                      {selectedPostForModal.mediaUrls.slice(1).map((extraUrl, mIdx) => (
+                        <img
+                          key={mIdx}
+                          src={getProxiedAssetUrl(extraUrl)}
+                          alt={`${selectedPostForModal.author} - ${mIdx + 2}`}
+                          className="w-full h-28 object-cover rounded border border-gray-200 dark:border-gray-700"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = "none";
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1796,18 +1836,32 @@ export default function ViralRadarView({
               </div>
             </div>
 
-            {/* Enlace a publicación original en LinkedIn */}
-            {selectedPostForModal.linkedinUrl && (
-              <div className="mb-4 flex items-center justify-between p-3 rounded-lg border border-gray-300 bg-white dark:border-gray-800 dark:bg-gray-900 text-xs">
+            {/* Enlace a publicación original en LinkedIn y PDF si existe */}
+            {(selectedPostForModal.linkedinUrl || selectedPostForModal.documentUrl) && (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg border border-gray-300 bg-white dark:border-gray-800 dark:bg-gray-900 text-xs">
                 <span className="text-gray-600 dark:text-gray-400 font-medium">{t("originalPostLink")}</span>
-                <a
-                  href={selectedPostForModal.linkedinUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-semibold text-brand-600 hover:underline dark:text-brand-400 flex items-center gap-1"
-                >
-                  {t("viewOnLinkedIn")} &rarr;
-                </a>
+                <div className="flex items-center gap-3">
+                  {selectedPostForModal.documentUrl && (
+                    <a
+                      href={getProxiedAssetUrl(selectedPostForModal.documentUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-purple-600 hover:underline dark:text-purple-400 flex items-center gap-1"
+                    >
+                      Abrir / Descargar PDF ↗
+                    </a>
+                  )}
+                  {selectedPostForModal.linkedinUrl && (
+                    <a
+                      href={selectedPostForModal.linkedinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-brand-600 hover:underline dark:text-brand-400 flex items-center gap-1"
+                    >
+                      {t("viewOnLinkedIn")} &rarr;
+                    </a>
+                  )}
+                </div>
               </div>
             )}
 

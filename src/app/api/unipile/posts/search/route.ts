@@ -665,45 +665,84 @@ export async function POST(req: Request) {
       const lines = text.split("\n").map((l: string) => l.trim()).filter(Boolean);
       const hook = lines[0] || "Publicación destacada en LinkedIn";
 
-      // Extraer imagen o adjunto multimedia si existe
-      let mediaUrl: string | null = null;
+      // Extraer todas las imágenes/previews reales y URL de PDF/documento si existen
+      const mediaUrls: string[] = [];
+      const pushMediaUrl = (candidate: unknown) => {
+        if (typeof candidate !== "string") return;
+        const trimmed = candidate.trim();
+        if (!trimmed.startsWith("http")) return;
+        if (!mediaUrls.includes(trimmed)) mediaUrls.push(trimmed);
+      };
+
+      let documentUrl: string | null = null;
+      const setDocumentUrl = (candidate: unknown) => {
+        if (documentUrl || typeof candidate !== "string") return;
+        const trimmed = candidate.trim();
+        if (trimmed.startsWith("http")) documentUrl = trimmed;
+      };
+
       if (Array.isArray(item.attachments) && item.attachments.length > 0) {
         for (const att of item.attachments) {
           if (typeof att === "string" && att.startsWith("http")) {
-            mediaUrl = att;
-            break;
+            if (att.toLowerCase().includes(".pdf")) {
+              setDocumentUrl(att);
+            } else {
+              pushMediaUrl(att);
+            }
           } else if (att && typeof att === "object") {
-            const found =
-              att.url ||
-              att.preview_url ||
-              att.image_url ||
-              att.media_url ||
-              att.thumbnail_url ||
-              att.file_url ||
-              att.picture_url ||
-              att.src ||
-              null;
-            if (found && typeof found === "string" && found.startsWith("http")) {
-              mediaUrl = found;
-              break;
+            const attType = String(att.type || "").toUpperCase();
+            const mime = String(att.mimetype || att.mime_type || "").toLowerCase();
+            const rawDocCandidate = att.file_url || att.document_url || att.url || "";
+            const isPdfOrDoc =
+              attType === "DOCUMENT" ||
+              attType === "CAROUSEL" ||
+              attType === "PRESENTATION" ||
+              mime.includes("pdf") ||
+              String(rawDocCandidate).toLowerCase().includes(".pdf") ||
+              String(rawDocCandidate).toLowerCase().includes("feedshare-document");
+
+            if (isPdfOrDoc) {
+              setDocumentUrl(att.file_url || att.document_url || att.url);
+            }
+
+            // Para imágenes y portadas/miniaturas de PDFs
+            const previewCandidates = [
+              att.preview_url,
+              att.thumbnail_url,
+              att.cover_url,
+              att.image_url,
+              att.picture_url,
+              att.media_url,
+              att.src,
+              !isPdfOrDoc ? att.url : null,
+              !isPdfOrDoc ? att.file_url : null,
+            ];
+            for (const c of previewCandidates) {
+              pushMediaUrl(c);
             }
           }
         }
       }
 
-      if (!mediaUrl) {
-        const directMedia =
-          item.image_url ||
-          item.media_url ||
-          item.thumbnail_url ||
-          item.article?.thumbnail_url ||
-          item.article?.image_url ||
-          item.media?.url ||
-          null;
-        if (directMedia && typeof directMedia === "string" && directMedia.startsWith("http")) {
-          mediaUrl = directMedia;
-        }
+      const directMediaCandidates = [
+        item.image_url,
+        item.media_url,
+        item.thumbnail_url,
+        item.article?.thumbnail_url,
+        item.article?.image_url,
+        item.media?.url,
+        item.document?.thumbnail_url,
+        item.document?.preview_url,
+      ];
+      for (const c of directMediaCandidates) {
+        pushMediaUrl(c);
       }
+
+      if (!documentUrl) {
+        setDocumentUrl(item.document_url || item.document?.url || item.document?.file_url);
+      }
+
+      const mediaUrl: string | null = mediaUrls[0] || null;
 
       // Detectar formato técnico real (Carrusel / Imagen / Video / Solo Texto)
       const lower = text.toLowerCase();
@@ -873,16 +912,65 @@ export async function POST(req: Request) {
       const lang = detectPostLanguage(text);
       const marketOrigin = detectMarketOrigin(text, item.author?.headline || item.author?.description || "", lang);
 
-      const postLinkedinUrl =
-        item.share_url ||
-        (item.social_id ? `https://www.linkedin.com/feed/update/${item.social_id}` : null) ||
-        `https://www.linkedin.com/search/results/content/?keywords=${encodeURIComponent(hook.slice(0, 80))}`;
+      const resolveExactPostUrl = (): string | null => {
+        const directCandidates = [
+          item.share_url,
+          item.url,
+          item.post_url,
+          item.permalink,
+          item.linkedin_url,
+        ];
+        for (const cand of directCandidates) {
+          if (typeof cand === "string") {
+            const trimmed = cand.trim();
+            if (
+              trimmed.startsWith("http") &&
+              trimmed.includes("linkedin.com") &&
+              !trimmed.includes("/search/")
+            ) {
+              return trimmed;
+            }
+          }
+        }
+
+        const idCandidates = [
+          item.social_id,
+          item.urn,
+          item.activity_urn,
+          item.provider_id,
+          item.id,
+        ];
+        for (const rawId of idCandidates) {
+          if (typeof rawId !== "string" && typeof rawId !== "number") continue;
+          const str = String(rawId).trim();
+          if (!str) continue;
+          if (str.startsWith("urn:li:")) {
+            return `https://www.linkedin.com/feed/update/${str}/`;
+          }
+          if (/^\d{15,22}$/.test(str)) {
+            return `https://www.linkedin.com/feed/update/urn:li:activity:${str}/`;
+          }
+        }
+        return null;
+      };
+
+      const postLinkedinUrl = resolveExactPostUrl();
+      const resolvedAuthorAvatar =
+        item.author?.public_picture_url ||
+        item.author?.picture_url ||
+        item.author?.profile_picture_url ||
+        item.author?.avatar_url ||
+        item.author?.avatar ||
+        item.author?.image_url ||
+        item.author?.photo_url ||
+        item.author?.profile_picture?.url ||
+        null;
 
       return {
         id: item.id || `live-post-${idx}`,
         author: item.author?.display_name || item.author?.name || "Líder de Industria B2B",
         authorHeadline: item.author?.description || item.author?.headline || "Especialista en LinkedIn & B2B",
-        authorAvatar: item.author?.public_picture_url || item.author?.picture_url || null,
+        authorAvatar: resolvedAuthorAvatar,
         authorRawLocation: item.author?.location || item.author?.country || "",
         publicIdentifier: item.author?.public_identifier || null,
         publishedDate: item.created_at || item.date || "Reciente",
@@ -898,11 +986,13 @@ export async function POST(req: Request) {
         viralityBadge,
         viralityTier,
         mediaUrl: mediaUrl || undefined,
+        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+        documentUrl: documentUrl || undefined,
         hasMedia,
         marketOrigin,
         detectedLanguage: lang,
         socialId: item.social_id || null,
-        linkedinUrl: postLinkedinUrl,
+        linkedinUrl: postLinkedinUrl || undefined,
         isLive: true,
       };
     });

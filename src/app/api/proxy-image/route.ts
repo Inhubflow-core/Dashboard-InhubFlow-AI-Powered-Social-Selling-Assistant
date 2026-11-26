@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
     const res = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) InhubFlow/1.0",
+        Referer: "https://www.linkedin.com/",
       },
     });
 
