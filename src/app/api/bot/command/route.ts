@@ -44,6 +44,12 @@ interface BotCommandResponse {
   cards?: BotActionCard[];
   quickActions?: string[];
   spokenText?: string;
+  executedApproval?: {
+    messageId: string;
+    cardIdx: number;
+    status: "approved" | "scheduled";
+  };
+  syncedPost?: Record<string, unknown>;
 }
 
 interface HistoryItem {
@@ -170,7 +176,7 @@ function toggleCampaignStatus(campaignId: string, targetStatus: "active" | "paus
 function getRecentLeads() {
   const db = getSocialSellingDb();
   try {
-    const rows = db.prepare("SELECT * FROM crm_leads_360 ORDER BY created_at DESC LIMIT 6").all() as Array<{
+    const rows = db.prepare("SELECT * FROM crm_leads_360 ORDER BY created_at DESC LIMIT 12").all() as Array<{
       id: string;
       full_name: string;
       stage: string;
@@ -195,6 +201,113 @@ function getRecentLeads() {
   } catch {
     return [];
   }
+}
+
+interface StoredViralPostSummary {
+  [key: string]: unknown;
+  id: string;
+  title: string;
+  content: string;
+  format: string;
+  status: string;
+  scheduledAt?: string;
+  publishedAt?: string;
+  createdAt?: string;
+  linkedinPostId?: string;
+  postUrl?: string;
+  targetAccountId?: string;
+}
+
+function getViralPostsList(limit = 15): StoredViralPostSummary[] {
+  const db = getSocialSellingDb();
+  try {
+    const rows = db
+      .prepare(
+        "SELECT * FROM viral_posts ORDER BY COALESCE(published_at, scheduled_at, created_at) DESC LIMIT ?"
+      )
+      .all(limit) as Array<Record<string, any>>;
+
+    return rows.map((r) => {
+      let meta: Record<string, unknown> = {};
+      try {
+        meta = r.metadata_json ? JSON.parse(String(r.metadata_json)) : {};
+      } catch {}
+      const linkedinPostId = r.linkedin_post_id ? String(r.linkedin_post_id) : undefined;
+      let postUrl =
+        (typeof r.post_url === "string" && r.post_url.startsWith("http") ? r.post_url : "") ||
+        (typeof meta.postUrl === "string" && meta.postUrl.startsWith("http") ? String(meta.postUrl) : "");
+
+      if (
+        !postUrl &&
+        linkedinPostId &&
+        !linkedinPostId.startsWith("up_post_") &&
+        !linkedinPostId.startsWith("post_sim_")
+      ) {
+        if (linkedinPostId.startsWith("urn:li:")) {
+          postUrl = `https://www.linkedin.com/feed/update/${linkedinPostId}/`;
+        } else if (/^\d+$/.test(linkedinPostId)) {
+          postUrl = `https://www.linkedin.com/feed/update/urn:li:activity:${linkedinPostId}/`;
+        }
+      }
+
+      return {
+        id: String(r.id),
+        title: String(r.title || "LinkedIn Post"),
+        content: String(r.content || ""),
+        format: String(r.format || "text"),
+        status: String(r.status || "draft"),
+        scheduledAt: r.scheduled_at ? String(r.scheduled_at) : undefined,
+        publishedAt: r.published_at ? String(r.published_at) : undefined,
+        createdAt: r.created_at ? String(r.created_at) : undefined,
+        linkedinPostId,
+        postUrl: postUrl || undefined,
+        targetAccountId: r.target_account_id ? String(r.target_account_id) : undefined,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function resolveMissingPostUrl(post: StoredViralPostSummary): Promise<string | undefined> {
+  if (post.postUrl && post.postUrl.startsWith("http")) return post.postUrl;
+  const rawId = post.linkedinPostId;
+  if (!rawId || rawId.startsWith("up_post_") || rawId.startsWith("post_sim_")) {
+    return undefined;
+  }
+
+  let resolvedUrl = "";
+  try {
+    const { accountId } = await resolveActiveLinkedInAccount();
+    if (accountId && unipile.isConfigured() && !unipile.isSandboxMode()) {
+      const livePost = await unipile.getPost(rawId, post.targetAccountId || accountId);
+      if (livePost) {
+        if (typeof livePost.share_url === "string" && livePost.share_url.startsWith("http")) {
+          resolvedUrl = livePost.share_url;
+        } else if (typeof (livePost as Record<string, unknown>).url === "string") {
+          const u = String((livePost as Record<string, unknown>).url);
+          if (u.startsWith("http")) resolvedUrl = u;
+        }
+      }
+    }
+  } catch {}
+
+  if (!resolvedUrl) {
+    if (rawId.startsWith("urn:li:")) {
+      resolvedUrl = `https://www.linkedin.com/feed/update/${rawId}/`;
+    } else if (/^\d+$/.test(rawId)) {
+      resolvedUrl = `https://www.linkedin.com/feed/update/urn:li:activity:${rawId}/`;
+    }
+  }
+
+  if (resolvedUrl) {
+    try {
+      const db = getSocialSellingDb();
+      db.prepare("UPDATE viral_posts SET post_url = ? WHERE id = ?").run(resolvedUrl, post.id);
+    } catch {}
+    return resolvedUrl;
+  }
+  return undefined;
 }
 
 function getSignalMonitorsList() {
@@ -1049,6 +1162,25 @@ export async function POST(req: NextRequest) {
           : undefined;
 
       const execRes = await executeApprovedAction(approval, scheduledAt, locale);
+      const isPostAction = approval.type === "post" && execRes.ok;
+      const details = (execRes.details || {}) as Record<string, unknown>;
+      const postCardData = isPostAction
+        ? {
+            id: details.id,
+            title: details.title || approval.title || "LinkedIn Post",
+            content: details.content || approval.preview,
+            status: details.status || (scheduledAt ? "scheduled" : "published"),
+            scheduledAt: details.scheduledAt,
+            publishedAt: details.publishedAt,
+            linkedinPostId: details.linkedinPostId,
+            postUrl: details.postUrl,
+            targetAccountId: details.accountId,
+            format: "text",
+            leadMagnetKeyword: "SISTEMA",
+            createdAt: new Date().toISOString(),
+          }
+        : undefined;
+
       return NextResponse.json({
         ok: execRes.ok,
         reply: execRes.ok
@@ -1063,6 +1195,80 @@ export async function POST(req: NextRequest) {
           ? t(locale, "Acción ejecutada con éxito.", "Action executed successfully.", "Ação executada com sucesso.")
           : t(locale, "No se pudo completar la acción.", "Could not complete the action.", "Não foi possível concluir a ação."),
         emotion: execRes.ok ? "happy" : "thinking",
+        cards: postCardData ? [{ type: "post", data: postCardData }] : undefined,
+        syncedPost: postCardData,
+        quickActions: ui.quickActions,
+      } as BotCommandResponse);
+    }
+
+    // =========================================================================
+    // 1B. APROBACIÓN POR VOZ O TEXTO DE UN BORRADOR PENDIENTE
+    // =========================================================================
+    const pendingApprovalWrap = payload?.pendingApproval as
+      | { messageId?: string; cardIdx?: number; approval?: ApprovalActionPayload }
+      | undefined;
+
+    if (
+      !imageBase64 &&
+      !action &&
+      pendingApprovalWrap?.approval &&
+      !/^(c[oó]mo|qu[eé]|por qu[eé]|cu[aá]ndo|how |what |why |when |como |o que )/i.test(lower) &&
+      /\b(aprueb[ao]|aprobad[oa]|apru[eé]bal[oa]|pub[líi]cal[oa]|m[aá]ndal[oa] a publicar|publicar(lo|la)?|publica(r)? ahora|publica eso|dale adelante|s[ií],?\s*(publica|env[ií]a|aprueba|manda)|est[aá] aprobad[oa]|ag[eé]ndal[oa]|approve|publish( it| now)?|go ahead and publish|aprovad[oa]|pode publicar|publica agora|agende)\b/i.test(
+        lower
+      )
+    ) {
+      const wantSchedule = /\b(ag[eé]ndal|program|schedule|agende|ma[ñn]ana|tomorrow|amanh[aã])\b/i.test(lower);
+      const pendingApp = pendingApprovalWrap.approval;
+      let scheduleIso = pendingApp.scheduledAt;
+      if (wantSchedule && !scheduleIso) {
+        const d = new Date(Date.now() + 2 * 60 * 60 * 1000);
+        scheduleIso = d.toISOString();
+      }
+
+      const execRes = await executeApprovedAction(pendingApp, wantSchedule ? scheduleIso : undefined, locale);
+      const isPostAction = pendingApp.type === "post" && execRes.ok;
+      const details = (execRes.details || {}) as Record<string, unknown>;
+      const postCardData = isPostAction
+        ? {
+            id: details.id,
+            title: details.title || pendingApp.title || "LinkedIn Post",
+            content: details.content || pendingApp.preview,
+            status: details.status || (wantSchedule ? "scheduled" : "published"),
+            scheduledAt: details.scheduledAt,
+            publishedAt: details.publishedAt,
+            linkedinPostId: details.linkedinPostId,
+            postUrl: details.postUrl,
+            targetAccountId: details.accountId,
+            format: "text",
+            leadMagnetKeyword: "SISTEMA",
+            createdAt: new Date().toISOString(),
+          }
+        : undefined;
+
+      return NextResponse.json({
+        ok: execRes.ok,
+        reply: execRes.ok
+          ? `✅ **${t(locale, "Listo.", "Done.", "Pronto.")}** ${execRes.message}`
+          : `⚠️ ${t(
+              locale,
+              "No pude completar la acción:",
+              "Could not complete the action:",
+              "Não consegui concluir a ação:"
+            )} ${execRes.message}`,
+        spokenText: execRes.ok
+          ? t(locale, "Acción aprobada y ejecutada con éxito.", "Action approved and executed.", "Ação aprovada e executada com sucesso.")
+          : t(locale, "No se pudo completar la acción.", "Could not complete the action.", "Não foi possível concluir a ação."),
+        emotion: execRes.ok ? "happy" : "thinking",
+        cards: postCardData ? [{ type: "post", data: postCardData }] : undefined,
+        syncedPost: postCardData,
+        executedApproval:
+          execRes.ok && pendingApprovalWrap.messageId !== undefined
+            ? {
+                messageId: String(pendingApprovalWrap.messageId),
+                cardIdx: Number(pendingApprovalWrap.cardIdx || 0),
+                status: wantSchedule ? "scheduled" : "approved",
+              }
+            : undefined,
         quickActions: ui.quickActions,
       } as BotCommandResponse);
     }
@@ -1418,6 +1624,71 @@ export async function POST(req: NextRequest) {
       } as BotCommandResponse);
     }
 
+    // Consultas en vivo sobre publicaciones reales y enlace directo de LinkedIn
+    if (
+      !imageBase64 &&
+      !/\b(crea|crear|genera|escribe|modela|borrador|create|draft|write|criar|escreva)\b/i.test(lower) &&
+      /\b(cu[aá]ntos posts|cu[aá]ntas publicaciones|mis posts|mis publicaciones|ver posts|lista de publicaciones|link (de |del )?(la )?(publicaci[oó]n|post)|enlace (de |del )?(la )?(publicaci[oó]n|post)|[uú]ltimo post|ver(lo|la)? en linkedin|how many posts|my posts|post link|latest post|quantos posts|quantas publica[cç][oõ]es|minhas publica[cç][oõ]es|link (da|do) (publica[cç][aã]o|post))\b/i.test(
+        lower
+      )
+    ) {
+      const posts = getViralPostsList(12);
+      const publishedPosts = posts.filter((p) => p.status === "published");
+      const scheduledPosts = posts.filter((p) => p.status === "scheduled");
+      const draftPosts = posts.filter((p) => p.status === "draft");
+
+      const latestPublished = publishedPosts[0];
+      if (latestPublished && !latestPublished.postUrl) {
+        latestPublished.postUrl = await resolveMissingPostUrl(latestPublished);
+      }
+
+      const askingForLink = /\b(link|enlace|url|linkedin|ver)\b/i.test(lower);
+      let replyText = "";
+      if (posts.length === 0) {
+        replyText = t(
+          locale,
+          "Actualmente tienes **0 publicaciones** registradas en tu plataforma.",
+          "You currently have **0 posts** recorded in your platform.",
+          "Atualmente você tem **0 publicações** registradas na plataforma."
+        );
+      } else if (askingForLink && latestPublished) {
+        replyText = latestPublished.postUrl
+          ? t(
+              locale,
+              `Aquí tienes tu última publicación (**"${latestPublished.title}"**):\n\n🔗 ${latestPublished.postUrl}`,
+              `Here is your latest published post (**"${latestPublished.title}"**):\n\n🔗 ${latestPublished.postUrl}`,
+              `Aqui está sua última publicação (**"${latestPublished.title}"**):\n\n🔗 ${latestPublished.postUrl}`
+            )
+          : t(
+              locale,
+              `Tu última publicación registrada es **"${latestPublished.title}"** (ID: \`${latestPublished.linkedinPostId || latestPublished.id}\`), pero LinkedIn/Unipile aún no devolvió la URL pública directa.`,
+              `Your latest recorded post is **"${latestPublished.title}"** (ID: \`${latestPublished.linkedinPostId || latestPublished.id}\`), though LinkedIn/Unipile has not returned a direct public URL yet.`,
+              `Sua última publicação registrada é **"${latestPublished.title}"** (ID: \`${latestPublished.linkedinPostId || latestPublished.id}\`), mas o LinkedIn/Unipile ainda não retornou a URL pública direta.`
+            );
+      } else {
+        replyText = t(
+          locale,
+          `Tienes **${posts.length} publicaciones** en tu plataforma: **${publishedPosts.length}** publicadas, **${scheduledPosts.length}** programadas y **${draftPosts.length}** borradores.${latestPublished?.postUrl ? `\n\n🔗 Última publicada: ${latestPublished.postUrl}` : ""}`,
+          `You have **${posts.length} posts** in your platform: **${publishedPosts.length}** published, **${scheduledPosts.length}** scheduled, and **${draftPosts.length}** drafts.${latestPublished?.postUrl ? `\n\n🔗 Latest published: ${latestPublished.postUrl}` : ""}`,
+          `Você tem **${posts.length} publicações** na plataforma: **${publishedPosts.length}** publicadas, **${scheduledPosts.length}** agendadas e **${draftPosts.length}** rascunhos.${latestPublished?.postUrl ? `\n\n🔗 Última publicada: ${latestPublished.postUrl}` : ""}`
+        );
+      }
+
+      return NextResponse.json({
+        ok: true,
+        reply: replyText,
+        spokenText: t(
+          locale,
+          `Tienes ${posts.length} publicaciones registradas: ${publishedPosts.length} publicadas y ${scheduledPosts.length} programadas.`,
+          `You have ${posts.length} posts recorded: ${publishedPosts.length} published and ${scheduledPosts.length} scheduled.`,
+          `Você tem ${posts.length} publicações registradas: ${publishedPosts.length} publicadas e ${scheduledPosts.length} agendadas.`
+        ),
+        emotion: "talking",
+        cards: posts.slice(0, 5).map((p) => ({ type: "post" as const, data: p })),
+        quickActions: ui.quickActions,
+      } as BotCommandResponse);
+    }
+
     // =========================================================================
     // 3. FLUJO MULTIMODAL CON FOTO / IMAGEN
     // =========================================================================
@@ -1639,26 +1910,46 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================================================
-    // 5. CONVERSACIÓN GENERAL / ESTRATEGIA CON GEMINI + CONOCIMIENTO TOTAL
+    // 5. CONVERSACIÓN GENERAL / ESTRATEGIA CON GEMINI + CONOCIMIENTO TOTAL EN VIVO
     // =========================================================================
     const snap = getPlatformSummary();
     const campaignsList = getCampaignsList();
     const topLeads = getRecentLeads();
+    const postsList = getViralPostsList(12);
+    const signalsList = getSignalMonitorsList();
+    const inboxOverview = getInboxOverview();
+    const pipelineOverview = getPipelineOverview();
+    const activeAccount = await resolveActiveLinkedInAccount();
     const turns = buildHistoryTurns(history);
     turns.push({ role: "user", parts: [{ text: message || "Hello" }] });
 
+    const postsTotal = postsList.length;
     const liveWorkspaceSummary = [
-      `- Cuentas LinkedIn activas: ${snap.accounts.active}/${snap.accounts.total}`,
+      `- Cuenta LinkedIn principal en vivo: ${activeAccount.accountId ? `${activeAccount.accountName} (ACTIVA / ${activeAccount.accountId})` : "Ninguna cuenta activa"} | Total registradas en BD: ${snap.accounts.active}/${snap.accounts.total}`,
+      `- Publicaciones en Dashboard (viral_posts total=${postsTotal}: ${snap.posts.published} publicadas, ${snap.posts.scheduled} programadas, ${snap.posts.draft} borradores):`,
+      ...postsList.map(
+        (p, idx) =>
+          `  ${idx + 1}. [${p.status.toUpperCase()}] "${p.title}" | fecha=${p.publishedAt || p.scheduledAt || p.createdAt || "N/A"}${p.postUrl ? ` | link=${p.postUrl}` : p.linkedinPostId ? ` | linkedinId=${p.linkedinPostId}` : ""}`
+      ),
       `- Prospectos CRM: ${snap.leads.total} (${snap.leads.qualified} con alta intención >= 80 pts)`,
+      pipelineOverview.stages.length > 0
+        ? `  Etapas Pipeline: ${pipelineOverview.stages.map((s) => `${s.stage}=${s.count}`).join(", ")}`
+        : "",
       topLeads.length > 0
-        ? `  Últimos leads: ${topLeads.map((l) => `${l.name} (${l.headline}, ${l.score} pts, etapa ${l.stage})`).join(" | ")}`
+        ? `  Últimos leads: ${topLeads.map((l) => `${l.name} (${l.headline}, ${l.score} pts, etapa ${l.stage}, ${l.profileUrl})`).join(" | ")}`
         : "",
-      `- Campañas: ${snap.campaigns.active}/${snap.campaigns.total} activas`,
+      `- Campañas Lineales: ${snap.campaigns.active}/${snap.campaigns.total} activas`,
       campaignsList.length > 0
-        ? `  Nombres: ${campaignsList.map((c) => `${c.name} [${c.status}]`).join(", ")}`
+        ? `  Detalle campañas: ${campaignsList.map((c) => `${c.name} [${c.code}, ${c.status}, ${c.leadsCount} leads]`).join(" | ")}`
         : "",
-      `- Posts: ${snap.posts.published} publicados, ${snap.posts.scheduled} programados, ${snap.posts.draft} borradores`,
-      `- Monitores Signal Radar activos: ${snap.signals.active}/${snap.signals.total}`,
+      `- Monitores Signal Radar: ${snap.signals.active}/${snap.signals.total} activos`,
+      signalsList.length > 0
+        ? `  Monitores: ${signalsList.map((s) => `${s.title} [${s.level}, ${s.status}, ${s.leadsCount} leads]`).join(" | ")}`
+        : "",
+      `- Smart Inbox: ${inboxOverview.total} conversaciones (${inboxOverview.unreadCount} sin leer), ${inboxOverview.pendingSdrDrafts} borradores SDR pendientes`,
+      inboxOverview.conversations.length > 0
+        ? `  Últimos chats: ${inboxOverview.conversations.map((c) => `${c.leadName} (${c.stage}, unread=${c.unread})`).join(" | ")}`
+        : "",
       `- Pacing hoy: ${snap.pacingToday.invites} invitaciones, ${snap.pacingToday.dms} DMs`,
     ]
       .filter(Boolean)
@@ -1672,13 +1963,16 @@ YOUR ROLE:
 You are NOT a generic chatbot. You are:
 1. A deep expert on **every single module, rule, limit, and workflow inside InhubFlow Social Selling Suite**.
 2. A senior **LinkedIn, Personal Branding, Copywriting & B2B Social Selling strategist** who thinks critically, gives actionable advice, diagnoses bottlenecks, rewrites hooks/profiles, and proposes concrete next steps.
-3. A hands-free mobile operator with Human-in-the-Loop protection (you can analyze magazine/article photos, search LinkedIn people with profile photo & connection degree verification, draft comments/DMs/posts for human approval, and inspect live workspace metrics).
+3. A hands-free mobile operator with Human-in-the-Loop protection connected to the user's real platform database and LinkedIn account.
 
-GOLDEN RULE: Never fabricate live metrics. Use ONLY the real workspace snapshot below for account numbers, and clearly distinguish real account data from strategic LinkedIn advice.
+GOLDEN RULES (NON-NEGOTIABLE):
+- NEVER fabricate, guess, or inflate live metrics, post counts, links, or lead names. Use ONLY the exact numbers, titles, statuses, and URLs in LIVE WORKSPACE SNAPSHOT below.
+- NEVER claim that you have just published a post, sent a message, or scheduled something unless the action actually executed via the approval flow. If a user wants to publish a draft and it hasn't been triggered, tell them clearly to tap "Publish now" on the approval card or say "Aprueba y publica ahora".
+- If a post has a real link in LIVE WORKSPACE SNAPSHOT, share the exact URL; if it does not have a URL yet, state honestly that LinkedIn did not return a public link yet.
 
 ${INHUBFLOW_MASTER_KNOWLEDGE}
 
-=== LIVE WORKSPACE SNAPSHOT ===
+=== LIVE WORKSPACE SNAPSHOT (REAL DATABASE & LINKEDIN STATE) ===
 ${liveWorkspaceSummary}
 
 === COMPANY KNOWLEDGE BASE (RAG - ${kb.companyName || "InhubFlow"}) ===

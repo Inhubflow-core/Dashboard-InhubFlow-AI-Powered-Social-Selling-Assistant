@@ -141,7 +141,15 @@ export function updateStoredCreatedPost(id: string, updates: Partial<CreatedPost
 export function deleteStoredCreatedPost(id: string): CreatedPost[] {
   const current = getStoredCreatedPosts();
   const updated = current.filter((p) => p.id !== id);
-  saveCreatedPosts(updated);
+  try {
+    localStorage.setItem(CREATED_POSTS_KEY, JSON.stringify(updated));
+  } catch (err) {
+    console.warn("[deleteStoredCreatedPost] Error guardando en localStorage:", err);
+  }
+  window.dispatchEvent(new Event(CREATED_POSTS_CHANGE_EVENT));
+  if (typeof fetch === "function") {
+    fetch(`/api/viral-posts?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+  }
   return updated;
 }
 
@@ -223,6 +231,64 @@ export function clearStoredRadarState(): void {
 }
 
 
+export async function syncCreatedPostsWithServer(): Promise<CreatedPost[] | null> {
+  if (typeof window === "undefined" || typeof fetch !== "function") return null;
+  try {
+    const res = await fetch("/api/viral-posts", { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const serverPosts: CreatedPost[] = Array.isArray(data.posts) ? data.posts : [];
+    const localPosts = getStoredCreatedPosts();
+
+    const mergedMap = new Map<string, CreatedPost>();
+    for (const lp of localPosts) {
+      if (lp?.id) mergedMap.set(lp.id, lp);
+    }
+    let updatedFromServer = false;
+    for (const sp of serverPosts) {
+      if (!sp?.id) continue;
+      const prev = mergedMap.get(sp.id);
+      if (!prev) {
+        mergedMap.set(sp.id, sp);
+        updatedFromServer = true;
+      } else if (
+        (prev.status !== sp.status && sp.status === "published") ||
+        (!prev.postUrl && sp.postUrl) ||
+        (!prev.linkedinPostId && sp.linkedinPostId)
+      ) {
+        mergedMap.set(sp.id, { ...prev, ...sp });
+        updatedFromServer = true;
+      }
+    }
+
+    const mergedList = Array.from(mergedMap.values()).sort((a, b) =>
+      String(b.publishedAt || b.createdAt || "").localeCompare(String(a.publishedAt || a.createdAt || ""))
+    );
+
+    const serverIds = new Set(serverPosts.map((p) => p.id));
+    const missingInServer = mergedList.filter((p) => !serverIds.has(p.id));
+
+    if (updatedFromServer) {
+      try {
+        localStorage.setItem(CREATED_POSTS_KEY, JSON.stringify(mergedList));
+      } catch {}
+      window.dispatchEvent(new Event(CREATED_POSTS_CHANGE_EVENT));
+    }
+
+    if (missingInServer.length > 0) {
+      fetch("/api/viral-posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ posts: missingInServer }),
+      }).catch(() => {});
+    }
+
+    return mergedList;
+  } catch {
+    return null;
+  }
+}
+
 export function useCreatedPosts() {
   const [posts, setPosts] = useState<CreatedPost[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -234,11 +300,27 @@ export function useCreatedPosts() {
     syncPosts();
     setIsLoaded(true);
 
+    void syncCreatedPostsWithServer().then((merged) => {
+      if (merged) setPosts(merged);
+    });
+
+    const onFocusOrVisible = () => {
+      if (typeof document === "undefined" || document.visibilityState === "visible") {
+        void syncCreatedPostsWithServer().then((merged) => {
+          if (merged) setPosts(merged);
+        });
+      }
+    };
+
     window.addEventListener(CREATED_POSTS_CHANGE_EVENT, syncPosts);
     window.addEventListener("storage", syncPosts);
+    window.addEventListener("focus", onFocusOrVisible);
+    document.addEventListener("visibilitychange", onFocusOrVisible);
     return () => {
       window.removeEventListener(CREATED_POSTS_CHANGE_EVENT, syncPosts);
       window.removeEventListener("storage", syncPosts);
+      window.removeEventListener("focus", onFocusOrVisible);
+      document.removeEventListener("visibilitychange", onFocusOrVisible);
     };
   }, []);
 

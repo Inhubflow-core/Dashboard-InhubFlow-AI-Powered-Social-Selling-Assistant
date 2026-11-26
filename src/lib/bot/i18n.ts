@@ -97,6 +97,7 @@ export interface BotUiLabels {
   pauseBtn: string;
   activateBtn: string;
   scheduledBadge: string;
+  publishedBadge: string;
   draftBadge: string;
   qualifiedLeads: string;
   linkedinStatus: string;
@@ -223,6 +224,7 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     pauseBtn: "Pausar",
     activateBtn: "Activar",
     scheduledBadge: "Programado",
+    publishedBadge: "Publicado",
     draftBadge: "Borrador",
     qualifiedLeads: "Prospectos Calificados",
     linkedinStatus: "Estado de LinkedIn",
@@ -346,6 +348,7 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     pauseBtn: "Pause",
     activateBtn: "Activate",
     scheduledBadge: "Scheduled",
+    publishedBadge: "Published",
     draftBadge: "Draft",
     qualifiedLeads: "Qualified Prospects",
     linkedinStatus: "LinkedIn Status",
@@ -469,6 +472,7 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     pauseBtn: "Pausar",
     activateBtn: "Ativar",
     scheduledBadge: "Agendado",
+    publishedBadge: "Publicado",
     draftBadge: "Rascunho",
     qualifiedLeads: "Prospects Qualificados",
     linkedinStatus: "Status do LinkedIn",

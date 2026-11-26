@@ -565,19 +565,24 @@ export async function executeApprovedAction(
     const title = approval.title || text.split("\n")[0]?.slice(0, 60) || "LinkedIn Post";
 
     if (effectiveSchedule) {
+      const metadataPayload = {
+        source: "inhub_bot",
+        metrics: { likes: 0, comments: 0, impressions: 0, leadsCaptured: 0 },
+      };
       db.prepare(
         `INSERT INTO viral_posts (
           id, workspace_id, title, format, content, status, scheduled_at, target_account_id,
-          created_at, lead_magnet_keyword, auto_dm_enabled, auto_dm_message, auto_like_comment, metadata_json
-        ) VALUES (?, 'default', ?, 'text', ?, 'scheduled', ?, ?, ?, 'SISTEMA', 0, '', 0, ?)`
+          target_language, created_at, lead_magnet_keyword, auto_dm_enabled, auto_dm_message, auto_like_comment, metadata_json
+        ) VALUES (?, 'default', ?, 'text', ?, 'scheduled', ?, ?, ?, ?, 'SISTEMA', 0, '', 0, ?)`
       ).run(
         id,
         title,
         text,
         effectiveSchedule,
         accountId || null,
+        locale,
         now,
-        JSON.stringify({ source: "inhub_bot" })
+        JSON.stringify(metadataPayload)
       );
 
       const formattedDate = new Date(effectiveSchedule).toLocaleString(
@@ -592,7 +597,7 @@ export async function executeApprovedAction(
           `Post **scheduled** in your editorial calendar for **${formattedDate}**.`,
           `Publicação **agendada** no seu calendário editorial para **${formattedDate}**.`
         ),
-        details: { id, status: "scheduled", scheduledAt: effectiveSchedule },
+        details: { id, status: "scheduled", scheduledAt: effectiveSchedule, title, content: text },
       };
     }
 
@@ -612,40 +617,63 @@ export async function executeApprovedAction(
       text,
     });
     const linkedinPostId = String(result.post_id || result.id || `up_post_${Date.now()}`);
-    const rawShareUrl =
+    let rawShareUrl =
       typeof result.share_url === "string"
         ? result.share_url
         : typeof result.url === "string"
           ? result.url
           : "";
+
+    const isSyntheticId =
+      linkedinPostId.startsWith("up_post_") || linkedinPostId.startsWith("post_sim_");
+
+    // Si Unipile solo devolvió el ID del post, consultar el post para obtener su share_url oficial en LinkedIn
+    if (!rawShareUrl && linkedinPostId && !isSyntheticId && !unipile.isSandboxMode()) {
+      try {
+        const fetched = await unipile.getPost(linkedinPostId, accountId);
+        if (fetched) {
+          if (typeof fetched.share_url === "string" && fetched.share_url.startsWith("http")) {
+            rawShareUrl = fetched.share_url;
+          } else if (typeof (fetched as Record<string, unknown>).url === "string") {
+            rawShareUrl = String((fetched as Record<string, unknown>).url);
+          }
+        }
+      } catch {}
+    }
+
     let postUrl = rawShareUrl.startsWith("http") ? rawShareUrl : "";
-    if (
-      !postUrl &&
-      linkedinPostId &&
-      !linkedinPostId.startsWith("up_post_") &&
-      !linkedinPostId.startsWith("post_sim_")
-    ) {
+    if (!postUrl && linkedinPostId && !isSyntheticId) {
       if (linkedinPostId.startsWith("urn:li:")) {
         postUrl = `https://www.linkedin.com/feed/update/${linkedinPostId}/`;
       } else if (/^\d+$/.test(linkedinPostId)) {
         postUrl = `https://www.linkedin.com/feed/update/urn:li:activity:${linkedinPostId}/`;
+      } else if (linkedinPostId.length > 6) {
+        postUrl = `https://www.linkedin.com/feed/update/urn:li:share:${linkedinPostId}/`;
       }
     }
 
+    const metadataPayload = {
+      source: "inhub_bot",
+      postUrl: postUrl || undefined,
+      metrics: { likes: 0, comments: 0, impressions: 0, leadsCaptured: 0 },
+    };
+
     db.prepare(
       `INSERT INTO viral_posts (
-        id, workspace_id, title, format, content, status, published_at, linkedin_post_id, target_account_id,
-        created_at, lead_magnet_keyword, auto_dm_enabled, auto_dm_message, auto_like_comment, metadata_json
-      ) VALUES (?, 'default', ?, 'text', ?, 'published', ?, ?, ?, ?, 'SISTEMA', 0, '', 0, ?)`
+        id, workspace_id, title, format, content, status, published_at, linkedin_post_id, post_url, target_account_id,
+        target_language, created_at, lead_magnet_keyword, auto_dm_enabled, auto_dm_message, auto_like_comment, metadata_json
+      ) VALUES (?, 'default', ?, 'text', ?, 'published', ?, ?, ?, ?, ?, ?, 'SISTEMA', 0, '', 0, ?)`
     ).run(
       id,
       title,
       text,
       now,
       linkedinPostId,
+      postUrl || null,
       accountId,
+      locale,
       now,
-      JSON.stringify({ source: "inhub_bot", postUrl: postUrl || undefined })
+      JSON.stringify(metadataPayload)
     );
 
     const linkSuffix = postUrl
@@ -660,7 +688,16 @@ export async function executeApprovedAction(
           `Post **published live on LinkedIn** from account **${accountName}**.`,
           `Publicação **enviada ao vivo no LinkedIn** pela conta **${accountName}**.`
         ) + linkSuffix,
-      details: { id, linkedinPostId, postUrl: postUrl || undefined, status: "published" },
+      details: {
+        id,
+        linkedinPostId,
+        postUrl: postUrl || undefined,
+        status: "published",
+        title,
+        content: text,
+        publishedAt: now,
+        accountId,
+      },
     };
   }
 

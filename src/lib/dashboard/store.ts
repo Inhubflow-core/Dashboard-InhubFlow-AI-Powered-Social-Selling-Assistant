@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { getStoredLeads, syncSignalLeadsToCrm } from "@/lib/leads/store";
 import { getPipelineDeals } from "@/lib/pipeline/store";
 import { getStoredAccounts } from "@/lib/unipile/store";
-import { getStoredCreatedPosts } from "@/lib/viral-posts/store";
+import {
+  CREATED_POSTS_CHANGE_EVENT,
+  getStoredCreatedPosts,
+  syncCreatedPostsWithServer,
+} from "@/lib/viral-posts/store";
 import { getStoredLinearCampaigns } from "@/lib/campaigns/store";
 import type { PipelineStageId } from "@/lib/pipeline/types";
 import type { DashboardAnalytics, FunnelStageData } from "./types";
@@ -324,18 +328,23 @@ export function useDashboardAnalytics(): DashboardAnalytics {
   const [analytics, setAnalytics] = useState<DashboardAnalytics>(() => getDashboardAnalytics(true));
 
   useEffect(() => {
-    // Sincronizar en el montaje del cliente con datos reales de localStorage
+    // Sincronizar en el montaje del cliente con datos reales de localStorage y SQLite
     setAnalytics(getDashboardAnalytics(false));
+    void syncCreatedPostsWithServer().then(() => {
+      setAnalytics(getDashboardAnalytics(false));
+    });
 
     const handleStorageChange = () => {
       setAnalytics(getDashboardAnalytics(false));
     };
 
     window.addEventListener("storage", handleStorageChange);
+    window.addEventListener(CREATED_POSTS_CHANGE_EVENT, handleStorageChange);
     window.addEventListener("focus", handleStorageChange);
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener(CREATED_POSTS_CHANGE_EVENT, handleStorageChange);
       window.removeEventListener("focus", handleStorageChange);
     };
   }, []);

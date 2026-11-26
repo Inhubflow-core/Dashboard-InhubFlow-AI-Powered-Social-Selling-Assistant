@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useLocale } from "next-intl";
 import { InHubLiveAvatar, type InHubEmotion } from "@/components/copilot/InHubLiveAvatar";
+import { addStoredCreatedPost } from "@/lib/viral-posts/store";
+import type { CreatedPost } from "@/lib/viral-posts/types";
 import type {
   ApprovalActionPayload,
   VerifiedPersonCandidate,
@@ -857,6 +859,34 @@ export default function InhubBotAppPage() {
       setIsSending(true);
       setEmotion("thinking");
 
+      let pendingApprovalForPayload:
+        | { messageId: string; cardIdx: number; approval: ApprovalActionPayload }
+        | undefined;
+      if (!explicitAction) {
+        for (let mi = messagesRef.current.length - 1; mi >= 0; mi--) {
+          const msg = messagesRef.current[mi];
+          if (msg.sender !== "bot" || !msg.cards) continue;
+          const ci = msg.cards.findIndex(
+            (c) =>
+              c.type === "approval" &&
+              c.data?.approval &&
+              (!c.data?.approvalStatus || c.data.approvalStatus === "pending")
+          );
+          if (ci !== -1) {
+            pendingApprovalForPayload = {
+              messageId: msg.id,
+              cardIdx: ci,
+              approval: msg.cards[ci].data.approval as ApprovalActionPayload,
+            };
+            break;
+          }
+        }
+      }
+
+      const mergedPayload = pendingApprovalForPayload
+        ? { ...(explicitPayload || {}), pendingApproval: pendingApprovalForPayload }
+        : explicitPayload;
+
       try {
         const res = await fetch("/api/bot/command", {
           method: "POST",
@@ -864,7 +894,7 @@ export default function InhubBotAppPage() {
           body: JSON.stringify({
             message: textToSend,
             action: explicitAction,
-            payload: explicitPayload,
+            payload: mergedPayload,
             fileBase64: attachmentToSend?.base64,
             fileMimeType: attachmentToSend?.mimeType,
             fileName: attachmentToSend?.fileName,
@@ -897,6 +927,23 @@ export default function InhubBotAppPage() {
 
         const data = await res.json();
         if (data.ok) {
+          if (
+            data.executedApproval &&
+            typeof data.executedApproval.messageId === "string" &&
+            typeof data.executedApproval.cardIdx === "number"
+          ) {
+            updateApprovalCardStatus(
+              data.executedApproval.messageId,
+              data.executedApproval.cardIdx,
+              data.executedApproval.status === "scheduled" ? "scheduled" : "approved"
+            );
+          }
+          if (data.syncedPost && typeof data.syncedPost.id === "string") {
+            try {
+              addStoredCreatedPost(data.syncedPost as CreatedPost);
+            } catch {}
+          }
+
           setEmotion(data.emotion || "talking");
           const botMsg: Message = {
             id: `bot-${Date.now()}`,
@@ -2022,26 +2069,49 @@ export default function InhubBotAppPage() {
 
                         if (card.type === "post") {
                           const post = card.data;
+                          const isPublished = post.status === "published";
+                          const isScheduled = post.status === "scheduled";
                           return (
                             <div
                               key={cidx}
                               className="p-3 rounded-xl space-y-2 text-xs"
                               style={{ background: "rgba(0,153,255,0.06)", border: "1px solid rgba(0,153,255,0.15)" }}
                             >
-                              <div className="flex items-center justify-between font-semibold text-slate-300">
-                                <span className="flex items-center gap-1.5">
-                                  <FileText className="w-3.5 h-3.5 text-[#0099ff]" />
-                                  {post.title}
+                              <div className="flex items-center justify-between gap-2 font-semibold text-slate-300">
+                                <span className="flex items-center gap-1.5 min-w-0 truncate">
+                                  <FileText className="w-3.5 h-3.5 text-[#0099ff] shrink-0" />
+                                  <span className="truncate">{post.title}</span>
                                 </span>
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                                  post.status === "scheduled" ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"
-                                }`}>
-                                  {post.status === "scheduled" ? ui.scheduledBadge : ui.draftBadge}
+                                <span
+                                  className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${
+                                    isPublished
+                                      ? "bg-emerald-500/20 text-emerald-300"
+                                      : isScheduled
+                                        ? "bg-amber-500/20 text-amber-400"
+                                        : "bg-blue-500/20 text-blue-400"
+                                  }`}
+                                >
+                                  {isPublished
+                                    ? ui.publishedBadge
+                                    : isScheduled
+                                      ? ui.scheduledBadge
+                                      : ui.draftBadge}
                                 </span>
                               </div>
                               <p className="text-slate-300 line-clamp-3 p-2 rounded-lg font-mono text-[11px] bg-white/5">
                                 {post.content}
                               </p>
+                              {post.postUrl && (
+                                <a
+                                  href={String(post.postUrl)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#5abaff] hover:text-white underline"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  <span>LinkedIn</span>
+                                </a>
+                              )}
                             </div>
                           );
                         }
