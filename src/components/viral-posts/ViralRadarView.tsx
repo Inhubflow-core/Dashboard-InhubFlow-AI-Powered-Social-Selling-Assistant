@@ -1122,31 +1122,25 @@ export default function ViralRadarView({
                 {isSearchingLive ? t("refreshing") : t("refreshBtn")}
               </button>
             )}
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Botón 1-Clic: Crear Contenido para 1 Mes (12 Posts) */}
-            {filteredPosts.length > 0 && (
-              <button
-                type="button"
-                onClick={handleGenerateMonthPlan}
-                disabled={isGeneratingMonthPlan}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#0099ff] to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-              >
-                <Sparkles className={`size-4 ${isGeneratingMonthPlan ? "animate-spin" : "text-amber-300"}`} />
-                <span>{isGeneratingMonthPlan ? "Programando 12 posts..." : "Crear Contenido para 1 Mes (12 Posts)"}</span>
-                <span className="hidden md:inline-block text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-semibold">
-                  Lun · Mié · Vie (4 sem.)
-                </span>
-              </button>
-            )}
-
             <span className="text-xs text-gray-500 dark:text-gray-400">
               {searchError && lastSuccessfulKeyword !== searchKeyword
                 ? t("showingRetryPending", { last: lastSuccessfulKeyword, current: searchKeyword })
                 : t("showingKeyword", { kw: lastSuccessfulKeyword || searchKeyword })}
             </span>
           </div>
+
+          {filteredPosts.length > 0 && (
+            <div className="flex items-center sm:justify-end sm:ml-auto shrink-0">
+              <button
+                type="button"
+                onClick={handleGenerateMonthPlan}
+                disabled={isGeneratingMonthPlan}
+                className="rounded-lg bg-brand-500 px-5 py-2.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50 transition flex items-center justify-center shrink-0 cursor-pointer"
+              >
+                {isGeneratingMonthPlan ? "Programando 12 posts..." : "Crear contenido para 1 mes (12 post)"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Banner explicativo cuando opera en modo local / simulación */}
