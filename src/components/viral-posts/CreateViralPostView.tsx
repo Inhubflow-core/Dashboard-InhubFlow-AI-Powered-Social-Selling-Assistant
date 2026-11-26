@@ -154,7 +154,7 @@ export default function CreateViralPostView({
 
   // Centinela Inbound & Auto-DM
   const [leadMagnetKeyword, setLeadMagnetKeyword] = useState("SISTEMA");
-  const [autoDmEnabled, setAutoDmEnabled] = useState(true);
+  const [autoDmEnabled, setAutoDmEnabled] = useState(false);
   const [autoLikeComment, setAutoLikeComment] = useState(true);
   const [autoDmMessage, setAutoDmMessage] = useState(
     `¡Hola {nombre}! Vi que comentaste '{palabra_clave}' en mi publicación. Aquí tienes el documento completo con el framework accionable. ¿En qué reto comercial estás enfocado este trimestre?`
@@ -361,6 +361,7 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
           topic,
           format,
           leadMagnetKeyword,
+          includeLeadMagnet: autoDmEnabled,
           tone,
           knowledgeSources: approvedKnowledge,
         }),

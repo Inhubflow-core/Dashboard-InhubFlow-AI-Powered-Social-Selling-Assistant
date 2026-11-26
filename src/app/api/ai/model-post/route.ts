@@ -10,8 +10,9 @@ export async function POST(req: Request) {
       topic = "Social Selling B2B",
       format = "text",
       leadMagnetKeyword = "SISTEMA",
-      tone = "Autoridad B2B con llamada a la acción",
+      tone = "Autoridad B2B directa y conversacional",
       targetLanguage = "es",
+      includeLeadMagnet = false,
       knowledgeSources = null,
     } = body;
 
@@ -51,42 +52,53 @@ export async function POST(req: Request) {
     const cleanTopicWords = cleanTopic.split(/\s+/).filter(Boolean);
     const topicTag = cleanTopic.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "");
 
-    const systemPrompt = `Eres un Master Copywriter y Creador de Contenido de Autoridad en LinkedIn para profesionales, directores y fundadores de empresa en cualquier industria.
-Tu misión es modelar y reescribir publicaciones virales para generar máxima interacción, credibilidad y prospectos calificados, adaptando el contenido al NICHO, INDUSTRIA Y TEMÁTICA DEL USUARIO: "${cleanTopic}".
+    const systemPrompt = `Eres un Master Copywriter en LinkedIn especializado en el framework SLAY (Story → Lesson → Actionable advice → You) y en formato visual ultra-escaneable de alto engagement.
+Tu misión es crear una publicación 100% ORIGINAL inspirada en el ángulo del post de referencia, pero completamente adaptada al CONTEXTO DE LA EMPRESA, PROPUESTA DE VALOR E INDUSTRIA DEL CLIENTE: "${cleanTopic}".
 
 ${
   ragContext
-    ? `BASE DE CONOCIMIENTO APROBADA DEL NEGOCIO / EMPRESA DEL USUARIO (RAG):
+    ? `CONTEXTO REAL Y PROPUESTA DE VALOR DE LA EMPRESA DEL USUARIO (RAG - ÚSALO COMO BASE PRINCIPAL):
 ${ragContext}
 
-INSTRUCCIÓN CLAVE: Resuelve el dolor planteado en el post de referencia utilizando de forma natural la propuesta de valor, metodología, productos o servicios descritos en la Base de Conocimiento de la empresa.`
-    : `INSTRUCCIÓN CLAVE: El usuario opera en el sector de "${cleanTopic}". Transforma el post de referencia para resolver ese dolor específico con autoridad, datos clave, consejos prácticos y lecciones de alto valor aplicables para clientes y profesionales de este sector.`
+INSTRUCCIÓN CLAVE DE NEGOCIO: Conecta la historia y la lección con el problema real que resuelve la empresa del usuario, su propuesta de valor y su cliente ideal, sin sonar a anuncio publicitario.`
+    : `INSTRUCCIÓN CLAVE DE NEGOCIO: El usuario opera en "${cleanTopic}". Redacta desde la voz de un fundador o especialista en "${cleanTopic}", aportando perspectiva real y lecciones prácticas para sus clientes ideales.`
 }
 
-REGLAS DE COPYWRITING UNIVERSALES PARA SAAS:
-1. Toma la estructura y el ángulo psicológico del post de referencia (el dolor, el gancho, el contraste o la lección).
-2. Desarrolla la lección con autoridad en el tema "${cleanTopic}".
-3. No redactes un anuncio publicitario aburrido; redacta contenido educativo y de alto valor que posicione al autor como un referente en "${cleanTopic}".
-4. El llamado a la acción (CTA) final debe invitar a comentar la palabra clave "${leadMagnetKeyword}" para recibir un recurso, guía o plantilla en PDF por mensaje privado.
-5. Tono: ${tone}.
-6. Idioma OBLIGATORIO de salida: ${targetLangLabel} adaptado al nicho de "${cleanTopic}". Todo el JSON (title, hook, content, slides) debe escribirse estrictamente en ese idioma.
-7. PROHIBIDO COPIAR O PLAGIAR: NUNCA copies frases literales del post de referencia, ni menciones nombres de empresas o marcas ajenas (como Asymmetrika, Jobint u otras), ni enlaces externos (como lnkd.in/...), ni ofertas de empleo del post de referencia. Toma únicamente el ángulo o idea de valor y redáctalo 100% ORIGINAL desde cero desde la perspectiva del negocio del usuario.
+ESTRUCTURA OBLIGATORIA — FRAMEWORK SLAY (4 PARTES):
+1. S — Story (Historia / Situación real): Empieza en las primeras 2–3 líneas con un gancho fuerte que frene el scroll antes del "ver más": una situación real con un cliente, un error concreto o un insight vivido.
+2. L — Lesson (Lección clara): Extrae cuál fue el problema real detrás de la historia y cuál es la lección clave que aprendiste (en 1–2 frases contundentes).
+3. A — Actionable advice (Consejo accionable): Da de 3 a 5 pasos, reglas o tácticas concretas en una lista fácil de aplicar con viñetas (• o →).
+4. Y — You (Cierre directo al lector):
+${
+  includeLeadMagnet
+    ? `   Termina hablando directamente al lector invitándolo a comentar la palabra clave "${leadMagnetKeyword}" para recibir una guía, plantilla o recurso práctico por mensaje privado.`
+    : `   Termina hablando directamente al lector con UNA pregunta abierta, natural y reflexiva que invite a responder desde su propia experiencia (por ejemplo: "¿Cuánto tardas normalmente en...?" o "¿Qué cambiarías tú en este paso?").
+   IMPORTANTE SOBRE CTA: NO incluyas "Comenta la palabra..." ni pidas palabras clave ni prometas enviar PDFs. Cierra con una pregunta conversacional genuina.`
+}
+
+FORMATO VISUAL OBLIGATORIO (ESTILO ESCANEABLE LINKEDIN):
+- Frases cortas (una idea por línea, idealmente 6–14 palabras por línea).
+- Usa saltos de línea frecuentes y espacio en blanco entre bloques (jamás párrafos largos de 4+ líneas).
+- Listas con símbolos simples (• o →) y ritmo rápido.
+- Tono: ${tone}.
+- Idioma OBLIGATORIO de salida: ${targetLangLabel}. Todo el JSON debe escribirse estrictamente en ese idioma.
+- PROHIBIDO COPIAR O PLAGIAR: NUNCA copies frases literales del post de referencia, ni menciones nombres de empresas o marcas ajenas, ni enlaces externos (como lnkd.in/...), ni ofertas de empleo. Usa solo la chispa temática y redáctalo 100% original con la identidad del usuario.
 
 RESPONDE EXCLUSIVAMENTE CON UN OBJETO JSON VÁLIDO (sin bloques de markdown ni texto extra alrededor) con la siguiente estructura según el formato solicitado:
 
 Si format == 'text':
 {
   "title": "Titular representativo corto sobre ${cleanTopic} (máx 60 caracteres)",
-  "hook": "Gancho de las primeras 2 líneas que frena el scroll",
-  "content": "Cuerpo completo del post en formato LinkedIn con saltos de línea y CTA final con la palabra clave ${leadMagnetKeyword}",
-  "suggestedHashtags": ["#${topicTag}", "#${cleanTopicWords[0] || 'Liderazgo'}", "#Innovacion", "#Estrategia"]
+  "hook": "Gancho de las primeras 2 líneas (Story) que frena el scroll",
+  "content": "Cuerpo completo siguiendo S-L-A-Y con frases cortas, espacio en blanco, una idea por línea y cierre Y",
+  "suggestedHashtags": ["#${topicTag}", "#${cleanTopicWords[0] || 'Liderazgo'}", "#Estrategia"]
 }
 
 Si format == 'image':
 {
   "title": "Titular representativo corto sobre ${cleanTopic}",
-  "hook": "Gancho de las primeras 2 líneas",
-  "content": "Cuerpo completo del post en formato LinkedIn haciendo referencia a la infografía o imagen adjunta y con CTA para comentar ${leadMagnetKeyword}",
+  "hook": "Gancho de las primeras 2 líneas (Story)",
+  "content": "Cuerpo completo siguiendo S-L-A-Y haciendo referencia a la imagen adjunta y cierre Y",
   "imagePrompt": "Prompt en inglés hiperdetallado para Midjourney/Flux describiendo una imagen conceptual y profesional 8k relacionada directamente con ${cleanTopic}",
   "suggestedHashtags": ["#${topicTag}", "#${cleanTopicWords[0] || 'Tendencias'}", "#Estrategia"]
 }
@@ -94,42 +106,42 @@ Si format == 'image':
 Si format == 'carousel':
 {
   "title": "Titular del carrusel sobre ${cleanTopic}",
-  "hook": "Gancho del post que invita a deslizar el carrusel",
-  "content": "Copy de acompañamiento para el post de LinkedIn invitando a deslizar y a comentar ${leadMagnetKeyword}",
+  "hook": "Gancho S-L-A-Y que invita a deslizar el carrusel",
+  "content": "Copy SLAY escaneable de acompañamiento invitando a deslizar y con cierre Y",
   "slides": [
     {
       "slideNumber": 1,
       "isCover": true,
       "title": "Título de Portada de Alto Impacto sobre ${cleanTopic}",
       "subtitle": "Subtítulo explicativo con la promesa de valor",
-      "content": ["Guía práctica paso a paso", "Framework de Especialista"],
+      "content": ["Guía práctica paso a paso", "Framework SLAY"],
       "footerText": "Desliza para continuar →"
     },
     {
       "slideNumber": 2,
-      "title": "El Error Común en ${cleanTopic}",
-      "content": ["Punto 1 del dolor frecuente", "Punto 2 de lo que la mayoría hace mal", "Consecuencia en resultados"],
-      "footerText": "Paso 1: Diagnóstico"
+      "title": "La Historia y el Error Común en ${cleanTopic}",
+      "content": ["Situación real frecuente", "Por qué falla el enfoque tradicional", "La lección clave"],
+      "footerText": "Paso 1: Historia y Lección"
     },
     {
       "slideNumber": 3,
-      "title": "La Metodología Comprobada",
-      "content": ["Pilar 1: Diagnóstico preciso", "Pilar 2: Estrategia basada en datos", "Pilar 3: Implementación consistente"],
-      "footerText": "Paso 2: La Solución"
+      "title": "Consejos Accionables",
+      "content": ["Táctica 1 concreta", "Táctica 2 concreta", "Táctica 3 concreta"],
+      "footerText": "Paso 2: Ejecución"
     },
     {
       "slideNumber": 4,
-      "title": "Implementación Práctica",
-      "content": ["Acción concreta número 1", "Acción concreta número 2", "Resultado esperado comprobable"],
-      "footerText": "Paso 3: Ejecución"
+      "title": "Cómo Aplicarlo Hoy",
+      "content": ["Regla práctica número 1", "Regla práctica número 2", "Resultado esperado"],
+      "footerText": "Paso 3: Impacto"
     },
     {
       "slideNumber": 5,
       "isCta": true,
-      "title": "¿Quieres la Guía Completa?",
-      "subtitle": "Recibe el documento de trabajo en PDF listo para aplicar",
-      "content": ["Comenta ${leadMagnetKeyword} abajo en este post", "Te lo comparto por mensaje privado"],
-      "footerText": "Guía de Especialista"
+      "title": "¿Cómo lo manejas en tu equipo?",
+      "subtitle": "Comparte tu perspectiva en los comentarios",
+      "content": [${includeLeadMagnet ? `"Comenta ${leadMagnetKeyword} para recibir la guía", "Te la envío por mensaje directo"` : `"¿Cuál de estos pasos aplicarías primero?", "Te leo abajo"`}],
+      "footerText": "Conversemos"
     }
   ]
 }`;
@@ -237,6 +249,7 @@ Genera ahora el contenido modelado en JSON según las instrucciones, enfocado en
       hook,
       originalContent,
       targetLanguage: normalizedLang,
+      includeLeadMagnet: Boolean(includeLeadMagnet),
     });
 
     return NextResponse.json({
@@ -265,8 +278,9 @@ function generateRagFallbackPost(params: {
   hook?: string;
   originalContent?: string;
   targetLanguage?: "es" | "pt" | "en";
+  includeLeadMagnet?: boolean;
 }) {
-  const { format, topic, leadMagnetKeyword, hook, targetLanguage = "es" } = params;
+  const { format, topic, leadMagnetKeyword, hook, targetLanguage = "es", includeLeadMagnet = false } = params;
   const cleanTopic = (topic || "Innovación y Estrategia").trim();
   const topicTag = cleanTopic.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "");
   const words = cleanTopic.split(/\s+/).filter(Boolean);
@@ -368,80 +382,82 @@ Comenta "${leadMagnetKeyword}" abajo y te comparto el recurso completo en PDF si
     };
   }
 
-  // Format == 'text'
+  // Format == 'text' (Estructura SLAY escaneable)
   if (targetLanguage === "pt") {
+    const closingPt = includeLeadMagnet
+      ? `Quer o guia passo a passo que usamos aqui?\nComente "${leadMagnetKeyword}" abaixo e eu envio para você por mensagem.`
+      : `Qual dessas 4 ações você aplicaria primeiro na sua rotina de ${cleanTopic}?`;
     return {
-      title: `Os 4 Pilares de ${cleanTopic}`,
+      title: `SLAY: Lição prática sobre ${cleanTopic}`,
       hook: cleanHook,
       content: `${cleanHook}
 
-Os métodos tradicionais para escalar ${cleanTopic} estão perdendo força rapidamente:
-- Processos manuais lentos e sem contexto
-- Alto esforço em ações de baixo retorno
-- Resultados imprevisíveis semana após semana
+Passamos semanas testando abordagens diferentes até perceber onde estávamos perdendo atenção.
 
-Para construir previsibilidade em ${cleanTopic}, aplicamos uma estrutura em 4 pilares:
+A lição ficou clara:
+Não é falta de esforço. É falta de contexto e método antes de agir.
 
-1. Diagnóstico objetivo: Analisar os dados reais antes de agir.
-2. Posicionamento e estratégia: Focar apenas no que gera tração real.
-3. Otimização contínua: Refinar cada etapa com base em métricas.
-4. Escala sustentável: Criar processos sólidos e replicáveis.
+O que realmente funciona na prática:
+• Diagnóstico antes do pitch: entenda a dor real primeiro
+• Mensagens curtas e humanas: uma ideia por linha
+• Consistência semanal: ritmo vale mais que volume
+• Próximo passo simples: conversa real antes da venda
 
-Quer aplicar esse framework no seu negócio?
-Comente "${leadMagnetKeyword}" abaixo que eu envio o guia completo em PDF por mensagem privada.`,
+${closingPt}`,
       suggestedHashtags: [`#${topicTag}`, `#${words[0] || "Estrategia"}`, "#B2B", "#Crescimento"],
     };
   }
 
   if (targetLanguage === "en") {
+    const closingEn = includeLeadMagnet
+      ? `Want the step-by-step playbook we use for this?\nComment "${leadMagnetKeyword}" below and I'll send it over.`
+      : `Which of these steps do you find hardest to keep consistent in ${cleanTopic}?`;
     return {
-      title: `The 4 Core Pillars of ${cleanTopic}`,
+      title: `SLAY: Practical lesson on ${cleanTopic}`,
       hook: cleanHook,
       content: `${cleanHook}
 
-Legacy playbooks for ${cleanTopic} are losing effectiveness fast:
-- Slow manual workflows with little context
-- Wasted effort on low-impact outreach
-- Unpredictable pipeline week after week
+We saw smart teams burn out chasing volume until one shift changed everything.
 
-To build predictable traction in ${cleanTopic}, we rely on a 4-pillar system:
+The lesson was clear:
+Speed and relevance beat brute force every single time.
 
-1. Objective diagnosis: Look at real signals before acting.
-2. Focused strategy: Double down only on what drives real conversations.
-3. Continuous iteration: Refine each step using measurable feedback.
-4. Sustainable scale: Build repeatable systems that compound over time.
+What works in practice:
+• Start with real context before pitching
+• Keep every message short and human
+• Focus on repeatable daily habits over one-off spikes
+• End every interaction with a clear next question
 
-Want to apply this framework in your company?
-Comment "${leadMagnetKeyword}" below and I'll send you the full PDF guide via DM.`,
+${closingEn}`,
       suggestedHashtags: [`#${topicTag}`, `#${words[0] || "Strategy"}`, "#B2B", "#Growth"],
     };
   }
 
+  const closingEs = includeLeadMagnet
+    ? `¿Quieres la guía práctica paso a paso?\nComenta "${leadMagnetKeyword}" abajo y te la comparto por mensaje privado.`
+    : `¿Cuál de estos puntos sientes que más te cuesta sostener hoy en ${cleanTopic}?`;
+
   return {
-    title: `Los 4 Pilares Fundamentales de ${cleanTopic}`,
+    title: `SLAY: Lección práctica sobre ${cleanTopic}`,
     hook: cleanHook,
     content: `${cleanHook}
 
-Los viejos métodos para abordar ${cleanTopic} están dejando de funcionar:
-- Procesos manuales lentos y desarticulados
-- Pérdida de tiempo y recursos en acciones de bajo impacto
-- Resultados impredecibles
+Hace un tiempo vimos exactamente por qué tantos equipos pierden oportunidades valiosas cada semana.
 
-Para construir un estándar de excelencia en ${cleanTopic}, aplicamos un enfoque de 4 pilares:
+La lección fue directa:
+El resultado no depende de hacer más ruido, sino de tener un método claro y constante.
 
-1. Diagnóstico objetivo: Analizar la situación con datos antes de actuar.
-2. Estrategia probada: Implementar solo aquello que genera tracción comprobada.
-3. Optimización continua: Refinar cada fase del proceso de forma sistemática.
-4. Escala sostenible: Construir sistemas duraderos que no dependan de la suerte.
+Lo que sí funciona en la práctica:
+• Diagnóstico previo antes de ofrecer nada
+• Mensajes breves, claros y con contexto real
+• Una idea por línea para facilitar la lectura
+• Seguimiento constante sin improvisación
 
-¿Quieres aplicar este framework en tu actividad profesional o empresa?
-Comenta la palabra "${leadMagnetKeyword}" abajo y te envío la guía completa en PDF sin costo por mensaje privado.`,
+${closingEs}`,
     suggestedHashtags: [
       `#${topicTag}`,
       `#${words[0] || 'Estrategia'}`,
-      "#Innovacion",
       "#Liderazgo",
-      "#Excelencia",
     ],
   };
 }

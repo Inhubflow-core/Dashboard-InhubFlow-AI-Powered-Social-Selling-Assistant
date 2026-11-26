@@ -686,26 +686,27 @@ export default function ViralRadarView({
       const activeAcc = getActiveAccountForUser(currentUser);
       const targetAccountId = monthPlanTargetAccountId || activeAcc?.id || currentUser?.id;
       const approvedKnowledge = getStoredKnowledgeSources().filter((k) => k.status === "approved");
-      const leadMagnetOptions = ["SISTEMA", "GUIA", "PLAYBOOK", "METODO"];
+      // Regla estratégica SLAY: entre los 12 posts del mes, SOLO 1 (ej. #6) incluye Lead Magnet; los otros 11 cierran con pregunta conversacional al lector.
+      const LEAD_MAGNET_POST_INDEX = 5;
 
-      // 4. Modelar y reescribir 100% original cada post viral con IA y la Base de Conocimiento del usuario
-      // (Nunca copiar literal el post original de otro autor)
+      // 4. Modelar y reescribir 100% original cada post viral con IA (Estructura SLAY + RAG del cliente)
       const newScheduledPosts: CreatedPost[] = [];
 
       for (let i = 0; i < targetSourcePosts.length; i++) {
         const sourcePost = targetSourcePosts[i];
         const scheduledDate = dates[i];
+        const isLeadMagnetPost = i === LEAD_MAGNET_POST_INDEX;
+        const leadMagnetKeyword = isLeadMagnetPost ? "SISTEMA" : undefined;
 
         setGeneratingProgress({
           current: i + 1,
           total: 12,
-          message: `Modelando post original ${i + 1} de 12 en ${langLabel} con IA...`,
+          message: `Modelando post SLAY ${i + 1} de 12 en ${langLabel} con IA...`,
         });
 
         const rawHook = sourcePost.hook?.replace(/:$/, "").trim() || sourcePost.topic || "Estrategia B2B en LinkedIn";
         const rawContent = sourcePost.fullContent || rawHook;
         const postTopic = sourcePost.topic || searchKeyword || "Social Selling B2B";
-        const leadMagnetKeyword = leadMagnetOptions[i % leadMagnetOptions.length];
 
         let modeledTitle = "";
         let modeledContent = "";
@@ -719,8 +720,9 @@ export default function ViralRadarView({
               originalContent: rawContent,
               topic: postTopic,
               format: "text",
-              leadMagnetKeyword,
-              tone: "Autoridad B2B directa y conversacional",
+              leadMagnetKeyword: leadMagnetKeyword || "SISTEMA",
+              includeLeadMagnet: isLeadMagnetPost,
+              tone: "Autoridad B2B directa y conversacional (estructura SLAY)",
               targetLanguage: targetLang,
               knowledgeSources: approvedKnowledge,
             }),
@@ -2070,9 +2072,9 @@ export default function ViralRadarView({
               </div>
               <ul className="space-y-1 text-slate-600 dark:text-slate-400 text-[11px] list-disc list-inside">
                 <li>12 publicaciones distribuidas en 4 semanas (<strong>Lunes, Miércoles y Viernes a las 09:30 AM</strong>).</li>
-                <li>Generación inicial en <strong>100% Texto Puro de alto engagement</strong>.</li>
-                <li>La IA adaptará ganchos, estructura y llamadas a la acción al idioma seleccionado.</li>
-                <li>Al revisarlos en el calendario, podrás enriquecer cualquier post con <strong>Portada Visual (4:5)</strong> o <strong>Carrusel PDF</strong> con 1 clic.</li>
+                <li>Estructura <strong>SLAY</strong> (Historia → Lección → Consejo accionable → Pregunta al lector) adaptada a tu empresa.</li>
+                <li>11 posts cierran con conversación genuina y <strong>solo 1 incluye Lead Magnet</strong> (puedes añadir más manualmente luego).</li>
+                <li>Al revisarlos en el calendario, podrás enriquecer cualquier post con <strong>Portada Visual (4:5)</strong> o <strong>Carrusel PDF</strong>.</li>
               </ul>
             </div>
 
