@@ -47,6 +47,12 @@ export interface BotUiLabels {
   sendTitle: string;
   connectionError: string;
   genericError: string;
+  sessionsMenuBtn: string;
+  sessionsPanelTitle: string;
+  newConversationBtn: string;
+  noSessionsText: string;
+  messagesCountLabel: (count: number) => string;
+  deleteSessionTitle: string;
   // Verify card
   verifyTitle: string;
   degree1: string;
@@ -170,6 +176,12 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     sendTitle: "Enviar mensaje",
     connectionError: "Error de conexión con el asistente. Inténtalo de nuevo.",
     genericError: "Ocurrió un error al procesar el comando.",
+    sessionsMenuBtn: "Sesiones",
+    sessionsPanelTitle: "Últimas conversaciones",
+    newConversationBtn: "Nueva conversación",
+    noSessionsText: "Aún no tienes sesiones guardadas. Inicia una hablando o escribiendo.",
+    messagesCountLabel: (count) => `${count} mensajes`,
+    deleteSessionTitle: "Eliminar conversación",
     verifyTitle: "Verificación de identidad",
     degree1: "1er grado · Conectados",
     degree2: "2do grado",
@@ -287,6 +299,12 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     sendTitle: "Send message",
     connectionError: "Connection error with the assistant. Please try again.",
     genericError: "An error occurred while processing the command.",
+    sessionsMenuBtn: "Sessions",
+    sessionsPanelTitle: "Recent conversations",
+    newConversationBtn: "New conversation",
+    noSessionsText: "No saved sessions yet. Start one by speaking or typing.",
+    messagesCountLabel: (count) => `${count} messages`,
+    deleteSessionTitle: "Delete conversation",
     verifyTitle: "Identity verification",
     degree1: "1st degree · Connected",
     degree2: "2nd degree",
@@ -404,6 +422,12 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     sendTitle: "Enviar mensagem",
     connectionError: "Erro de conexão com o assistente. Tente novamente.",
     genericError: "Ocorreu um erro ao processar o comando.",
+    sessionsMenuBtn: "Sessões",
+    sessionsPanelTitle: "Últimas conversas",
+    newConversationBtn: "Nova conversa",
+    noSessionsText: "Você ainda não tem sessões salvas. Inicie uma falando ou digitando.",
+    messagesCountLabel: (count) => `${count} mensagens`,
+    deleteSessionTitle: "Excluir conversa",
     verifyTitle: "Verificação de identidade",
     degree1: "1º grau · Conectados",
     degree2: "2º grau",

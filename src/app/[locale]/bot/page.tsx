@@ -44,6 +44,9 @@ import {
   Kanban,
   Rocket,
   Plus,
+  Menu,
+  Clock,
+  MessageSquare,
 } from "lucide-react";
 
 interface ActionCard {
@@ -72,6 +75,117 @@ interface Message {
   cards?: ActionCard[];
   quickActions?: string[];
   timestamp: string;
+}
+
+interface BotSession {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: Message[];
+}
+
+const SESSIONS_STORAGE_KEY = "inhubbot_sessions_v1";
+const ACTIVE_SESSION_STORAGE_KEY = "inhubbot_active_session_v1";
+const MAX_SAVED_SESSIONS = 25;
+
+function deriveSessionTitle(msgs: Message[], fallbackTitle: string): string {
+  const firstUser = msgs.find((m) => m.sender === "user" && (m.text.trim() || m.attachmentName));
+  if (!firstUser) return fallbackTitle;
+  const raw = (firstUser.text || firstUser.attachmentName || fallbackTitle).trim().replace(/\s+/g, " ");
+  return raw.length > 48 ? `${raw.slice(0, 48)}…` : raw;
+}
+
+function loadSavedSessions(): BotSession[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(SESSIONS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((s) => s && typeof s.id === "string" && Array.isArray(s.messages))
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+      .slice(0, MAX_SAVED_SESSIONS);
+  } catch {
+    return [];
+  }
+}
+
+function persistSavedSessions(sessions: BotSession[]): void {
+  if (typeof window === "undefined") return;
+  const trimmed = sessions.slice(0, MAX_SAVED_SESSIONS);
+  try {
+    window.localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(trimmed));
+  } catch {
+    // Si base64 de imágenes excede localStorage (~5 MB), preservamos todo el texto/cards limpiando previews pesados antiguos
+    try {
+      const lite = trimmed.map((s, idx) => ({
+        ...s,
+        messages: s.messages.map((m) =>
+          idx === 0 || !m.imagePreviewUrl
+            ? m
+            : { ...m, imagePreviewUrl: undefined, attachmentName: m.attachmentName || "image" }
+        ),
+      }));
+      window.localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(lite));
+    } catch {
+      try {
+        const textOnly = trimmed.slice(0, 12).map((s) => ({
+          ...s,
+          messages: s.messages.map((m) => ({ ...m, imagePreviewUrl: undefined })),
+        }));
+        window.localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(textOnly));
+      } catch {}
+    }
+  }
+}
+
+function renderFormattedLine(line: string): React.ReactNode {
+  const tokenRegex = /(\*\*[^*]+\*\*|\[[^\]]+\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s]+)/g;
+  const parts = line.split(tokenRegex);
+  return parts.map((part, pidx) => {
+    if (!part) return null;
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={pidx} className="font-semibold text-white">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    const mdLinkMatch = part.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+    if (mdLinkMatch) {
+      return (
+        <a
+          key={pidx}
+          href={mdLinkMatch[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[#5abaff] underline hover:text-white break-all"
+        >
+          {mdLinkMatch[1]}
+        </a>
+      );
+    }
+    if (/^https?:\/\//.test(part)) {
+      const cleaned = part.replace(/[.,;!?)]+$/, "");
+      const trail = part.slice(cleaned.length);
+      return (
+        <React.Fragment key={pidx}>
+          <a
+            href={cleaned}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#5abaff] underline hover:text-white break-all"
+          >
+            {cleaned}
+          </a>
+          {trail}
+        </React.Fragment>
+      );
+    }
+    return <span key={pidx}>{part}</span>;
+  });
 }
 
 interface PendingAttachment {
@@ -336,6 +450,7 @@ function ProfileVerifyCard({
 
 function ApprovalActionCard({
   initialApproval,
+  initialStatus = "pending",
   disabled,
   ui,
   onApprove,
@@ -343,6 +458,7 @@ function ApprovalActionCard({
   onDiscard,
 }: {
   initialApproval: ApprovalActionPayload;
+  initialStatus?: "pending" | "approved" | "scheduled" | "discarded";
   disabled: boolean;
   ui: BotUiLabels;
   onApprove: (approval: ApprovalActionPayload) => void;
@@ -358,7 +474,7 @@ function ApprovalActionCard({
     const pad = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
   });
-  const [status, setStatus] = useState<"pending" | "approved" | "scheduled" | "discarded">("pending");
+  const [status, setStatus] = useState<"pending" | "approved" | "scheduled" | "discarded">(initialStatus);
 
   const typeMeta =
     initialApproval.type === "post"
@@ -607,6 +723,9 @@ export default function InhubBotAppPage() {
   const speechLang = getSpeechLang(locale);
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [sessions, setSessions] = useState<BotSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string>("");
+  const [isSessionsMenuOpen, setIsSessionsMenuOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -617,6 +736,7 @@ export default function InhubBotAppPage() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [emotion, setEmotion] = useState<InHubEmotion>("idle");
   const [recognitionSupported, setRecognitionSupported] = useState(true);
+  const sessionsHydratedRef = useRef(false);
 
   const recognitionRef = useRef<any>(null);
   const userStoppedVoiceRef = useRef(true);
@@ -930,17 +1050,82 @@ export default function InhubBotAppPage() {
   }, [speechLang]);
 
   useEffect(() => {
-    const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    setMessages([
-      {
-        id: "welcome-msg",
-        sender: "bot",
-        text: ui.welcomeMessage,
-        quickActions: ui.quickActions,
-        timestamp: now,
-      },
-    ]);
+    const saved = loadSavedSessions();
+    setSessions(saved);
+
+    let savedActiveId = "";
+    try {
+      savedActiveId = window.localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY) || "";
+    } catch {}
+
+    const activeMatch = saved.find((s) => s.id === savedActiveId && s.messages.length > 1);
+    if (activeMatch) {
+      setActiveSessionId(activeMatch.id);
+      setMessages(activeMatch.messages);
+    } else {
+      const newId = `session-${Date.now()}`;
+      setActiveSessionId(newId);
+      try {
+        window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, newId);
+      } catch {}
+      const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setMessages([
+        {
+          id: "welcome-msg",
+          sender: "bot",
+          text: ui.welcomeMessage,
+          quickActions: ui.quickActions,
+          timestamp: now,
+        },
+      ]);
+    }
+    sessionsHydratedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!sessionsHydratedRef.current) return;
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0]?.id?.startsWith("welcome")) {
+        return [
+          {
+            ...prev[0],
+            text: ui.welcomeMessage,
+            quickActions: ui.quickActions,
+          },
+        ];
+      }
+      return prev;
+    });
   }, [ui.welcomeMessage, ui.quickActions]);
+
+  useEffect(() => {
+    if (!sessionsHydratedRef.current || !activeSessionId) return;
+    try {
+      window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, activeSessionId);
+    } catch {}
+
+    const hasUserTurn = messages.some((m) => m.sender === "user");
+    if (!hasUserTurn || messages.length <= 1) return;
+
+    const nowTs = Date.now();
+    setSessions((prev) => {
+      const existing = prev.find((s) => s.id === activeSessionId);
+      const updatedSession: BotSession = {
+        id: activeSessionId,
+        title: deriveSessionTitle(messages, ui.newConversationBtn),
+        createdAt: existing?.createdAt || nowTs,
+        updatedAt: nowTs,
+        messages,
+      };
+      const next = [updatedSession, ...prev.filter((s) => s.id !== activeSessionId)].slice(
+        0,
+        MAX_SAVED_SESSIONS
+      );
+      persistSavedSessions(next);
+      return next;
+    });
+  }, [messages, activeSessionId, ui.newConversationBtn]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1131,22 +1316,85 @@ export default function InhubBotAppPage() {
     );
   };
 
-  const handleClearChat = () => {
+  const startNewSession = useCallback(
+    (welcomeText?: string) => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+      stopVoiceSession();
+      setPendingAttachment(null);
+      setFileError(null);
+      setInputValue("");
+      setIsSessionsMenuOpen(false);
+      const nextId = `session-${Date.now()}`;
+      setActiveSessionId(nextId);
+      try {
+        window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, nextId);
+      } catch {}
+      const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setMessages([
+        {
+          id: `welcome-${Date.now()}`,
+          sender: "bot",
+          text: welcomeText || ui.welcomeMessage,
+          quickActions: ui.quickActions,
+          timestamp: now,
+        },
+      ]);
+    },
+    [stopVoiceSession, ui.welcomeMessage, ui.quickActions]
+  );
+
+  const handleSelectSession = useCallback((session: BotSession) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
+    stopVoiceSession();
     setPendingAttachment(null);
     setFileError(null);
-    const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    setMessages([
-      {
-        id: `welcome-${Date.now()}`,
-        sender: "bot",
-        text: ui.resetMessage,
-        quickActions: ui.quickActions,
-        timestamp: now,
-      },
-    ]);
+    setInputValue("");
+    setActiveSessionId(session.id);
+    try {
+      window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, session.id);
+    } catch {}
+    setMessages(session.messages);
+    setIsSessionsMenuOpen(false);
+  }, [stopVoiceSession]);
+
+  const handleDeleteSession = useCallback(
+    (sessionId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setSessions((prev) => {
+        const next = prev.filter((s) => s.id !== sessionId);
+        persistSavedSessions(next);
+        return next;
+      });
+      if (sessionId === activeSessionId) {
+        startNewSession(ui.resetMessage);
+      }
+    },
+    [activeSessionId, startNewSession, ui.resetMessage]
+  );
+
+  const updateApprovalCardStatus = useCallback(
+    (messageId: string, cardIdx: number, nextStatus: "approved" | "scheduled" | "discarded") => {
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id !== messageId || !msg.cards) return msg;
+          return {
+            ...msg,
+            cards: msg.cards.map((c, idx) =>
+              idx === cardIdx ? { ...c, data: { ...c.data, approvalStatus: nextStatus } } : c
+            ),
+          };
+        })
+      );
+    },
+    []
+  );
+
+  const handleClearChat = () => {
+    startNewSession(ui.resetMessage);
   };
 
   const renderPushToTalkDock = (variant: "hero" | "chat") => {
@@ -1245,20 +1493,40 @@ export default function InhubBotAppPage() {
     >
       {/* Top Header */}
       <header
-        className="flex items-center justify-between px-4 py-3 shrink-0 border-b border-[#0099ff]/15 backdrop-blur z-20"
-        style={{ background: "rgba(0,0,0,0.85)" }}
+        className="relative flex items-start justify-between px-4 py-2.5 shrink-0 border-b border-[#0099ff]/15 backdrop-blur z-30"
+        style={{ background: "rgba(0,0,0,0.88)" }}
       >
-        <div className="flex items-center">
+        <div className="flex flex-col items-start gap-1.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/images/logo/inhubflow-icon-dark.png"
             alt="InhubFlow"
             className="h-9 w-9 object-contain rounded-xl"
           />
+          <button
+            type="button"
+            onClick={() => setIsSessionsMenuOpen((prev) => !prev)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition border cursor-pointer ${
+              isSessionsMenuOpen
+                ? "bg-[#0099ff]/20 text-white border-[#0099ff]/50"
+                : "bg-white/6 text-slate-300 hover:text-white hover:bg-white/10 border-white/10"
+            }`}
+            aria-expanded={isSessionsMenuOpen}
+            aria-label={ui.sessionsPanelTitle}
+            title={ui.sessionsPanelTitle}
+          >
+            <Menu className="w-3.5 h-3.5 text-[#0099ff]" />
+            <span>{ui.sessionsMenuBtn}</span>
+            {sessions.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-[#0099ff]/25 text-[#70c4ff] text-[10px] font-semibold leading-tight">
+                {sessions.length}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Actions Header */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pt-0.5">
           <button
             onClick={() => setVoiceEnabled(!voiceEnabled)}
             className={`flex items-center justify-center w-9 h-9 rounded-xl transition border ${
@@ -1279,6 +1547,104 @@ export default function InhubBotAppPage() {
           </button>
         </div>
       </header>
+
+      {/* Dropdown / Drawer de últimas conversaciones debajo del botón de menú */}
+      {isSessionsMenuOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-30 bg-black/60 backdrop-blur-[2px]"
+            onClick={() => setIsSessionsMenuOpen(false)}
+          />
+          <aside
+            className="fixed top-[84px] left-3 right-3 sm:right-auto sm:w-80 z-40 rounded-2xl border border-[#0099ff]/30 shadow-2xl overflow-hidden flex flex-col max-h-[70vh]"
+            style={{ background: "#06111d" }}
+          >
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-[#0099ff]/15">
+              <div className="flex items-center gap-2 text-xs font-semibold text-white">
+                <MessageSquare className="w-4 h-4 text-[#0099ff]" />
+                <span>{ui.sessionsPanelTitle}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSessionsMenuOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-2.5 border-b border-white/8">
+              <button
+                type="button"
+                onClick={() => startNewSession()}
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold text-white transition cursor-pointer hover:opacity-95"
+                style={{ background: "linear-gradient(135deg, #0099ff, #0070cc)" }}
+              >
+                <Plus className="w-4 h-4" />
+                <span>{ui.newConversationBtn}</span>
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-2 space-y-1.5">
+              {sessions.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-6 px-3">{ui.noSessionsText}</p>
+              ) : (
+                sessions.map((s) => {
+                  const isActive = s.id === activeSessionId;
+                  const userTurns = s.messages.filter((m) => !m.id.startsWith("welcome")).length;
+                  const dateLabel = new Date(s.updatedAt).toLocaleString([], {
+                    day: "2-digit",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  return (
+                    <div
+                      key={s.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleSelectSession(s)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleSelectSession(s);
+                        }
+                      }}
+                      className={`group flex items-start justify-between gap-2 p-2.5 rounded-xl border transition cursor-pointer ${
+                        isActive
+                          ? "bg-[#0099ff]/18 border-[#0099ff]/50"
+                          : "bg-white/4 border-white/8 hover:bg-white/8"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-white truncate">{s.title}</p>
+                        <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-[#5abaff]" />
+                            {dateLabel}
+                          </span>
+                          <span>·</span>
+                          <span>{ui.messagesCountLabel(userTurns)}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteSession(s.id, e)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition shrink-0 cursor-pointer"
+                        title={ui.deleteSessionTitle}
+                        aria-label={ui.deleteSessionTitle}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </aside>
+        </>
+      )}
 
       {/* ── GEMINI HERO ── */}
       {messages.length <= 1 && !isSending && (
@@ -1473,24 +1839,12 @@ export default function InhubBotAppPage() {
 
                   {m.text && (
                     <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                      {m.text.split("\n").map((line, idx) => {
-                        const formatted = line.split(/(\*\*[^*]+\*\*)/g).map((part, pidx) => {
-                          if (part.startsWith("**") && part.endsWith("**")) {
-                            return (
-                              <strong key={pidx} className="font-semibold text-white">
-                                {part.slice(2, -2)}
-                              </strong>
-                            );
-                          }
-                          return <span key={pidx}>{part}</span>;
-                        });
-                        return (
-                          <React.Fragment key={idx}>
-                            {idx > 0 && <br />}
-                            {formatted}
-                          </React.Fragment>
-                        );
-                      })}
+                      {m.text.split("\n").map((line, idx) => (
+                        <React.Fragment key={idx}>
+                          {idx > 0 && <br />}
+                          {renderFormattedLine(line)}
+                        </React.Fragment>
+                      ))}
                     </div>
                   )}
 
@@ -1531,31 +1885,41 @@ export default function InhubBotAppPage() {
 
                         if (card.type === "approval" && card.data.approval) {
                           const approval = card.data.approval as ApprovalActionPayload;
+                          const savedStatus = card.data.approvalStatus as
+                            | "pending"
+                            | "approved"
+                            | "scheduled"
+                            | "discarded"
+                            | undefined;
                           return (
                             <ApprovalActionCard
                               key={cidx}
                               initialApproval={approval}
+                              initialStatus={savedStatus || "pending"}
                               disabled={isSending}
                               ui={ui}
-                              onApprove={(editedApproval) =>
+                              onApprove={(editedApproval) => {
+                                updateApprovalCardStatus(m.id, cidx, "approved");
                                 handleSend(
                                   ui.approveCmdLabel,
                                   "approve_action",
                                   { approval: editedApproval },
                                   null
-                                )
-                              }
-                              onSchedule={(editedApproval, scheduledAt) =>
+                                );
+                              }}
+                              onSchedule={(editedApproval, scheduledAt) => {
+                                updateApprovalCardStatus(m.id, cidx, "scheduled");
                                 handleSend(
                                   ui.scheduleCmdLabel,
                                   "schedule_action",
                                   { approval: editedApproval, scheduledAt },
                                   null
-                                )
-                              }
-                              onDiscard={() =>
-                                handleSend(ui.discardCmdLabel, "discard_action", {}, null)
-                              }
+                                );
+                              }}
+                              onDiscard={() => {
+                                updateApprovalCardStatus(m.id, cidx, "discarded");
+                                handleSend(ui.discardCmdLabel, "discard_action", {}, null);
+                              }}
                             />
                           );
                         }

@@ -611,7 +611,26 @@ export async function executeApprovedAction(
       account_id: accountId,
       text,
     });
-    const linkedinPostId = result.post_id || result.id || `up_post_${Date.now()}`;
+    const linkedinPostId = String(result.post_id || result.id || `up_post_${Date.now()}`);
+    const rawShareUrl =
+      typeof result.share_url === "string"
+        ? result.share_url
+        : typeof result.url === "string"
+          ? result.url
+          : "";
+    let postUrl = rawShareUrl.startsWith("http") ? rawShareUrl : "";
+    if (
+      !postUrl &&
+      linkedinPostId &&
+      !linkedinPostId.startsWith("up_post_") &&
+      !linkedinPostId.startsWith("post_sim_")
+    ) {
+      if (linkedinPostId.startsWith("urn:li:")) {
+        postUrl = `https://www.linkedin.com/feed/update/${linkedinPostId}/`;
+      } else if (/^\d+$/.test(linkedinPostId)) {
+        postUrl = `https://www.linkedin.com/feed/update/urn:li:activity:${linkedinPostId}/`;
+      }
+    }
 
     db.prepare(
       `INSERT INTO viral_posts (
@@ -626,17 +645,22 @@ export async function executeApprovedAction(
       linkedinPostId,
       accountId,
       now,
-      JSON.stringify({ source: "inhub_bot" })
+      JSON.stringify({ source: "inhub_bot", postUrl: postUrl || undefined })
     );
+
+    const linkSuffix = postUrl
+      ? `\n\n🔗 ${t("Ver publicación en LinkedIn:", "View post on LinkedIn:", "Ver publicação no LinkedIn:")} ${postUrl}`
+      : "";
 
     return {
       ok: true,
-      message: t(
-        `Publicación **emitida en vivo en LinkedIn** desde la cuenta **${accountName}**.`,
-        `Post **published live on LinkedIn** from account **${accountName}**.`,
-        `Publicação **enviada ao vivo no LinkedIn** pela conta **${accountName}**.`
-      ),
-      details: { id, linkedinPostId, status: "published" },
+      message:
+        t(
+          `Publicación **emitida en vivo en LinkedIn** desde la cuenta **${accountName}**.`,
+          `Post **published live on LinkedIn** from account **${accountName}**.`,
+          `Publicação **enviada ao vivo no LinkedIn** pela conta **${accountName}**.`
+        ) + linkSuffix,
+      details: { id, linkedinPostId, postUrl: postUrl || undefined, status: "published" },
     };
   }
 
