@@ -887,6 +887,17 @@ export default function InhubBotAppPage() {
         ? { ...(explicitPayload || {}), pendingApproval: pendingApprovalForPayload }
         : explicitPayload;
 
+      let dashboardUserId: string | undefined;
+      try {
+        const rawPres = window.localStorage.getItem("inhubflow_dashboard_presence_v1");
+        if (rawPres) {
+          const parsedPres = JSON.parse(rawPres);
+          if (typeof parsedPres?.userId === "string" && parsedPres.userId.trim()) {
+            dashboardUserId = parsedPres.userId.trim();
+          }
+        }
+      } catch {}
+
       try {
         const res = await fetch("/api/bot/command", {
           method: "POST",
@@ -895,6 +906,7 @@ export default function InhubBotAppPage() {
             message: textToSend,
             action: explicitAction,
             payload: mergedPayload,
+            userId: dashboardUserId,
             fileBase64: attachmentToSend?.base64,
             fileMimeType: attachmentToSend?.mimeType,
             fileName: attachmentToSend?.fileName,

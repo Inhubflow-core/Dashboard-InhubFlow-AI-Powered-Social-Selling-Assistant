@@ -15,6 +15,7 @@ import {
   getLocaleDisplayName,
   type BotLocale,
 } from "@/lib/bot/i18n";
+import type { DashboardPresencePayload } from "@/lib/bot/dashboard-presence";
 import { INHUBFLOW_MASTER_KNOWLEDGE } from "@/lib/bot/platform-knowledge";
 import { getSocialSellingDb } from "@/lib/persistence/db";
 import { unipile } from "@/lib/unipile/client";
@@ -720,6 +721,90 @@ Return ONLY valid JSON:
   };
 }
 
+function getDashboardPresence(userId?: string): {
+  presence: DashboardPresencePayload | null;
+  ageSeconds: number | null;
+  ageLabel: string;
+} {
+  try {
+    const db = getSocialSellingDb();
+    const readByKey = (key: string): DashboardPresencePayload | null => {
+      const row = db
+        .prepare("SELECT payload_json FROM workspace_settings_v2 WHERE key = ?")
+        .get(key) as { payload_json?: string } | undefined;
+      if (!row?.payload_json) return null;
+      const parsed = JSON.parse(row.payload_json) as DashboardPresencePayload;
+      return parsed?.pathname ? parsed : null;
+    };
+
+    const presence = (userId ? readByKey(`presence:${userId}`) : null) || readByKey("presence:latest");
+    if (!presence) {
+      return { presence: null, ageSeconds: null, ageLabel: "" };
+    }
+    const updatedMs = new Date(presence.updatedAt).getTime();
+    const ageSeconds = Number.isNaN(updatedMs)
+      ? null
+      : Math.max(0, Math.floor((Date.now() - updatedMs) / 1000));
+    const ageLabel =
+      ageSeconds === null
+        ? ""
+        : ageSeconds < 60
+          ? `${ageSeconds}s`
+          : ageSeconds < 3600
+            ? `${Math.floor(ageSeconds / 60)} min`
+            : `${Math.floor(ageSeconds / 3600)} h`;
+
+    return { presence, ageSeconds, ageLabel };
+  } catch {
+    return { presence: null, ageSeconds: null, ageLabel: "" };
+  }
+}
+
+async function getLinkedInAccountsDetails(): Promise<
+  Array<{ name: string; status: string; id: string; email?: string }>
+> {
+  const byId = new Map<string, { name: string; status: string; id: string; email?: string }>();
+  if (unipile.isConfigured() && !unipile.isSandboxMode()) {
+    try {
+      const res = await unipile.listAccounts();
+      for (const acc of res.items || []) {
+        const provider = String(acc.type || acc.provider || "LINKEDIN").toUpperCase();
+        if (provider !== "LINKEDIN") continue;
+        byId.set(String(acc.id), {
+          id: String(acc.id),
+          name: String(acc.name || "LinkedIn"),
+          status: String(acc.status || "UNKNOWN"),
+        });
+      }
+    } catch {}
+  }
+
+  try {
+    const db = getSocialSellingDb();
+    const rows = db
+      .prepare("SELECT id, unipile_account_id, name, status, payload_json FROM linkedin_accounts_v2 ORDER BY updated_at DESC")
+      .all() as Array<{ id: string; unipile_account_id?: string; name: string; status: string; payload_json?: string }>;
+    for (const r of rows) {
+      let email: string | undefined;
+      let realStatus = r.status;
+      try {
+        const p = r.payload_json ? JSON.parse(r.payload_json) : {};
+        if (p?.email) email = String(p.email);
+        if (p?.status) realStatus = String(p.status);
+      } catch {}
+      const cleanId = String(r.unipile_account_id || r.id).replace(/^acc-li-/, "");
+      if (!byId.has(cleanId)) {
+        byId.set(cleanId, { id: cleanId, name: r.name, status: realStatus, email });
+      } else if (email) {
+        const existing = byId.get(cleanId)!;
+        existing.email = email;
+      }
+    }
+  } catch {}
+
+  return Array.from(byId.values());
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -728,6 +813,7 @@ export async function POST(req: NextRequest) {
     const langName = getLocaleDisplayName(locale);
     const message = String(body.message || "").trim();
     const action = String(body.action || "").trim();
+    const dashboardUserId = typeof body.userId === "string" ? body.userId.trim() : undefined;
     const payload = (body.payload || {}) as Record<string, unknown>;
     const fileBase64 =
       typeof body.fileBase64 === "string"
@@ -1689,6 +1775,69 @@ export async function POST(req: NextRequest) {
       } as BotCommandResponse);
     }
 
+    // Pregunta directa sobre qué página / pantalla del Dashboard tiene abierta el usuario ahora mismo
+    if (
+      !imageBase64 &&
+      /\b(en qu[eé] p[aá]gina estoy|en qu[eé] pantalla estoy|d[oó]nde estoy|sabes en qu[eé] p[aá]gina|sabes d[oó]nde estoy|qu[eé] p[aá]gina tengo abierta|what page am i on|where am i|which page|em que p[aá]gina estou|em qual tela estou|onde estou)\b/i.test(
+        lower
+      )
+    ) {
+      const { presence, ageSeconds, ageLabel } = getDashboardPresence(dashboardUserId);
+      if (!presence) {
+        return NextResponse.json({
+          ok: true,
+          reply: t(
+            locale,
+            "Todavía no detecto ninguna pestaña del **Dashboard** abierta o activa recientemente. Abre o navega en cualquier página de tu Dashboard (por ejemplo *Cuentas de LinkedIn*) y volveré a verla al instante.",
+            "I don't detect an active **Dashboard** tab yet. Open or navigate to any page in your Dashboard (such as *LinkedIn Accounts*) and I will track it immediately.",
+            "Ainda não detectei nenhuma aba do **Dashboard** ativa recentemente. Abra ou navegue em qualquer página do Dashboard e eu a detectarei na hora."
+          ),
+          spokenText: t(
+            locale,
+            "Aún no detecto ninguna pestaña activa del Dashboard.",
+            "I don't detect an active Dashboard tab yet.",
+            "Ainda não detectei uma aba ativa do Dashboard."
+          ),
+          emotion: "thinking",
+          quickActions: ui.quickActions,
+        } as BotCommandResponse);
+      }
+
+      const isLive = ageSeconds !== null && ageSeconds <= 180;
+      const snap = getPlatformSummary();
+      const contextCards: BotActionCard[] = [];
+      if (presence.moduleKey === "accounts") {
+        contextCards.push({ type: "accounts", data: snap.accounts });
+      } else if (presence.moduleKey.startsWith("signals")) {
+        contextCards.push({ type: "signals", data: { signals: getSignalMonitorsList() } });
+      } else if (presence.moduleKey === "campaigns") {
+        contextCards.push({ type: "campaigns", data: { campaigns: getCampaignsList() } });
+      } else if (presence.moduleKey === "inbox") {
+        contextCards.push({ type: "inbox", data: getInboxOverview() });
+      } else if (presence.moduleKey === "pipeline") {
+        contextCards.push({ type: "pipeline", data: getPipelineOverview() });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        reply: t(
+          locale,
+          `📍 Estás en **${presence.moduleLabel}** (\`${presence.fullPath}\`)${ageLabel ? ` · ${isLive ? "🟢 En vivo" : "Última vista"} hace ${ageLabel}` : ""}.\n\n${presence.moduleDescription}`,
+          `📍 You are currently on **${presence.moduleLabel}** (\`${presence.fullPath}\`)${ageLabel ? ` · ${isLive ? "🟢 Live" : "Last seen"} ${ageLabel} ago` : ""}.\n\n${presence.moduleDescription}`,
+          `📍 Você está em **${presence.moduleLabel}** (\`${presence.fullPath}\`)${ageLabel ? ` · ${isLive ? "🟢 Ao vivo" : "Último acesso"} há ${ageLabel}` : ""}.\n\n${presence.moduleDescription}`
+        ),
+        spokenText: t(
+          locale,
+          `Estás en ${presence.moduleLabel}.`,
+          `You are on ${presence.moduleLabel}.`,
+          `Você está em ${presence.moduleLabel}.`
+        ),
+        emotion: "talking",
+        cards: contextCards.length > 0 ? contextCards : undefined,
+        quickActions: ui.quickActions,
+      } as BotCommandResponse);
+    }
+
     // =========================================================================
     // 3. FLUJO MULTIMODAL CON FOTO / IMAGEN
     // =========================================================================
@@ -1920,12 +2069,22 @@ export async function POST(req: NextRequest) {
     const inboxOverview = getInboxOverview();
     const pipelineOverview = getPipelineOverview();
     const activeAccount = await resolveActiveLinkedInAccount();
+    const accountDetails = await getLinkedInAccountsDetails();
+    const { presence, ageSeconds, ageLabel } = getDashboardPresence(dashboardUserId);
     const turns = buildHistoryTurns(history);
     turns.push({ role: "user", parts: [{ text: message || "Hello" }] });
 
     const postsTotal = postsList.length;
+    const presenceLine = presence
+      ? `- PANTALLA ACTUAL DEL USUARIO EN EL DASHBOARD (${ageSeconds !== null && ageSeconds <= 180 ? "EN VIVO" : "RECIENTE"}, hace ${ageLabel || "poco"}): "${presence.moduleLabel}" | ruta=${presence.fullPath} | clave=${presence.moduleKey} | contexto=${presence.moduleDescription}`
+      : "- PANTALLA ACTUAL DEL USUARIO EN EL DASHBOARD: Aún sin actividad reciente detectada en otra pestaña.";
+
     const liveWorkspaceSummary = [
-      `- Cuenta LinkedIn principal en vivo: ${activeAccount.accountId ? `${activeAccount.accountName} (ACTIVA / ${activeAccount.accountId})` : "Ninguna cuenta activa"} | Total registradas en BD: ${snap.accounts.active}/${snap.accounts.total}`,
+      presenceLine,
+      `- Cuenta LinkedIn principal en vivo: ${activeAccount.accountId ? `${activeAccount.accountName} (ACTIVA / ${activeAccount.accountId})` : "Ninguna cuenta activa"} | Total registradas: ${snap.accounts.active}/${snap.accounts.total}`,
+      accountDetails.length > 0
+        ? `  Detalle cuentas LinkedIn: ${accountDetails.map((a) => `${a.name} [status=${a.status}${a.email ? `, ${a.email}` : ""}]`).join(" | ")}`
+        : "",
       `- Publicaciones en Dashboard (viral_posts total=${postsTotal}: ${snap.posts.published} publicadas, ${snap.posts.scheduled} programadas, ${snap.posts.draft} borradores):`,
       ...postsList.map(
         (p, idx) =>

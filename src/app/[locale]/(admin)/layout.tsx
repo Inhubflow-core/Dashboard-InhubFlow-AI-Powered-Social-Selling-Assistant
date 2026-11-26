@@ -1,10 +1,11 @@
 "use client";
 
 import { useSidebar } from "@/context/SidebarContext";
+import DashboardPresenceTracker from "@/components/bot/DashboardPresenceTracker";
 import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
-import React from "react";
+import React, { Suspense } from "react";
 
 export default function AdminLayout({
   children,
@@ -35,6 +36,9 @@ export default function AdminLayout({
         <main className="w-full p-4 md:p-6 min-w-0 flex-1 bg-[#E9F0F7] dark:bg-gray-900">
           {children}
         </main>
+        <Suspense fallback={null}>
+          <DashboardPresenceTracker />
+        </Suspense>
       </div>
     </div>
   );
