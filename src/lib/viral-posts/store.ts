@@ -262,7 +262,9 @@ export async function syncCreatedPostsWithServer(): Promise<CreatedPost[] | null
     }
 
     const mergedList = Array.from(mergedMap.values()).sort((a, b) =>
-      String(b.publishedAt || b.createdAt || "").localeCompare(String(a.publishedAt || a.createdAt || ""))
+      String(b.scheduledAt || b.publishedAt || b.createdAt || "").localeCompare(
+        String(a.scheduledAt || a.publishedAt || a.createdAt || "")
+      )
     );
 
     const serverIds = new Set(serverPosts.map((p) => p.id));

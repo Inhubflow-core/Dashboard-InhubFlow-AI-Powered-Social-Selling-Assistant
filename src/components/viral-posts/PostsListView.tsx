@@ -271,11 +271,19 @@ export default function PostsListView({
     syncAllPublishedPostsMetrics();
   }, [isLoaded, posts.length, syncAllPublishedPostsMetrics]);
 
-  const filteredPosts = posts.filter((p) => {
-    const matchesStatus = filterStatus === "all" || p.status === filterStatus;
-    const matchesFormat = filterFormat === "all" || p.format === filterFormat;
-    return matchesStatus && matchesFormat;
-  });
+  const filteredPosts = posts
+    .filter((p) => {
+      const matchesStatus = filterStatus === "all" || p.status === filterStatus;
+      const matchesFormat = filterFormat === "all" || p.format === filterFormat;
+      return matchesStatus && matchesFormat;
+    })
+    .sort((a, b) => {
+      const aDate = a.scheduledAt || a.publishedAt || a.createdAt || "";
+      const bDate = b.scheduledAt || b.publishedAt || b.createdAt || "";
+      const aMs = aDate ? new Date(aDate).getTime() : 0;
+      const bMs = bDate ? new Date(bDate).getTime() : 0;
+      return (Number.isNaN(bMs) ? 0 : bMs) - (Number.isNaN(aMs) ? 0 : aMs);
+    });
 
   const getFormatBadge = (fmt: PostFormat) => {
     switch (fmt) {
