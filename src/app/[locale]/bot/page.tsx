@@ -639,6 +639,17 @@ export default function InhubBotAppPage() {
   >(() => {});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const carouselScrollRef = useRef<HTMLDivElement | null>(null);
+  const carouselTrackRef = useRef<HTMLDivElement | null>(null);
+  const carouselPausedUntilRef = useRef(0);
+  const carouselHoverRef = useRef(false);
+  const carouselTouchRef = useRef(false);
+  const carouselDragRef = useRef({
+    active: false,
+    startX: 0,
+    startScrollLeft: 0,
+    moved: false,
+  });
   const messagesRef = useRef<Message[]>(messages);
   messagesRef.current = messages;
 
@@ -935,6 +946,72 @@ export default function InhubBotAppPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isSending]);
 
+  const getCarouselSingleSetWidth = useCallback(() => {
+    const track = carouselTrackRef.current;
+    if (!track || track.children.length < 12) return 0;
+    const first = track.children[0] as HTMLElement;
+    const secondSetStart = track.children[6] as HTMLElement;
+    return secondSetStart.offsetLeft - first.offsetLeft;
+  }, []);
+
+  const normalizeCarouselLoop = useCallback(() => {
+    const el = carouselScrollRef.current;
+    if (!el) return;
+    const stepWidth = getCarouselSingleSetWidth();
+    if (stepWidth <= 0) return;
+    if (el.scrollLeft >= stepWidth * 2) {
+      el.scrollLeft -= stepWidth;
+    } else if (el.scrollLeft <= 2) {
+      el.scrollLeft += stepWidth;
+    }
+  }, [getCarouselSingleSetWidth]);
+
+  useEffect(() => {
+    if (messages.length > 1 || isSending) return;
+    const el = carouselScrollRef.current;
+    if (!el) return;
+
+    const initWidth = getCarouselSingleSetWidth();
+    if (initWidth > 0 && el.scrollLeft < 4) {
+      el.scrollLeft = initWidth;
+    }
+
+    let rafId = 0;
+    let carry = 0;
+
+    const tick = () => {
+      const container = carouselScrollRef.current;
+      if (container) {
+        const stepWidth = getCarouselSingleSetWidth();
+        if (stepWidth > 0) {
+          if (container.scrollLeft >= stepWidth * 2) {
+            container.scrollLeft -= stepWidth;
+          } else if (container.scrollLeft <= 2) {
+            container.scrollLeft += stepWidth;
+          }
+
+          if (
+            !carouselTouchRef.current &&
+            !carouselDragRef.current.active &&
+            !carouselHoverRef.current &&
+            Date.now() > carouselPausedUntilRef.current
+          ) {
+            carry += 0.6;
+            const px = Math.trunc(carry);
+            if (px >= 1) {
+              container.scrollLeft += px;
+              carry -= px;
+            }
+          }
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [messages.length, isSending, getCarouselSingleSetWidth]);
+
   const showShortHoldHint = useCallback(() => {
     setHoldHint(ui.holdHintShort);
     if (holdHintTimerRef.current) clearTimeout(holdHintTimerRef.current);
@@ -1085,7 +1162,7 @@ export default function InhubBotAppPage() {
       <div
         className={
           isHero
-            ? "flex flex-col items-center justify-center mb-5 shrink-0"
+            ? "flex flex-col items-center justify-center mt-5 mb-1 shrink-0"
             : "px-4 py-2.5 flex flex-col items-center justify-center shrink-0 border-t border-[#0099ff]/12"
         }
         style={
@@ -1246,33 +1323,63 @@ export default function InhubBotAppPage() {
             </div>
           </div>
 
-          {/* Central Push-to-Talk Mic Button (Hero) */}
-          {renderPushToTalkDock("hero")}
-
-          {/* 1-Line Infinite Carousel of Quick Actions */}
-          <style>{`
-            @keyframes inhubBotMarquee {
-              0% { transform: translateX(0); }
-              100% { transform: translateX(-50%); }
-            }
-            .inhub-marquee-track {
-              animation: inhubBotMarquee 28s linear infinite;
-            }
-            .inhub-marquee-wrap:hover .inhub-marquee-track,
-            .inhub-marquee-wrap:active .inhub-marquee-track {
-              animation-play-state: paused;
-            }
-          `}</style>
+          {/* 1-Line Infinite Carousel of Quick Actions (Auto-scrolling + Swipe/Drag in both directions) */}
           <div
-            className="w-full max-w-xl overflow-hidden inhub-marquee-wrap py-1"
+            ref={carouselScrollRef}
+            onScroll={normalizeCarouselLoop}
+            onTouchStart={() => {
+              carouselTouchRef.current = true;
+            }}
+            onTouchEnd={() => {
+              carouselTouchRef.current = false;
+              carouselPausedUntilRef.current = Date.now() + 1400;
+            }}
+            onTouchCancel={() => {
+              carouselTouchRef.current = false;
+              carouselPausedUntilRef.current = Date.now() + 1400;
+            }}
+            onMouseEnter={() => {
+              carouselHoverRef.current = true;
+            }}
+            onMouseLeave={() => {
+              carouselHoverRef.current = false;
+              carouselDragRef.current.active = false;
+            }}
+            onPointerDown={(e) => {
+              if (e.pointerType !== "mouse" || !carouselScrollRef.current) return;
+              carouselDragRef.current = {
+                active: true,
+                startX: e.clientX,
+                startScrollLeft: carouselScrollRef.current.scrollLeft,
+                moved: false,
+              };
+            }}
+            onPointerMove={(e) => {
+              if (!carouselDragRef.current.active || !carouselScrollRef.current) return;
+              const dx = e.clientX - carouselDragRef.current.startX;
+              if (Math.abs(dx) > 5) carouselDragRef.current.moved = true;
+              carouselScrollRef.current.scrollLeft = carouselDragRef.current.startScrollLeft - dx;
+              normalizeCarouselLoop();
+            }}
+            onPointerUp={() => {
+              if (!carouselDragRef.current.active) return;
+              carouselDragRef.current.active = false;
+              if (carouselDragRef.current.moved) {
+                carouselPausedUntilRef.current = Date.now() + 1200;
+                setTimeout(() => {
+                  carouselDragRef.current.moved = false;
+                }, 60);
+              }
+            }}
+            className="w-full max-w-xl overflow-x-auto touch-pan-x select-none py-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
             style={{
               WebkitMaskImage:
-                "linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)",
+                "linear-gradient(to right, transparent 0%, black 7%, black 93%, transparent 100%)",
               maskImage:
-                "linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)",
+                "linear-gradient(to right, transparent 0%, black 7%, black 93%, transparent 100%)",
             }}
           >
-            <div className="flex w-max gap-2.5 inhub-marquee-track">
+            <div ref={carouselTrackRef} className="flex w-max gap-2.5 px-2">
               {(() => {
                 const heroItems = [
                   { icon: <FileText className="w-4 h-4" />, label: ui.heroChips[0] },
@@ -1282,11 +1389,17 @@ export default function InhubBotAppPage() {
                   { icon: <Kanban className="w-4 h-4" />, label: ui.heroChips[4] },
                   { icon: <BarChart3 className="w-4 h-4" />, label: ui.heroChips[5] },
                 ];
-                return [...heroItems, ...heroItems].map((chip, idx) => (
+                return [...heroItems, ...heroItems, ...heroItems].map((chip, idx) => (
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => handleSend(chip.label, undefined, undefined, null)}
+                    onClick={() => {
+                      if (carouselDragRef.current.moved) {
+                        carouselDragRef.current.moved = false;
+                        return;
+                      }
+                      handleSend(chip.label, undefined, undefined, null);
+                    }}
                     disabled={isSending || isListening}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-full text-[13px] font-medium whitespace-nowrap shrink-0 transition cursor-pointer disabled:opacity-50 hover:border-[#0099ff]/60 hover:text-white"
                     style={{
@@ -1302,6 +1415,9 @@ export default function InhubBotAppPage() {
               })()}
             </div>
           </div>
+
+          {/* Central Push-to-Talk Mic Button (Hero - Below Carousel) */}
+          {renderPushToTalkDock("hero")}
         </div>
       )}
 
