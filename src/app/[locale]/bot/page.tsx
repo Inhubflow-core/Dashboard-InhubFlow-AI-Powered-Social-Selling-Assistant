@@ -1408,16 +1408,16 @@ export default function InhubBotAppPage() {
 
     return (
       <div
-        className={
+        className={`px-4 flex flex-col items-center justify-center shrink-0 ${
           isHero
-            ? "flex flex-col items-center justify-center mt-5 mb-1 shrink-0"
-            : "px-4 py-2.5 flex flex-col items-center justify-center shrink-0 border-t border-[#0099ff]/12"
-        }
-        style={
-          !isHero
-            ? { background: "linear-gradient(180deg, rgba(0,153,255,0.04) 0%, #000000 100%)" }
-            : undefined
-        }
+            ? "pt-2 pb-3.5"
+            : "py-2.5 border-t border-[#0099ff]/12"
+        }`}
+        style={{
+          background: isHero
+            ? "linear-gradient(180deg, rgba(0,0,0,0) 0%, #000000 35%)"
+            : "linear-gradient(180deg, rgba(0,153,255,0.04) 0%, #000000 100%)",
+        }}
       >
         {active && inputValue.trim() && (
           <div
@@ -1781,14 +1781,11 @@ export default function InhubBotAppPage() {
               })()}
             </div>
           </div>
-
-          {/* Central Push-to-Talk Mic Button (Hero - Below Carousel) */}
-          {renderPushToTalkDock("hero")}
         </div>
       )}
 
       {/* ── CONVERSATION STREAM ── */}
-      {messages.length > 1 && (
+      {(messages.length > 1 || isSending) && (
         <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {messages.map((m) => {
             const isUser = m.sender === "user";
@@ -2368,8 +2365,8 @@ export default function InhubBotAppPage() {
         </div>
       )}
 
-      {/* Central Push-to-Talk Mic Dock (Active Conversation) */}
-      {messages.length > 1 && renderPushToTalkDock("chat")}
+      {/* Central Push-to-Talk Mic Dock (Always anchored near bottom input bar) */}
+      {renderPushToTalkDock(messages.length <= 1 && !isSending ? "hero" : "chat")}
 
       {/* Bottom Command Input Bar */}
       <footer
