@@ -121,10 +121,30 @@ export const TARGET_COUNTRIES: Record<string, TargetCountryConfig> = {
   },
 };
 
-// Caché de respuestas e in-flight deduplication para evitar ráfagas o búsquedas duplicadas a LinkedIn
-const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
+// Caché compartida de 12h + deduplicación + cuota diaria segura anti-restricciones LinkedIn
+const SEARCH_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const ACCOUNT_DAILY_SEARCH_LIMIT = 8;
+const ACCOUNT_SEARCH_COOLDOWN_MS = 15 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const searchResponseCache = new Map<string, { expiresAt: number; payload: any }>();
 const inFlightSearches = new Map<string, Promise<any>>();
+const accountSearchGuard = new Map<string, { timestamps: number[]; lastAt: number }>();
+
+function canAccountRunLiveSearch(accountId: string, isDedicatedScanner: boolean): boolean {
+  if (isDedicatedScanner) return true;
+  const now = Date.now();
+  const entry = accountSearchGuard.get(accountId) || { timestamps: [], lastAt: 0 };
+  const recent = entry.timestamps.filter((t) => now - t < DAY_MS);
+  if (now - entry.lastAt < ACCOUNT_SEARCH_COOLDOWN_MS) {
+    return false;
+  }
+  if (recent.length >= ACCOUNT_DAILY_SEARCH_LIMIT) {
+    return false;
+  }
+  recent.push(now);
+  accountSearchGuard.set(accountId, { timestamps: recent, lastAt: now });
+  return true;
+}
 
 function detectCountryFromLocationString(loc: string, headline: string): { countryCode: string; countryName: string; locationLabel: string } {
   const combined = (loc + " " + headline).toLowerCase();
@@ -511,7 +531,6 @@ export async function POST(req: Request) {
       excludeJobs,
       filterZero,
       sortBy,
-      requestedAccountId: requestedAccountId || "default",
     });
 
     const cachedEntry = searchResponseCache.get(cacheKey);
@@ -552,7 +571,9 @@ export async function POST(req: Request) {
       return false;
     };
 
-    let targetAccountId = requestedAccountId;
+    const dedicatedScannerId = process.env.UNIPILE_SCANNER_ACCOUNT_ID?.trim() || "";
+    const isDedicatedScanner = Boolean(dedicatedScannerId);
+    let targetAccountId = dedicatedScannerId || requestedAccountId;
     let selectedAccountObj = liveAccounts.find((a) => a.id === targetAccountId);
 
     // Si la cuenta solicitada no existe en Unipile o no está saludable, buscar una alternativa saludable
@@ -581,11 +602,10 @@ export async function POST(req: Request) {
       };
     }
 
-    // 2. Búsqueda secuencial controlada (Anti-bloqueos LinkedIn):
-    // Evita disparar múltiples búsquedas paralelas simultáneas; consulta primero la variante principal
-    // y solo realiza como máximo una consulta complementaria secuencial si faltan resultados.
+    // 2. Búsqueda única protegida (Anti-bloqueos LinkedIn):
+    // Ejecuta máximo 1 sola consulta en vivo y respeta cuota diaria segura por cuenta.
     const queriesToRun = generateQueryVariations(keywords, targetMarket, targetCountry);
-    console.log(`[Posts Search] Ejecutando búsqueda secuencial controlada (principal: "${queriesToRun[0]}")`);
+    const allowedLive = canAccountRunLiveSearch(targetAccountId, isDedicatedScanner && targetAccountId === dedicatedScannerId);
 
     const rawItems: any[] = [];
     const seenPostIds = new Set<string>();
@@ -619,21 +639,11 @@ export async function POST(req: Request) {
       }
     };
 
-    appendItems(await runSingleSearch(targetAccountId, queriesToRun[0]));
-
-    if (rawItems.length < 15 && queriesToRun[1]) {
-      appendItems(await runSingleSearch(targetAccountId, queriesToRun[1]));
-    }
-
-    // Si falló con la cuenta principal, reintentar solo la consulta principal con cuenta alternativa saludable
-    if (rawItems.length === 0) {
-      const alternative = liveAccounts.find((a) => a.id !== targetAccountId && isAccountHealthy(a));
-      if (alternative) {
-        console.log(`[Posts Search] Reintentando con cuenta alternativa saludable: ${alternative.name} (${alternative.id})`);
-        targetAccountId = alternative.id;
-        selectedAccountObj = alternative;
-        appendItems(await runSingleSearch(targetAccountId, queriesToRun[0]));
-      }
+    if (allowedLive) {
+      console.log(`[Posts Search] Ejecutando 1 consulta protegida (principal: "${queriesToRun[0]}")`);
+      appendItems(await runSingleSearch(targetAccountId, queriesToRun[0]));
+    } else {
+      console.warn(`[Posts Search] Cuota segura/cooldown alcanzado para cuenta ${targetAccountId}; usando base curada sin tocar LinkedIn.`);
     }
 
     // Fallback hiper-especializado por nicho e industria para localhost y desarrollo

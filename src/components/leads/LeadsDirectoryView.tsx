@@ -59,42 +59,10 @@ export default function LeadsDirectoryView({
   const [manualListId, setManualListId] = useState("");
   const [selectedLeadFor360, setSelectedLeadFor360] = useState<Lead360Item | null>(null);
 
-  // Sincronización automática de fotos oficiales de LinkedIn en segundo plano (estilo #b2b)
-  const isSyncingPhotosRef = useRef(false);
-  useEffect(() => {
-    if (!isLoaded || leads.length === 0 || isSyncingPhotosRef.current) return;
-    const leadsToEnrich = leads
-      .filter((l) => (!l.avatarUrl || !l.location || /no especificado/i.test(l.location) || !l.company || /no especificado/i.test(l.company)) && Boolean(l.linkedinUrl))
-      .slice(0, 15);
-
-    if (leadsToEnrich.length === 0) return;
-
-    isSyncingPhotosRef.current = true;
-    fetch("/api/leads/sync-photos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        accountId: typeof window !== "undefined" ? localStorage.getItem("inhubflow_active_linkedin_account_id") || undefined : undefined,
-        targets: leadsToEnrich.map((l) => ({
-          id: l.id,
-          linkedinUrl: l.linkedinUrl,
-          fullName: l.fullName,
-          competitorName: l.company || l.signalSource,
-          listName: l.listName,
-        })),
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.updated && Object.keys(data.updated).length > 0) {
-          batchUpdateLeadPhotos(data.updated);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        isSyncingPhotosRef.current = false;
-      });
-  }, [isLoaded, leads.length, batchUpdateLeadPhotos]);
+  // Blindaje Anti-Restricciones LinkedIn:
+  // Desactivado el scraping automático de resolveProfile en segundo plano al abrir Leads,
+  // ya que acceder a lotes de perfiles repetidamente activa el límite comercial de LinkedIn.
+  // Los avatares y ubicaciones se toman directamente de las señales y eventos capturados.
 
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {

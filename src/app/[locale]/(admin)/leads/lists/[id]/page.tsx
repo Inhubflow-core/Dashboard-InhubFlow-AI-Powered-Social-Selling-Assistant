@@ -54,50 +54,8 @@ export default function DynamicListDetailPage() {
     );
   }, [lists, listId]);
 
-  // Auto-sync de fotos oficiales de LinkedIn en segundo plano (priorizando leads de la lista actual)
-  const isSyncingPhotosRef = useRef(false);
-  useEffect(() => {
-    if (!isLoaded || leads.length === 0 || isSyncingPhotosRef.current) return;
-    const targetPool = currentList
-      ? leads.filter(
-          (l) =>
-            l.listId === currentList.id ||
-            (currentList.sourceMonitorId && (l as any).monitorId === currentList.sourceMonitorId)
-        )
-      : leads;
-    const pool = targetPool.length > 0 ? targetPool : leads;
-    const leadsToEnrich = pool
-      .filter((l) => (!l.avatarUrl || !l.location || /no especificado/i.test(l.location) || !l.company || /no especificado/i.test(l.company)) && Boolean(l.linkedinUrl))
-      .slice(0, 15);
-
-    if (leadsToEnrich.length === 0) return;
-
-    isSyncingPhotosRef.current = true;
-    fetch("/api/leads/sync-photos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        accountId: typeof window !== "undefined" ? localStorage.getItem("inhubflow_active_linkedin_account_id") || undefined : undefined,
-        targets: leadsToEnrich.map((l) => ({
-          id: l.id,
-          linkedinUrl: l.linkedinUrl,
-          fullName: l.fullName,
-          competitorName: currentList?.competitorName || l.company || l.signalSource,
-          listName: currentList?.name || l.listName,
-        })),
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.updated && Object.keys(data.updated).length > 0) {
-          batchUpdateLeadPhotos(data.updated);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        isSyncingPhotosRef.current = false;
-      });
-  }, [isLoaded, leads, currentList, batchUpdateLeadPhotos]);
+  // Blindaje Anti-Restricciones LinkedIn:
+  // Desactivado el auto-sync de resolveProfile en segundo plano para proteger la cuenta personal del cliente.
 
   const isMonitorDeleted = useMemo(() => {
     if (!currentList) return false;

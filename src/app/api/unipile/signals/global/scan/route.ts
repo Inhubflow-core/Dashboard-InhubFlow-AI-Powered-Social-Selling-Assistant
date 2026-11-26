@@ -1217,16 +1217,19 @@ export async function POST(req: NextRequest) {
         return res;
       }
 
-      // 3. Extraer identificador de LinkedIn para resolver perfil completo con Unipile con timeout protegido (2s)
+      // 3. Blindaje Anti-Restricciones: NO llamar resolveProfile en bucle por cada comentarista/reaccionador,
+      // ya que consultar decenas de perfiles seguidos dispara el límite comercial de LinkedIn.
+      // Solo se usa si existe una cuenta escáner dedicada (UNIPILE_SCANNER_ACCOUNT_ID).
+      const dedicatedScannerId = process.env.UNIPILE_SCANNER_ACCOUNT_ID?.trim() || "";
       let cleanIdentifier = publicIdentifier || "";
       if (!cleanIdentifier && profileUrl) {
         const match = profileUrl.match(/\/in\/([^/?#]+)/i);
         if (match?.[1]) cleanIdentifier = match[1];
       }
 
-      if (cleanIdentifier && accountId && !unipile.isSandboxMode()) {
+      if (cleanIdentifier && dedicatedScannerId && !unipile.isSandboxMode()) {
         try {
-          const profilePromise = unipile.resolveProfile(cleanIdentifier, accountId);
+          const profilePromise = unipile.resolveProfile(cleanIdentifier, dedicatedScannerId);
           const timeoutPromise = new Promise<any>((resolve) => setTimeout(() => resolve(null), 2000));
           const profile = await Promise.race([profilePromise, timeoutPromise]);
 

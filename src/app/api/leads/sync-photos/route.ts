@@ -3,13 +3,6 @@ import { unipile } from "@/lib/unipile/client";
 import { detectLeadLanguage } from "@/lib/signals/language-detector";
 import { isAuthorEmployeeOrAffiliate, extractCompanyFromHeadline } from "@/lib/signals/employee-filter";
 
-function isAccountHealthy(acc: any): boolean {
-  if (!acc) return false;
-  if (acc.status === "OK" || acc.status === "CONNECTED") return true;
-  if (Array.isArray(acc.sources) && acc.sources.some((s: any) => s.status === "OK" || s.status === "CONNECTED")) return true;
-  return false;
-}
-
 export interface SyncedLeadData {
   photoUrl?: string;
   location?: string;
@@ -48,39 +41,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const requestedAccountId =
-      typeof body.accountId === "string" && body.accountId.trim()
-        ? body.accountId.replace(/^acc-li-/, "").trim()
-        : "";
-
-    // Resolver cuenta de LinkedIn conectada (respetando aislamiento multi-tenant)
-    let accountId = "";
-    try {
-      const list = await unipile.listAccounts();
-      const linkedinAccounts = (list.items || []).filter(
-        (a: any) => String(a.type || a.provider || "").toUpperCase() === "LINKEDIN"
-      );
-      const healthyAccounts = linkedinAccounts.filter(isAccountHealthy);
-      const matchedRequested = requestedAccountId
-        ? healthyAccounts.find((a: any) => a.id === requestedAccountId)
-        : undefined;
-
-      if (matchedRequested) {
-        accountId = matchedRequested.id;
-      } else if (healthyAccounts.length > 0) {
-        accountId = healthyAccounts[0].id;
-      }
-    } catch (e) {
-      console.warn("[sync-photos] Error obteniendo cuentas de LinkedIn:", e);
-    }
-
-    if (!accountId) {
+    // Blindaje Anti-Restricciones LinkedIn:
+    // NUNCA usar la cuenta personal del cliente para resolver perfiles en lote en segundo plano.
+    // Solo se permite si el entorno configura explícitamente una cuenta escáner dedicada (UNIPILE_SCANNER_ACCOUNT_ID).
+    const dedicatedScannerAccountId = process.env.UNIPILE_SCANNER_ACCOUNT_ID?.trim() || "";
+    if (!dedicatedScannerAccountId) {
       return NextResponse.json({
         updated: {},
         syncedCount: 0,
-        message: "No hay cuenta activa de LinkedIn conectada para sincronizar fotos",
+        protectedMode: true,
+        message: "Sincronización masiva de perfiles desactivada para proteger las cuentas de LinkedIn de los usuarios.",
       });
     }
+
+    const accountId = dedicatedScannerAccountId;
 
     const updated: Record<string, SyncedLeadData> = {};
     let syncedCount = 0;
