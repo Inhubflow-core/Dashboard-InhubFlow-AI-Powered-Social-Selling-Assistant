@@ -837,22 +837,37 @@ export default function InhubBotAppPage() {
             {ui.greetingSubtitle}
           </p>
 
-          <div className="relative mb-10">
+          <div className="relative mb-10 flex items-center justify-center">
+            {/* Halo exterior ambiental azul InhubFlow */}
             <div
-              className="absolute inset-0 rounded-full blur-3xl"
+              className="absolute inset-0 rounded-full blur-3xl pointer-events-none"
               style={{
-                background: "radial-gradient(circle, rgba(0,153,255,0.5) 0%, rgba(99,102,241,0.2) 50%, transparent 80%)",
-                transform: "scale(2.5)",
+                background:
+                  "radial-gradient(circle, rgba(0,153,255,0.65) 0%, rgba(0,112,204,0.32) 45%, transparent 76%)",
+                transform: "scale(2.35)",
               }}
             />
+            {/* Halo medio vibrante */}
             <div
-              className="absolute inset-0 rounded-full blur-xl"
+              className="absolute inset-0 rounded-full blur-2xl pointer-events-none"
               style={{
-                background: "radial-gradient(circle, rgba(0,153,255,0.3) 0%, transparent 65%)",
-                transform: "scale(1.8)",
+                background:
+                  "radial-gradient(circle, rgba(0,153,255,0.88) 0%, rgba(0,153,255,0.42) 52%, transparent 78%)",
+                transform: "scale(1.65)",
               }}
             />
-            <InHubLiveAvatar emotion={emotion} size="2xl" hideStatusDot />
+            {/* Núcleo luminoso cercano al robot */}
+            <div
+              className="absolute inset-0 rounded-full blur-md pointer-events-none"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(90,186,255,0.8) 0%, rgba(0,153,255,0.45) 55%, transparent 80%)",
+                transform: "scale(1.18)",
+              }}
+            />
+            <div className="relative z-10">
+              <InHubLiveAvatar emotion={emotion} size="2xl" hideStatusDot />
+            </div>
           </div>
 
           <div className="w-full max-w-sm grid grid-cols-2 gap-2.5">
