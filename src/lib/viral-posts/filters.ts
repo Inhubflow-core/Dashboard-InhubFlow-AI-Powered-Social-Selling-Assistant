@@ -3,11 +3,13 @@
 
 export const CYRILLIC_REGEX = /[\u0400-\u04FF]/;
 export const NON_WESTERN_REGEX =
-  /[\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF\u0600-\u06FF\u10A0-\u10FF\u0530-\u05FF\u0590-\u05FF]/;
+  /[\u0530-\u05FF\u0590-\u05FF\u0600-\u06FF\u0900-\u0DFF\u0E00-\u0FFF\u1000-\u10FF\u1200-\u137F\u1780-\u17FF\u3040-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/;
+export const VIETNAMESE_CHARS_REGEX =
+  /[đĐơƠưƯăĂệỆộỘếẾủỦữỮảẢắẮằẰẳẲẵẴặẶốỐồỒổỔỗỖớỚờỜởỞỡỠợỢứỨừỪửỬữỮựỰ]/;
 
 export function isNonWestern(text: string): boolean {
   if (!text) return false;
-  return CYRILLIC_REGEX.test(text) || NON_WESTERN_REGEX.test(text);
+  return CYRILLIC_REGEX.test(text) || NON_WESTERN_REGEX.test(text) || VIETNAMESE_CHARS_REGEX.test(text);
 }
 
 export const EXCLUDED_CORPORATE_AUTHORS = [
@@ -90,6 +92,7 @@ export function isJobRelatedPost(text: string, headline: string = ""): boolean {
     "in this role, you will lead",
     "hiring for",
     "qualifications:",
+    "responsibilities:",
     "salary range:",
     "how to apply:",
     // Español
@@ -402,7 +405,19 @@ export function isNonTargetGeography(text: string, headline: string = ""): boole
     // Bangladesh
     "bangladesh",
     "dhaka",
-    // África Subsahariana / Otros
+    // África / Sudeste Asiático / Otros fuera del target occidental
+    "ethiopia",
+    "ethiopian",
+    "addis ababa",
+    "vietnam",
+    "việt nam",
+    "ho chi minh",
+    "saigon",
+    "hanoi",
+    "myanmar",
+    "yangon",
+    "thailand",
+    "bangkok",
     "nigeria",
     "lagos",
     "abuja",

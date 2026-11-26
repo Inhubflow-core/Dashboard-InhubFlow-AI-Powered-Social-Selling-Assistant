@@ -168,6 +168,7 @@ function detectCountryFromLocationString(loc: string, headline: string): { count
 }
 
 function detectPostLanguage(text: string): "pt" | "es" | "en" | "other" {
+  if (isNonWestern(text)) return "other";
   const lower = " " + text.toLowerCase().replace(/[^a-záéíóúüñãõçâêîôûàèìòù]/g, " ") + " ";
 
   const ptWords = [
@@ -284,9 +285,10 @@ function detectMarketOrigin(text: string, headline: string, lang: "pt" | "es" | 
     return "Europa Occidental";
   }
 
-  // Fallback por idioma (solo asigna EE.UU./Global si NO es de geografía excluida)
+  // Fallback por idioma (solo asigna EE.UU./Global si NO es de geografía excluida ni idioma ajeno)
   if (lang === "pt") return "Brasil / Cono Sur";
   if (lang === "es") return "LATAM / Hispanoamérica";
+  if (lang === "other") return "Global (Otro idioma)";
   if (lang === "en") {
     if (isNonTargetGeography(text, headline)) {
       return "Asia del Sur / Medio Oriente";
@@ -322,13 +324,25 @@ function generateQueryVariations(rawKeywords: string, targetMarket: string, targ
   if (!kw) return ["Social Selling"];
 
   const lower = kw.toLowerCase();
-  const variations: string[] = [kw];
+  const variations: string[] = [];
 
-  // A. Inyección de País Objetivo para orientar resultados nativos en LinkedIn
+  // A. Cuando el usuario selecciona un país específico, PRIORIZAR en variations[0] la query localizada al país/idioma
   if (targetCountry && targetCountry !== "ALL") {
     const cDef = TARGET_COUNTRIES[targetCountry];
     if (cDef) {
       if (targetCountry === "BR") {
+        const brLocalizedMap: Record<string, string> = {
+          "b2b outreach": "Prospecção B2B Brasil",
+          "b2b outbound": "Outbound B2B Brasil",
+          "lead generation": "Geração de Leads Brasil",
+          "cold email": "Cold Email Prospecção Brasil",
+          "saas growth": "SaaS B2B Brasil",
+          "social selling": "Social Selling Brasil",
+          "inteligencia artificial": "Inteligência Artificial Brasil",
+          "artificial intelligence": "Inteligência Artificial Brasil",
+        };
+        const localized = brLocalizedMap[lower];
+        if (localized) variations.push(localized);
         variations.push(`${kw} Brasil`);
         variations.push(`${kw} São Paulo`);
       } else if (targetCountry === "US") {
@@ -341,11 +355,23 @@ function generateQueryVariations(rawKeywords: string, targetMarket: string, targ
         variations.push(`${kw} México`);
       } else if (targetCountry === "CO") {
         variations.push(`${kw} Colombia`);
+      } else if (targetCountry === "AR") {
+        variations.push(`${kw} Argentina`);
+      } else if (targetCountry === "CL") {
+        variations.push(`${kw} Chile`);
+      } else if (targetCountry === "PE") {
+        variations.push(`${kw} Perú`);
+      } else if (targetCountry === "PA") {
+        variations.push(`${kw} Panamá`);
+      } else if (targetCountry === "PT") {
+        variations.push(`${kw} Portugal`);
       } else {
         variations.push(`${kw} ${cDef.name}`);
       }
     }
   }
+
+  variations.push(kw);
 
   // B. Normalización lingüística universal (sin acentos para matching amplio en LinkedIn)
   const unaccented = kw.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -1068,25 +1094,44 @@ export async function POST(req: Request) {
       };
     });
 
-    // 5.2. Filtro Estricto por País de Residencia del Autor si el usuario seleccionó un país específico
+    // 5.2. Filtro Estricto por País de Residencia/Idioma del Autor si el usuario seleccionó un país específico
+    let strictCountryActive = false;
     if (targetCountry && targetCountry !== "ALL") {
+      strictCountryActive = true;
+      const spanishCountries = new Set(["ES", "MX", "CO", "AR", "CL", "PE", "PA"]);
+      const englishCountries = new Set(["US", "GB", "AU"]);
+
       const countryFiltered = qualifiedPosts.filter((item: any) => {
         if (item.authorCountry === targetCountry) return true;
         const countryDef = TARGET_COUNTRIES[targetCountry];
-        if (countryDef && countryDef.keywords.length > 0) {
-          const combined = `${item.authorLocation || ""} ${item.authorHeadline || ""} ${item.fullContent || ""}`.toLowerCase();
-          return countryDef.keywords.some((kw) => combined.includes(kw));
+        const combined = `${item.authorLocation || ""} ${item.authorHeadline || ""} ${item.fullContent || ""} ${item.marketOrigin || ""}`.toLowerCase();
+        if (countryDef && countryDef.keywords.some((kw) => combined.includes(kw))) {
+          return true;
+        }
+        // Para Brasil: aceptar publicaciones en portugués (excluyendo menciones explícitas a Portugal)
+        if (targetCountry === "BR" && item.detectedLanguage === "pt" && !combined.includes("portugal") && !combined.includes("lisboa")) {
+          return true;
+        }
+        // Para Portugal: aceptar portugués solo si menciona Portugal o no es Brasil
+        if (targetCountry === "PT" && item.detectedLanguage === "pt" && !combined.includes("brasil") && !combined.includes("brazil") && !combined.includes("são paulo")) {
+          return true;
+        }
+        // Para países hispanohablantes: aceptar español si no menciona otro país hispano explícito
+        if (spanishCountries.has(targetCountry) && item.detectedLanguage === "es") {
+          return true;
+        }
+        // Para países angloparlantes: aceptar inglés occidental si no pertenece a país excluido
+        if (englishCountries.has(targetCountry) && item.detectedLanguage === "en") {
+          return true;
         }
         return false;
       });
 
-      if (countryFiltered.length > 0) {
-        qualifiedPosts = countryFiltered;
-      }
+      qualifiedPosts = countryFiltered;
     }
 
     // 6. Segmentación Regional Inteligente (targetMarket)
-    // Regla fija: Siempre incluye Estados Unidos (EE.UU.) como referente de innovación global
+    // Regla fija: Siempre incluye Estados Unidos (EE.UU.) como referente de innovación global cuando no hay país específico seleccionado.
     // Excluye tajantemente regiones de gig spam (Asia del Sur, Medio Oriente, África Subsahariana)
     const matchesTargetMarket = (item: any) => {
       const lang = item.detectedLanguage;
@@ -1096,9 +1141,14 @@ export async function POST(req: Request) {
       if (
         origin.includes("Asia del Sur") ||
         origin.includes("Medio Oriente") ||
+        origin.includes("Otro idioma") ||
         isNonTargetGeography(item.fullContent, item.authorHeadline)
       ) {
         return false;
+      }
+
+      if (strictCountryActive) {
+        return true;
       }
 
       const isUS =
@@ -1134,8 +1184,8 @@ export async function POST(req: Request) {
 
     let marketMatchedPosts = qualifiedPosts.filter(matchesTargetMarket);
 
-    // Si la segmentación regional es muy específica y arroja menos de 12 resultados, complementar con posts occidentales limpios calificados
-    if (marketMatchedPosts.length < 12 && qualifiedPosts.length > 0) {
+    // Solo complementar cuando NO se pidió un país específico y faltan resultados
+    if (!strictCountryActive && marketMatchedPosts.length < 12 && qualifiedPosts.length > 0) {
       const existingIds = new Set(marketMatchedPosts.map((p) => p.id));
       const cleanRemaining = qualifiedPosts.filter(
         (p) =>
