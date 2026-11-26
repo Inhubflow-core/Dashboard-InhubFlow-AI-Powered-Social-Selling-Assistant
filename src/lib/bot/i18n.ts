@@ -130,6 +130,11 @@ export interface BotUiLabels {
   createCampaignCta: string;
   campaignCreatedStatus: string;
   createCampaignCmdLabel: string;
+  liveModeBtn: string;
+  liveModeOnTitle: string;
+  liveModeOffTitle: string;
+  liveModeListeningLabel: string;
+  liveModeSpeakingLabel: string;
 }
 
 export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
@@ -256,6 +261,11 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     createCampaignCta: "Crear y activar campaña",
     campaignCreatedStatus: "✅ Campaña creada y activada en tu dashboard.",
     createCampaignCmdLabel: "Crear y activar campaña",
+    liveModeBtn: "En vivo",
+    liveModeOnTitle: "Desactivar conversación en vivo",
+    liveModeOffTitle: "Activar conversación en vivo (manos libres)",
+    liveModeListeningLabel: "Modo en vivo · Habla libremente...",
+    liveModeSpeakingLabel: "InhubBot hablando...",
   },
   en: {
     greetingTitle: "Hello!",
@@ -380,6 +390,11 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     createCampaignCta: "Create & activate campaign",
     campaignCreatedStatus: "✅ Campaign created and activated in your dashboard.",
     createCampaignCmdLabel: "Create and activate campaign",
+    liveModeBtn: "Live",
+    liveModeOnTitle: "Disable live conversation",
+    liveModeOffTitle: "Enable live conversation (hands-free)",
+    liveModeListeningLabel: "Live mode · Speak naturally...",
+    liveModeSpeakingLabel: "InhubBot speaking...",
   },
   "pt-BR": {
     greetingTitle: "Olá!",
@@ -504,5 +519,10 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     createCampaignCta: "Criar e ativar campanha",
     campaignCreatedStatus: "✅ Campanha criada e ativada no seu dashboard.",
     createCampaignCmdLabel: "Criar e ativar campanha",
+    liveModeBtn: "Ao vivo",
+    liveModeOnTitle: "Desativar conversa ao vivo",
+    liveModeOffTitle: "Ativar conversa ao vivo (mãos livres)",
+    liveModeListeningLabel: "Modo ao vivo · Fale livremente...",
+    liveModeSpeakingLabel: "InhubBot falando...",
   },
 };
