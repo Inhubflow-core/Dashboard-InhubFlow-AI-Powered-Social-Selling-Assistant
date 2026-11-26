@@ -612,6 +612,8 @@ export default function InhubBotAppPage() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isHoldingMic, setIsHoldingMic] = useState(false);
+  const [holdHint, setHoldHint] = useState<string | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [emotion, setEmotion] = useState<InHubEmotion>("idle");
   const [recognitionSupported, setRecognitionSupported] = useState(true);
@@ -619,9 +621,22 @@ export default function InhubBotAppPage() {
   const recognitionRef = useRef<any>(null);
   const userStoppedVoiceRef = useRef(true);
   const voiceActiveRef = useRef(false);
+  const isHoldingMicRef = useRef(false);
   const voiceBaseTextRef = useRef("");
   const sessionFinalTextRef = useRef("");
+  const liveVoiceTranscriptRef = useRef("");
+  const pressStartedAtRef = useRef(0);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const releaseSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSendRef = useRef<
+    (
+      customText?: string,
+      explicitAction?: string,
+      explicitPayload?: Record<string, unknown>,
+      overrideAttachment?: PendingAttachment | null
+    ) => Promise<void> | void
+  >(() => {});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const messagesRef = useRef<Message[]>(messages);
@@ -630,13 +645,19 @@ export default function InhubBotAppPage() {
   const stopVoiceSession = useCallback(() => {
     userStoppedVoiceRef.current = true;
     voiceActiveRef.current = false;
+    isHoldingMicRef.current = false;
     if (restartTimerRef.current) {
       clearTimeout(restartTimerRef.current);
       restartTimerRef.current = null;
     }
+    if (releaseSendTimerRef.current) {
+      clearTimeout(releaseSendTimerRef.current);
+      releaseSendTimerRef.current = null;
+    }
     try {
       recognitionRef.current?.stop();
     } catch {}
+    setIsHoldingMic(false);
     setIsListening(false);
     setEmotion("idle");
   }, []);
@@ -792,6 +813,8 @@ export default function InhubBotAppPage() {
     [inputValue, pendingAttachment, speakText, voiceEnabled, locale, ui.quickActions, ui.genericError, ui.connectionError, stopVoiceSession]
   );
 
+  handleSendRef.current = handleSend;
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const SpeechRecognition =
@@ -832,6 +855,7 @@ export default function InhubBotAppPage() {
           const combined = [voiceBaseTextRef.current, sessionFinal, sessionInterim]
             .filter(Boolean)
             .join(" ");
+          liveVoiceTranscriptRef.current = combined;
           setInputValue(combined);
         };
 
@@ -884,7 +908,10 @@ export default function InhubBotAppPage() {
     return () => {
       userStoppedVoiceRef.current = true;
       voiceActiveRef.current = false;
+      isHoldingMicRef.current = false;
       if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+      if (releaseSendTimerRef.current) clearTimeout(releaseSendTimerRef.current);
+      if (holdHintTimerRef.current) clearTimeout(holdHintTimerRef.current);
       try {
         recognitionRef.current?.stop();
       } catch {}
@@ -908,26 +935,95 @@ export default function InhubBotAppPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isSending]);
 
-  const toggleListening = () => {
-    if (!recognitionRef.current) return;
-    if (isListening || voiceActiveRef.current) {
-      stopVoiceSession();
-    } else {
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-      userStoppedVoiceRef.current = false;
-      voiceActiveRef.current = true;
-      voiceBaseTextRef.current = inputValue.trim();
-      sessionFinalTextRef.current = "";
-      try {
-        recognitionRef.current.lang = speechLang;
-        recognitionRef.current.start();
-      } catch {
-        stopVoiceSession();
-      }
+  const showShortHoldHint = useCallback(() => {
+    setHoldHint(ui.holdHintShort);
+    if (holdHintTimerRef.current) clearTimeout(holdHintTimerRef.current);
+    holdHintTimerRef.current = setTimeout(() => {
+      setHoldHint(null);
+    }, 2600);
+  }, [ui.holdHintShort]);
+
+  const handleMicPressStart = useCallback(() => {
+    if (!recognitionRef.current || isSending || isHoldingMicRef.current) return;
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
     }
-  };
+    if (releaseSendTimerRef.current) {
+      clearTimeout(releaseSendTimerRef.current);
+      releaseSendTimerRef.current = null;
+    }
+    if (holdHintTimerRef.current) {
+      clearTimeout(holdHintTimerRef.current);
+      holdHintTimerRef.current = null;
+    }
+    setHoldHint(null);
+
+    pressStartedAtRef.current = Date.now();
+    isHoldingMicRef.current = true;
+    setIsHoldingMic(true);
+    userStoppedVoiceRef.current = false;
+    voiceActiveRef.current = true;
+
+    const existingDraft = inputValue.trim();
+    voiceBaseTextRef.current = existingDraft;
+    sessionFinalTextRef.current = "";
+    liveVoiceTranscriptRef.current = existingDraft;
+
+    try {
+      recognitionRef.current.lang = speechLang;
+      recognitionRef.current.start();
+    } catch {
+      stopVoiceSession();
+    }
+  }, [inputValue, isSending, speechLang, stopVoiceSession]);
+
+  const handleMicPressEnd = useCallback(() => {
+    if (!isHoldingMicRef.current) return;
+    isHoldingMicRef.current = false;
+    setIsHoldingMic(false);
+
+    const heldMs = Date.now() - pressStartedAtRef.current;
+    userStoppedVoiceRef.current = true;
+    voiceActiveRef.current = false;
+
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+    setIsListening(false);
+    setEmotion("idle");
+
+    if (releaseSendTimerRef.current) clearTimeout(releaseSendTimerRef.current);
+    releaseSendTimerRef.current = setTimeout(() => {
+      releaseSendTimerRef.current = null;
+      const finalSpoken = liveVoiceTranscriptRef.current.trim();
+      if (finalSpoken) {
+        voiceBaseTextRef.current = "";
+        sessionFinalTextRef.current = "";
+        liveVoiceTranscriptRef.current = "";
+        setInputValue("");
+        void handleSendRef.current(finalSpoken);
+      } else if (heldMs < 400) {
+        showShortHoldHint();
+      }
+    }, 380);
+  }, [showShortHoldHint]);
+
+  useEffect(() => {
+    if (!isHoldingMic || typeof window === "undefined") return;
+    const onGlobalRelease = () => {
+      handleMicPressEnd();
+    };
+    window.addEventListener("pointerup", onGlobalRelease);
+    window.addEventListener("pointercancel", onGlobalRelease);
+    return () => {
+      window.removeEventListener("pointerup", onGlobalRelease);
+      window.removeEventListener("pointercancel", onGlobalRelease);
+    };
+  }, [isHoldingMic, handleMicPressEnd]);
 
   const handleAttachmentPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -976,6 +1072,95 @@ export default function InhubBotAppPage() {
     ]);
   };
 
+  const renderPushToTalkDock = (variant: "hero" | "chat") => {
+    const isHero = variant === "hero";
+    const active = isHoldingMic || isListening;
+    const statusText = !recognitionSupported
+      ? ui.micUnsupportedTitle
+      : active
+        ? ui.releaseToSendLabel
+        : holdHint || ui.holdToTalkLabel;
+
+    return (
+      <div
+        className={
+          isHero
+            ? "flex flex-col items-center justify-center mb-5 shrink-0"
+            : "px-4 py-2.5 flex flex-col items-center justify-center shrink-0 border-t border-[#0099ff]/12"
+        }
+        style={
+          !isHero
+            ? { background: "linear-gradient(180deg, rgba(0,153,255,0.04) 0%, #000000 100%)" }
+            : undefined
+        }
+      >
+        {active && inputValue.trim() && (
+          <div
+            className={`${
+              isHero ? "mb-3" : "mb-2"
+            } max-w-xs sm:max-w-md px-3.5 py-1.5 rounded-full bg-[#0099ff]/15 border border-[#0099ff]/40 text-xs text-white text-center truncate`}
+          >
+            “{inputValue.trim()}”
+          </div>
+        )}
+        <div className="relative flex items-center justify-center">
+          {active && (
+            <span className="absolute inset-0 rounded-full bg-red-500/40 animate-ping pointer-events-none" />
+          )}
+          {recognitionSupported ? (
+            <button
+              type="button"
+              disabled={isSending}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                handleMicPressStart();
+              }}
+              onPointerUp={handleMicPressEnd}
+              onContextMenu={(e) => e.preventDefault()}
+              aria-label={active ? ui.releaseToSendLabel : ui.holdToTalkLabel}
+              title={active ? ui.releaseToSendLabel : ui.holdToTalkLabel}
+              className={`relative z-10 flex items-center justify-center rounded-full transition-all duration-150 select-none touch-none cursor-pointer disabled:opacity-40 ${
+                isHero ? "w-[74px] h-[74px] sm:w-20 sm:h-20" : "w-14 h-14 sm:w-16 sm:h-16"
+              } ${
+                active
+                  ? "scale-110 bg-red-500 text-white shadow-[0_0_32px_rgba(239,68,68,0.6)]"
+                  : "text-white hover:scale-105 active:scale-95"
+              }`}
+              style={
+                !active
+                  ? {
+                      background: "linear-gradient(135deg, #00aaff 0%, #0070cc 100%)",
+                      boxShadow: isHero
+                        ? "0 0 28px rgba(0,153,255,0.48), inset 0 1px 1px rgba(255,255,255,0.3)"
+                        : "0 0 22px rgba(0,153,255,0.42), inset 0 1px 1px rgba(255,255,255,0.28)",
+                    }
+                  : {}
+              }
+            >
+              <Mic className={isHero ? "w-8 h-8" : "w-6 h-6 sm:w-7 sm:h-7"} />
+            </button>
+          ) : (
+            <div
+              className={`flex items-center justify-center rounded-full bg-white/5 text-slate-500 border border-white/10 ${
+                isHero ? "w-[74px] h-[74px]" : "w-14 h-14"
+              }`}
+              title={ui.micUnsupportedTitle}
+            >
+              <MicOff className={isHero ? "w-7 h-7" : "w-6 h-6"} />
+            </div>
+          )}
+        </div>
+        <span
+          className={`${isHero ? "mt-2.5 text-xs px-3" : "mt-1.5 text-[11px]"} font-medium text-center transition-colors ${
+            active ? "text-rose-300 animate-pulse" : holdHint ? "text-[#70c4ff]" : "text-slate-400"
+          }`}
+        >
+          {statusText}
+        </span>
+      </div>
+    );
+  };
+
   return (
     <div
       className="fixed inset-0 flex flex-col w-full overflow-hidden font-sans text-slate-100"
@@ -1020,15 +1205,15 @@ export default function InhubBotAppPage() {
 
       {/* ── GEMINI HERO ── */}
       {messages.length <= 1 && !isSending && (
-        <div className="flex flex-col items-center justify-center flex-1 min-h-0 overflow-y-auto px-6 py-4">
+        <div className="flex flex-col items-center justify-center flex-1 min-h-0 overflow-y-auto px-6 py-3">
           <h1 className="text-[28px] sm:text-4xl font-light text-white tracking-tight mb-1 text-center">
             {ui.greetingTitle}
           </h1>
-          <p className="text-[18px] sm:text-lg font-light text-white text-center leading-snug mb-8">
+          <p className="text-[17px] sm:text-lg font-light text-white text-center leading-snug mb-5">
             {ui.greetingSubtitle}
           </p>
 
-          <div className="relative mb-10 flex items-center justify-center">
+          <div className="relative mb-6 flex items-center justify-center">
             {/* Halo exterior ambiental azul InhubFlow */}
             <div
               className="absolute inset-0 rounded-full blur-3xl pointer-events-none"
@@ -1060,6 +1245,9 @@ export default function InhubBotAppPage() {
               <InHubLiveAvatar emotion={emotion} size="2xl" hideStatusDot />
             </div>
           </div>
+
+          {/* Central Push-to-Talk Mic Button (Hero) */}
+          {renderPushToTalkDock("hero")}
 
           {/* 1-Line Infinite Carousel of Quick Actions */}
           <style>{`
@@ -1700,37 +1888,8 @@ export default function InhubBotAppPage() {
         </div>
       )}
 
-      {/* Voice Active Listening Notification Bar */}
-      {isListening && (
-        <div
-          className="px-4 py-2 flex items-center justify-between gap-2 text-white text-xs shrink-0"
-          style={{ background: "linear-gradient(135deg, #0099ff, #0070cc)" }}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="w-2 h-2 rounded-full bg-red-400 animate-ping shrink-0" />
-            <Mic className="w-4 h-4 shrink-0" />
-            <span className="font-medium truncate">{ui.listeningBanner}</span>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {inputValue.trim() && (
-              <button
-                type="button"
-                onClick={() => handleSend()}
-                className="px-2.5 py-0.5 rounded-full bg-white text-[#0070cc] text-[11px] font-bold cursor-pointer"
-              >
-                {ui.sendTitle}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={toggleListening}
-              className="text-[11px] underline font-bold hover:text-blue-100 cursor-pointer"
-            >
-              {ui.stopListeningBtn}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Central Push-to-Talk Mic Dock (Active Conversation) */}
+      {messages.length > 1 && renderPushToTalkDock("chat")}
 
       {/* Bottom Command Input Bar */}
       <footer
@@ -1797,29 +1956,6 @@ export default function InhubBotAppPage() {
           }}
           className="flex items-center gap-2 max-w-4xl mx-auto"
         >
-          {recognitionSupported ? (
-            <button
-              type="button"
-              onClick={toggleListening}
-              className={`flex items-center justify-center w-11 h-11 rounded-2xl transition shadow-lg shrink-0 cursor-pointer ${
-                isListening
-                  ? "bg-red-500 text-white animate-bounce shadow-red-500/30"
-                  : "text-white hover:opacity-90"
-              }`}
-              style={!isListening ? { background: "linear-gradient(135deg, #0099ff, #0070cc)", boxShadow: "0 4px 15px rgba(0,153,255,0.3)" } : {}}
-              title={isListening ? ui.micStopTitle : ui.micStartTitle}
-            >
-              {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-            </button>
-          ) : (
-            <div
-              className="flex items-center justify-center w-11 h-11 rounded-2xl bg-white/5 text-slate-500 shrink-0 border border-white/8"
-              title={ui.micUnsupportedTitle}
-            >
-              <MicOff className="w-5 h-5" />
-            </div>
-          )}
-
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}

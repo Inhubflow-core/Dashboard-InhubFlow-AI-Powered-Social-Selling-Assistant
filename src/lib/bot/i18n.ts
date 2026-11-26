@@ -28,6 +28,9 @@ export interface BotUiLabels {
   processingText: string;
   listeningBanner: string;
   stopListeningBtn: string;
+  holdToTalkLabel: string;
+  releaseToSendLabel: string;
+  holdHintShort: string;
   inputListeningPlaceholder: string;
   inputImagePlaceholder: string;
   inputDefaultPlaceholder: string;
@@ -148,9 +151,12 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     processingText: "InhubBot está procesando...",
     listeningBanner: "Escuchando tu comando de voz en español...",
     stopListeningBtn: "Detener",
+    holdToTalkLabel: "Mantén presionado para hablar",
+    releaseToSendLabel: "Escuchando... suelta para enviar",
+    holdHintShort: "Mantén presionado mientras hablas y suelta para enviar",
     inputListeningPlaceholder: "Escuchando...",
     inputImagePlaceholder: "Ej: Modela este artículo enfocado a nuestra propuesta de valor...",
-    inputDefaultPlaceholder: "Escribe, habla o adjunta un archivo...",
+    inputDefaultPlaceholder: "Escribe o adjunta un archivo...",
     imageReadyHint: "Foto lista. Indica qué quieres modelar o envía directamente.",
     attachmentReadyHint: (name) => `Archivo "${name}" listo para modelar o analizar.`,
     fileTooLargeError: "El archivo supera el límite de 10 MB. Intenta con uno más liviano.",
@@ -262,9 +268,12 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     processingText: "InhubBot is processing...",
     listeningBanner: "Listening to your voice command in English...",
     stopListeningBtn: "Stop",
+    holdToTalkLabel: "Hold to talk",
+    releaseToSendLabel: "Listening... release to send",
+    holdHintShort: "Press and hold while speaking, then release to send",
     inputListeningPlaceholder: "Listening...",
     inputImagePlaceholder: "e.g. Model this article around our value proposition...",
-    inputDefaultPlaceholder: "Type, speak, or attach a file...",
+    inputDefaultPlaceholder: "Type or attach a file...",
     imageReadyHint: "Photo ready. Tell me what to model or send directly.",
     attachmentReadyHint: (name) => `File "${name}" ready to model or analyze.`,
     fileTooLargeError: "File exceeds the 10 MB limit. Please choose a smaller file.",
@@ -376,9 +385,12 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     processingText: "InhubBot está processando...",
     listeningBanner: "Ouvindo seu comando de voz em português...",
     stopListeningBtn: "Parar",
+    holdToTalkLabel: "Segure para falar",
+    releaseToSendLabel: "Ouvindo... solte para enviar",
+    holdHintShort: "Segure enquanto fala e solte para enviar",
     inputListeningPlaceholder: "Ouvindo...",
     inputImagePlaceholder: "Ex: Modele este artigo focado na nossa proposta de valor...",
-    inputDefaultPlaceholder: "Digite, fale ou anexe um arquivo...",
+    inputDefaultPlaceholder: "Digite ou anexe um arquivo...",
     imageReadyHint: "Foto pronta. Diga o que deseja modelar ou envie diretamente.",
     attachmentReadyHint: (name) => `Arquivo "${name}" pronto para modelar ou analisar.`,
     fileTooLargeError: "O arquivo ultrapassa o limite de 10 MB. Tente um arquivo menor.",
