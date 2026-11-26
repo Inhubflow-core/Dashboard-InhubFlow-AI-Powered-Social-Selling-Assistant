@@ -954,9 +954,6 @@ export default function ViralRadarView({
                       type="button"
                       onClick={() => {
                         setDatePosted(opt.id as any);
-                        if (hasSearchedOnce) {
-                          handleLiveSearch(searchKeyword, undefined, opt.id);
-                        }
                       }}
                       className={`px-2.5 py-1 text-xs font-medium rounded-lg transition ${
                         datePosted === opt.id
@@ -979,11 +976,7 @@ export default function ViralRadarView({
                 <select
                   value={selectedCountry}
                   onChange={(e) => {
-                    const country = e.target.value;
-                    setSelectedCountry(country);
-                    if (hasSearchedOnce) {
-                      handleLiveSearch(searchKeyword, undefined, undefined, undefined, undefined, country);
-                    }
+                    setSelectedCountry(e.target.value);
                   }}
                   className="h-8 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2.5 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#0099ff] cursor-pointer"
                   title="Filtrar por ubicación geográfica real del autor"
