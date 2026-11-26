@@ -1970,18 +1970,13 @@ export default function ViralRadarView({
           <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto custom-scrollbar rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5">
             {/* Header */}
             <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-gradient-to-tr from-[#0099ff] to-blue-600 text-white shadow-md shadow-blue-500/20">
-                  <Sparkles className="size-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Programar Contenido para 1 Mes (12 Posts)
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Configura la cuenta de destino y el idioma objetivo antes de generar
-                  </p>
-                </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Programar Contenido para 1 Mes (12 Posts)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Configura la cuenta de destino y el idioma objetivo antes de generar
+                </p>
               </div>
               <button
                 type="button"
@@ -1994,7 +1989,7 @@ export default function ViralRadarView({
 
             {/* Indicador de Filtro Geográfico si está activo */}
             {selectedCountry !== "ALL" && (
-              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-xs text-blue-700 dark:text-blue-300">
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-xs text-blue-700 dark:text-blue-300">
                 <Globe className="size-4 shrink-0 text-[#0099ff]" />
                 <span>
                   Filtro geográfico activo: <strong>{selectedCountry}</strong> (Autores verificados en este país).
@@ -2025,7 +2020,7 @@ export default function ViralRadarView({
                         setMonthPlanTargetLanguage(found.targetLanguage);
                       }
                     }}
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0099ff]"
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0099ff]"
                   >
                     {availableAccounts.map((acc: any) => (
                       <option key={acc.id} value={acc.id}>
@@ -2035,7 +2030,7 @@ export default function ViralRadarView({
                   </select>
                 </div>
               ) : (
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-xs text-slate-500">
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs text-slate-500">
                   {currentUser.name} (Usuario Actual)
                 </div>
               )}
@@ -2056,7 +2051,7 @@ export default function ViralRadarView({
                     key={lang.id}
                     type="button"
                     onClick={() => setMonthPlanTargetLanguage(lang.id as any)}
-                    className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition cursor-pointer ${
+                    className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition cursor-pointer ${
                       monthPlanTargetLanguage === lang.id
                         ? "border-[#0099ff] bg-[#0099ff]/10 text-[#0099ff] ring-2 ring-[#0099ff]/20 font-bold"
                         : "border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-700 dark:text-slate-300 font-medium"
@@ -2084,7 +2079,7 @@ export default function ViralRadarView({
             </div>
 
             {/* 3. Estructura del Plan */}
-            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 space-y-2 text-xs">
+            <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 space-y-2 text-xs">
               <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                 <Calendar className="size-4 text-[#0099ff]" />
                 Estructura del Plan:
@@ -2102,19 +2097,16 @@ export default function ViralRadarView({
               <button
                 type="button"
                 onClick={() => setShowConfigMonthPlanModal(false)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={handleExecuteGenerateMonthPlan}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-[#0099ff] to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/25 transition-all hover:scale-[1.02] cursor-pointer"
+                className="rounded-lg bg-brand-500 px-5 py-2.5 text-xs font-semibold text-white hover:bg-brand-600 transition cursor-pointer"
               >
-                <Sparkles className="size-4 text-amber-300" />
-                <span>
-                  Generar 12 Posts en {monthPlanTargetLanguage === "pt" ? "Português" : monthPlanTargetLanguage === "en" ? "English" : "Español"}
-                </span>
+                Generar 12 Posts en {monthPlanTargetLanguage === "pt" ? "Português" : monthPlanTargetLanguage === "en" ? "English" : "Español"}
               </button>
             </div>
           </div>
@@ -2124,9 +2116,9 @@ export default function ViralRadarView({
       {/* Modal 2: Pantalla de Carga y Progreso de Adaptación con IA */}
       {isGeneratingMonthPlan && generatingProgress && (
         <div className="fixed inset-0 z-99999 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 text-center space-y-4">
-            <div className="inline-flex p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#0099ff] ring-4 ring-blue-500/10">
-              <Sparkles className="size-8 animate-spin text-[#0099ff]" />
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 text-center space-y-4">
+            <div className="inline-flex p-3 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#0099ff]">
+              <div className="h-7 w-7 border-2 border-[#0099ff]/30 border-t-[#0099ff] rounded-full animate-spin" />
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
@@ -2141,7 +2133,7 @@ export default function ViralRadarView({
             <div className="space-y-1.5">
               <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-[#0099ff] to-blue-600 transition-all duration-300"
+                  className="h-full bg-brand-500 transition-all duration-300"
                   style={{
                     width: `${Math.round((generatingProgress.current / generatingProgress.total) * 100)}%`,
                   }}
@@ -2159,18 +2151,13 @@ export default function ViralRadarView({
       {/* Modal: Plan Editorial de 1 Mes Generado con Éxito */}
       {showMonthPlanModal && (
         <div className="fixed inset-0 z-99999 flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-xs">
-          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto custom-scrollbar rounded-2xl bg-white dark:bg-slate-900 p-5 sm:p-7 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto custom-scrollbar rounded-xl bg-white dark:bg-slate-900 p-5 sm:p-7 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6">
             {/* Header del Modal */}
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0099ff]">
-                    <Sparkles className="size-5" />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                    ¡12 Publicaciones Programadas para 1 Mes Completo!
-                  </h3>
-                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  ¡12 Publicaciones Programadas para 1 Mes Completo!
+                </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Hemos generado y distribuido 12 publicaciones inspiradas en tu Top 12 viral, organizadas a razón de 3 por semana (<strong>Lunes, Miércoles y Viernes a las 09:30 AM</strong>).
                 </p>
@@ -2197,7 +2184,6 @@ export default function ViralRadarView({
                 </span>
               )}
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs font-semibold text-[#0099ff]">
-                <Sparkles className="size-3.5" />
                 Puedes elevar cualquier post a Portada Visual o Carrusel PDF al revisarlo
               </span>
             </div>
@@ -2280,7 +2266,7 @@ export default function ViralRadarView({
                 <button
                   type="button"
                   onClick={() => setShowMonthPlanModal(false)}
-                  className="w-full sm:w-auto px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
+                  className="w-full sm:w-auto rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer"
                 >
                   Seguir en Radar
                 </button>
@@ -2294,7 +2280,7 @@ export default function ViralRadarView({
                       router.push("/viral-posts?tab=calendar");
                     }
                   }}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#0099ff] hover:bg-[#0082db] text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 hover:bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition cursor-pointer"
                 >
                   <Calendar className="size-4" />
                   <span>Ir al Calendario Editorial</span>
