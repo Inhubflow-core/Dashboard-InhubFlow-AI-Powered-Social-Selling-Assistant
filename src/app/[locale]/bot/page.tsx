@@ -2250,13 +2250,6 @@ export default function InhubBotAppPage() {
                       : {}
                   }
                 >
-                  {!isUser && (
-                    <div className="flex items-center gap-2 mb-1.5 text-xs text-[#0099ff] font-medium">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>InhubBot</span>
-                    </div>
-                  )}
-
                   {m.imagePreviewUrl && (
                     <div className="mb-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
