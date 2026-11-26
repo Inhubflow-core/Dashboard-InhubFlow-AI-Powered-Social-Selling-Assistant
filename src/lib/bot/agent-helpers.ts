@@ -177,24 +177,35 @@ export async function resolveActiveLinkedInAccount(): Promise<{
   };
 }
 
-export function getCandidateGeminiModels(): string[] {
+export function getCandidateGeminiModels(preferFast = false): string[] {
   const configured = (process.env.GEMINI_MODEL || "").trim();
   const fallbacks = (process.env.GEMINI_FALLBACK_MODELS || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
 
-  return Array.from(
-    new Set(
-      [
+  // Modelos verificados con baja latencia y disponibilidad estable primero
+  const ordered = preferFast
+    ? [
+        "gemini-3.1-flash-lite",
+        "gemini-flash-lite-latest",
+        "gemini-3.5-flash-lite",
+        "gemini-3-flash-preview",
         configured,
         ...fallbacks,
-        "gemini-2.5-flash",
-        "gemini-flash-latest",
-        "gemini-2.0-flash",
-      ].filter(Boolean)
-    )
-  );
+      ]
+    : [
+        "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite",
+        "gemini-flash-lite-latest",
+        "gemini-3.5-flash-lite",
+        configured,
+        ...fallbacks,
+      ];
+
+  // Excluir modelos deprecados que retornan 404 para claves nuevas
+  const deprecated = new Set(["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"]);
+  return Array.from(new Set(ordered.filter((m) => Boolean(m) && !deprecated.has(m))));
 }
 
 export interface GeminiPart {
@@ -211,7 +222,7 @@ export interface GeminiTurn {
 }
 
 /**
- * Invoca Google Gemini (texto y/o visión multimodal con inline_data) con failover automático.
+ * Invoca Google Gemini (texto y/o visión multimodal con inline_data) con failover rápido.
  */
 export async function callGeminiMultimodal(params: {
   systemPrompt: string;
@@ -219,6 +230,7 @@ export async function callGeminiMultimodal(params: {
   temperature?: number;
   maxOutputTokens?: number;
   jsonMode?: boolean;
+  preferFast?: boolean;
 }): Promise<{ ok: boolean; text: string; modelUsed?: string }> {
   const geminiKey = (
     process.env.GEMINI_API_KEY ||
@@ -231,14 +243,17 @@ export async function callGeminiMultimodal(params: {
     return { ok: false, text: "" };
   }
 
-  const candidateModels = getCandidateGeminiModels();
+  const hasImage = params.turns.some((t) => t.parts.some((p) => Boolean(p.inline_data)));
+  const perModelTimeoutMs = hasImage ? 14000 : params.preferFast ? 6000 : 11000;
+  const candidateModels = getCandidateGeminiModels(params.preferFast);
+
   for (const model of candidateModels) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 16000);
+      const timeout = setTimeout(() => controller.abort(), perModelTimeoutMs);
       const generationConfig: Record<string, unknown> = {
         temperature: params.temperature ?? 0.65,
-        maxOutputTokens: params.maxOutputTokens ?? 1100,
+        maxOutputTokens: Math.max(2048, params.maxOutputTokens ?? 2048),
       };
       if (params.jsonMode) {
         generationConfig.responseMimeType = "application/json";
@@ -267,7 +282,7 @@ export async function callGeminiMultimodal(params: {
         }
       }
     } catch {
-      // Try next fallback model
+      // Try next fallback model immediately
     }
   }
 
@@ -356,20 +371,43 @@ export async function searchLinkedInPeopleForVerification(
   // Búsqueda estándar en Unipile (si no está configurado, revisar leads locales en CRM)
   if (unipile.isConfigured()) {
     try {
-      const searchRes = await unipile.searchLinkedIn({
+      let searchRes = await unipile.searchLinkedIn({
         account_id: accountId,
         category: "people",
         keywords: query,
         limit: 5,
       });
 
-      const rawPeople = (searchRes.items || []) as UnipileSearchPerson[];
+      let rawPeople = (searchRes.items || []) as Array<
+        UnipileSearchPerson & {
+          display_name?: string;
+          public_picture_url?: string;
+          public_picture_url_large?: string;
+        }
+      >;
+
+      // Si "Nombre Empresa" no devolvió resultados exactos, reintentar solo con las primeras 2 palabras (Nombre Apellido)
+      if (rawPeople.length === 0) {
+        const tokens = query.trim().split(/\s+/).filter(Boolean);
+        if (tokens.length > 2) {
+          searchRes = await unipile.searchLinkedIn({
+            account_id: accountId,
+            category: "people",
+            keywords: tokens.slice(0, 2).join(" "),
+            limit: 5,
+          });
+          rawPeople = (searchRes.items || []) as typeof rawPeople;
+        }
+      }
+
       const candidates: VerifiedPersonCandidate[] = [];
 
       for (const p of rawPeople.slice(0, 4)) {
-        if (!p || (!p.name && !p.first_name)) continue;
-        const name = p.name || [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
-        let picture = p.profile_picture_url;
+        const resolvedName =
+          p?.name || p?.display_name || [p?.first_name, p?.last_name].filter(Boolean).join(" ").trim();
+        if (!p || !resolvedName) continue;
+        const name = resolvedName;
+        let picture = p.profile_picture_url || p.public_picture_url_large || p.public_picture_url;
         let networkDistance = normalizeNetworkDistance(p.network_distance);
         let headline = p.headline || "Profesional en LinkedIn";
         let location = p.location;

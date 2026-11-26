@@ -15,6 +15,7 @@ import {
   getLocaleDisplayName,
   type BotLocale,
 } from "@/lib/bot/i18n";
+import { INHUBFLOW_MASTER_KNOWLEDGE } from "@/lib/bot/platform-knowledge";
 import { getSocialSellingDb } from "@/lib/persistence/db";
 import { unipile } from "@/lib/unipile/client";
 import { getNicheViralPosts } from "@/lib/viral-posts/niche-search";
@@ -223,19 +224,29 @@ interface ClassifiedIntent {
 
 async function classifyBotIntent(
   message: string,
+  history: HistoryItem[],
   kbContext: string
 ): Promise<ClassifiedIntent> {
   const nowIso = new Date().toISOString();
+  const recentHistory = history
+    .slice(-4)
+    .map((h) => `${h.sender === "user" ? "User" : "InhubBot"}: ${String(h.text || "").slice(0, 350)}`)
+    .join("\n");
+
   const res = await callGeminiMultimodal({
+    preferFast: true,
     systemPrompt: `You are the intent classifier for InhubBot (LinkedIn Social Selling in es/en/pt-BR).
 Current UTC datetime: ${nowIso}.
 
-Classify the user message into ONE of 3 intents:
-1. "person_outreach": The user asks to find, contact, message, send a proposal/video, send a connection request, or comment on a post of ONE SPECIFIC PERSON (in Spanish, English or Portuguese).
-2. "create_viral_post": The user asks to create, draft, model, search viral posts for inspiration, or publish/schedule a LinkedIn post.
-3. "general_chat": Strategic question, follow-up, company question, or anything else.
+Classify the user's latest message (considering recent conversation history) into ONE of 3 intents:
+1. "person_outreach": The user explicitly asks to find, contact, message, send a proposal/video, send a connection request, or comment on a post of ONE SPECIFIC NAMED PERSON (e.g. "busca a Juan Pérez de TechCorp", "comenta el último post de Carlos Ruiz", "find Sarah from Acme"). Do NOT use this for general questions like "how do I connect with prospects?".
+2. "create_viral_post": The user asks to create, draft, write, model, search viral posts for inspiration, OR refine/rewrite/shorten/change an existing post draft shown in recent history (e.g. "crea un post sobre IA", "hazlo más corto", "cambia el gancho", "busca los mejores posts de ventas").
+3. "general_chat": Any strategic question, platform how-to question ("¿Cómo funciona Signal Radar?", "¿Cómo mejoro mi perfil de LinkedIn?", "¿Qué métricas importan para marca personal?"), brainstorming, mentoring, or general conversation.
 
-Company context snippet: ${kbContext.slice(0, 600)}
+Recent history:
+${recentHistory || "(none)"}
+
+Company context snippet: ${kbContext.slice(0, 400)}
 
 Return ONLY valid JSON:
 {
@@ -243,13 +254,13 @@ Return ONLY valid JSON:
   "personQuery": "Name Company (if applicable)",
   "intendedAction": "message" | "connection" | "comment" | "proposal" | "auto",
   "userContext": "instructions/event/resource requested by user",
-  "topic": "post topic (if applicable)",
-  "searchViralFirst": true or false,
+  "topic": "post topic or refinement instruction (if applicable)",
+  "searchViralFirst": true o false,
   "scheduledDateIso": "ISO string if user specified date/time, or null"
 }`,
     turns: [{ role: "user", parts: [{ text: message }] }],
     temperature: 0.1,
-    maxOutputTokens: 350,
+    maxOutputTokens: 500,
     jsonMode: true,
   });
 
@@ -260,7 +271,7 @@ Return ONLY valid JSON:
 
   const lower = message.toLowerCase();
   if (
-    /\b(busca a|contacta a|conecta con|solicitud de conexi[oó]n|m[aá]ndale|env[ií]ale|comenta.*publicaci[oó]n de|comenta.*post de|escr[ií]bele a|find |search for |reach out to |connect with |send a message to |comment on .*post|procure |busque |mande |envie |comente .*post de|linkedin\.com\/in\/)\b/i.test(
+    /\b(busca a|contacta a|conecta con|solicitud de conexi[oó]n a|m[aá]ndale.*a |env[ií]ale.*a |comenta.*publicaci[oó]n de|comenta.*post de|escr[ií]bele a|find |search for |reach out to |connect with |send a message to |comment on .*post|procure |busque |mande .*para |envie .*para |comente .*post de|linkedin\.com\/in\/)\b/i.test(
       lower
     )
   ) {
@@ -328,7 +339,7 @@ async function generatePostApprovalData(params: {
     params.referencePostsText
       ? `\nTop viral LinkedIn posts to model structure & hook from:\n${params.referencePostsText}`
       : "",
-    `\nCompany Knowledge Base (${params.companyName || "InhubFlow"}):\n${params.kbContext}`,
+    `\nCompany Knowledge Base (${params.companyName || "InhubFlow"}):\n${params.kbContext.slice(0, 3000)}`,
     `\nIMPORTANT: Write ALL fields ("title", "summaryNote", "content") strictly in ${langName}.
 Return ONLY valid JSON:
 {
@@ -346,7 +357,7 @@ Return ONLY valid JSON:
     systemPrompt: `You are an expert B2B LinkedIn Social Selling copywriter. Draft high-authority posts for human approval before publishing. Always write in ${langName}.`,
     turns: [{ role: "user", parts }],
     temperature: 0.7,
-    maxOutputTokens: 1200,
+    maxOutputTokens: 1500,
     jsonMode: true,
   });
 
@@ -364,6 +375,19 @@ Return ONLY valid JSON:
             "Draft optimized with your Knowledge Base.",
             "Rascunho otimizado com sua Base de Conhecimento."
           ),
+      };
+    }
+    const cleanText = ai.text.replace(/```json|```/gi, "").trim();
+    if (cleanText.length > 40) {
+      return {
+        title: cleanText.split("\n")[0]?.slice(0, 55) || t(params.locale, "Post modelado para LinkedIn", "Modeled LinkedIn Post", "Post modelado para LinkedIn"),
+        content: cleanText,
+        summaryNote: t(
+          params.locale,
+          "Borrador generado con IA y tu Base de Conocimiento.",
+          "AI-generated draft grounded in your Knowledge Base.",
+          "Rascunho gerado com IA e sua Base de Conhecimento."
+        ),
       };
     }
   }
@@ -497,7 +521,7 @@ export async function POST(req: NextRequest) {
             },
           ],
           temperature: 0.7,
-          maxOutputTokens: 250,
+          maxOutputTokens: 500,
         });
 
         const firstName = person.name.split(" ")[0];
@@ -555,7 +579,7 @@ export async function POST(req: NextRequest) {
             },
           ],
           temperature: 0.7,
-          maxOutputTokens: 450,
+          maxOutputTokens: 800,
         });
 
         const firstName = person.name.split(" ")[0];
@@ -611,7 +635,7 @@ export async function POST(req: NextRequest) {
             },
           ],
           temperature: 0.7,
-          maxOutputTokens: 140,
+          maxOutputTokens: 400,
         });
 
         const firstName = person.name.split(" ")[0];
@@ -760,13 +784,18 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================================================
-    // 2. FAST-PATH DETERMINÍSTICO PARA MÉTRICAS, CAMPAÑAS, LEADS Y CUENTAS
+    // 2. FAST-PATH DETERMINÍSTICO SOLO PARA COMANDOS EXPLÍCITOS DE DATOS EN VIVO
     // =========================================================================
+    const isStrategicQuestion =
+      /^(c[oó]mo|qu[eé]|por qu[eé]|cu[aá]l|cu[aá]ndo|para qu[eé]|how |what |why |when |como |o que |por que )/i.test(
+        lower
+      ) && !/c[oó]mo van las campa|como est[aã]o as campanhas|how are campaigns/i.test(lower);
 
     if (
       !imageBase64 &&
+      !isStrategicQuestion &&
       (action === "get_summary" ||
-        /\b(resumen|reporte|m[eé]tricas|estad[ií]sticas|summary|metrics|stats|report|resumo|m[eé]tricas|relat[oó]rio|estado general)\b/i.test(
+        /^(dame el |give me |me d[eê] o )?(resumen( de hoy| del d[ií]a)?|estado general|mis m[eé]tricas|reporte de hoy|today'?s summary|summary|resumo( de hoje| do dia)?)[!?.]*$/i.test(
           lower
         ))
     ) {
@@ -823,8 +852,9 @@ export async function POST(req: NextRequest) {
 
     if (
       !imageBase64 &&
+      !isStrategicQuestion &&
       (action === "list_campaigns" ||
-        /\b(c[oó]mo van las campa[ñn]as|ver campa[ñn]as|estado de campa[ñn]as|mis campa[ñn]as|how are campaigns|view campaigns|campaigns going|como est[aã]o as campanhas|ver campanhas|minhas campanhas)\b/i.test(
+        /^(c[oó]mo van las campa[ñn]as|ver campa[ñn]as|estado de campa[ñn]as|mis campa[ñn]as|how are campaigns( going)?|view campaigns|como est[aã]o as campanhas|ver campanhas|minhas campanhas)[!?.]*$/i.test(
           lower
         ))
     ) {
@@ -860,7 +890,8 @@ export async function POST(req: NextRequest) {
 
     if (
       !imageBase64 &&
-      /\b([uú]ltimos prospectos|prospectos del radar|ver prospectos|leads del radar|latest radar prospects|radar prospects|recent leads|[uú]ltimos prospects|prospects do radar)\b/i.test(
+      !isStrategicQuestion &&
+      /^(ver |mu[eé]strame los )?([uú]ltimos prospectos|prospectos del radar|ver prospectos|leads del radar|latest radar prospects|radar prospects|recent leads|[uú]ltimos prospects|prospects do radar)[!?.]*$/i.test(
         lower
       )
     ) {
@@ -895,7 +926,8 @@ export async function POST(req: NextRequest) {
 
     if (
       !imageBase64 &&
-      /\b(estado de mi cuenta|estado de cuentas|cuenta de linkedin|linkedin account status|account status|status da minha conta|status da conta)\b/i.test(
+      !isStrategicQuestion &&
+      /^(estado de mi cuenta|estado de cuentas|estado de mi cuenta de linkedin|linkedin account status|account status|status da minha conta|status da minha conta do linkedin)[!?.]*$/i.test(
         lower
       )
     ) {
@@ -976,7 +1008,7 @@ export async function POST(req: NextRequest) {
     // =========================================================================
     // 4. ENRUTAMIENTO INTELIGENTE CON GEMINI
     // =========================================================================
-    const classified = await classifyBotIntent(message, kb.contextText);
+    const classified = await classifyBotIntent(message, history, kb.contextText);
 
     if (classified.intent === "person_outreach" && classified.personQuery) {
       const searchRes = await searchLinkedInPeopleForVerification(classified.personQuery);
@@ -1087,8 +1119,15 @@ export async function POST(req: NextRequest) {
           .join("\n---\n");
       }
 
+      const recentPostContext = history
+        .slice(-3)
+        .map((h) => `${h.sender === "user" ? "User" : "Assistant"}: ${String(h.text || "").slice(0, 500)}`)
+        .join("\n");
+
       const modeled = await generatePostApprovalData({
-        topicOrInstruction: message,
+        topicOrInstruction: recentPostContext
+          ? `Contexto reciente:\n${recentPostContext}\n\nNueva instrucción del usuario:\n${message}`
+          : message,
         kbContext: kb.contextText,
         companyName: kb.companyName,
         locale,
@@ -1129,34 +1168,53 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================================================
-    // 5. CONVERSACIÓN GENERAL / ESTRATEGIA CON GEMINI + BASE DE CONOCIMIENTO
+    // 5. CONVERSACIÓN GENERAL / ESTRATEGIA CON GEMINI + CONOCIMIENTO TOTAL
     // =========================================================================
     const snap = getPlatformSummary();
+    const campaignsList = getCampaignsList();
+    const topLeads = getRecentLeads();
     const turns = buildHistoryTurns(history);
     turns.push({ role: "user", parts: [{ text: message || "Hello" }] });
 
+    const liveWorkspaceSummary = [
+      `- Cuentas LinkedIn activas: ${snap.accounts.active}/${snap.accounts.total}`,
+      `- Prospectos CRM: ${snap.leads.total} (${snap.leads.qualified} con alta intención >= 80 pts)`,
+      topLeads.length > 0
+        ? `  Últimos leads: ${topLeads.map((l) => `${l.name} (${l.headline}, ${l.score} pts, etapa ${l.stage})`).join(" | ")}`
+        : "",
+      `- Campañas: ${snap.campaigns.active}/${snap.campaigns.total} activas`,
+      campaignsList.length > 0
+        ? `  Nombres: ${campaignsList.map((c) => `${c.name} [${c.status}]`).join(", ")}`
+        : "",
+      `- Posts: ${snap.posts.published} publicados, ${snap.posts.scheduled} programados, ${snap.posts.draft} borradores`,
+      `- Monitores Signal Radar activos: ${snap.signals.active}/${snap.signals.total}`,
+      `- Pacing hoy: ${snap.pacingToday.invites} invitaciones, ${snap.pacingToday.dms} DMs`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
     const aiReply = await callGeminiMultimodal({
-      systemPrompt: `You are "InhubBot", InhubFlow's mobile LinkedIn Social Selling AI agent.
-CRITICAL: Always reply strictly in ${langName} (${locale}), clearly, concisely and mobile-friendly.
+      systemPrompt: `You are "InhubBot", InhubFlow's intelligent AI partner & mobile Social Selling Assistant.
+CRITICAL: Always reply strictly in ${langName} (${locale}). Be insightful, strategic, clear, practical, and easy to read on a mobile screen.
 
-GOLDEN RULE: Never fabricate metrics and never execute external actions without user confirmation.
-Capabilities in this chat:
-- Analyze magazine/article photos and model posts for approval before publishing.
-- Search LinkedIn people, display their profile photo and connection degree (1st, 2nd, 3rd), and propose connecting, commenting on their latest post, or sending a direct message/proposal.
-- Search viral posts and draft content ready to publish or schedule.
-- Show real-time metrics, campaigns, and Signal Radar prospects.
+YOUR ROLE:
+You are NOT a generic chatbot. You are:
+1. A deep expert on **every single module, rule, limit, and workflow inside InhubFlow Social Selling Suite**.
+2. A senior **LinkedIn, Personal Branding, Copywriting & B2B Social Selling strategist** who thinks critically, gives actionable advice, diagnoses bottlenecks, rewrites hooks/profiles, and proposes concrete next steps.
+3. A hands-free mobile operator with Human-in-the-Loop protection (you can analyze magazine/article photos, search LinkedIn people with profile photo & connection degree verification, draft comments/DMs/posts for human approval, and inspect live workspace metrics).
 
-Live platform snapshot:
-- Active LinkedIn accounts: ${snap.accounts.active}/${snap.accounts.total}
-- CRM Prospects: ${snap.leads.total} (${snap.leads.qualified} high intent)
-- Active campaigns: ${snap.campaigns.active}/${snap.campaigns.total}
-- Posts: ${snap.posts.published} published, ${snap.posts.scheduled} scheduled, ${snap.posts.draft} drafts
+GOLDEN RULE: Never fabricate live metrics. Use ONLY the real workspace snapshot below for account numbers, and clearly distinguish real account data from strategic LinkedIn advice.
 
-Company Knowledge Base (${kb.companyName || "InhubFlow"}):
+${INHUBFLOW_MASTER_KNOWLEDGE}
+
+=== LIVE WORKSPACE SNAPSHOT ===
+${liveWorkspaceSummary}
+
+=== COMPANY KNOWLEDGE BASE (RAG - ${kb.companyName || "InhubFlow"}) ===
 ${kb.contextText.slice(0, 3500)}`,
       turns,
-      temperature: 0.7,
-      maxOutputTokens: 700,
+      temperature: 0.72,
+      maxOutputTokens: 900,
     });
 
     const finalReply =

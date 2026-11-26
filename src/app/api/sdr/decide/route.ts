@@ -66,31 +66,48 @@ INSTRUCCIÓN DE SALIDA:
 Responde en el idioma del prospecto (${baseDecision.detectedLanguage}), de forma ejecutiva, concisa y natural para LinkedIn (máximo 4 líneas). No inventes precios ni funcionalidades fuera de los documentos aprobados. Devuelve únicamente el texto de respuesta al prospecto.
       `.trim();
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-          }),
-        }
-      );
+      const candidateModels = [
+        "gemini-3.1-flash-lite",
+        "gemini-3-flash-preview",
+        "gemini-flash-lite-latest",
+        "gemini-3.5-flash-lite",
+      ];
 
-      if (res.ok) {
-        const json = await res.json();
-        const aiReply = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-        if (aiReply && aiReply.length > 10) {
-          return NextResponse.json({
-            ok: true,
-            mode: "ai_grounded",
-            decision: {
-              ...baseDecision,
-              replyDraft: aiReply,
-              latencyMs: Math.max(120, Date.now() - start),
-              model: "gemini-2.5-flash",
-            },
-          });
+      for (const model of candidateModels) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6500);
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+              }),
+              signal: controller.signal,
+            }
+          );
+          clearTimeout(timeout);
+
+          if (res.ok) {
+            const json = await res.json();
+            const aiReply = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            if (aiReply && aiReply.length > 10) {
+              return NextResponse.json({
+                ok: true,
+                mode: "ai_grounded",
+                decision: {
+                  ...baseDecision,
+                  replyDraft: aiReply,
+                  latencyMs: Math.max(120, Date.now() - start),
+                  model,
+                },
+              });
+            }
+          }
+        } catch {
+          clearTimeout(timeout);
         }
       }
     } catch (aiErr) {

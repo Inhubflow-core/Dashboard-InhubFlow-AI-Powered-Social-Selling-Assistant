@@ -1,6 +1,6 @@
 // InhubBot Progressive Web App Service Worker
 // Bump version on every deploy to force cache invalidation
-const CACHE_VERSION = "2026-11-25T16-10";
+const CACHE_VERSION = "2026-11-26T09-10";
 const CACHE_NAME = `inhubbot-${CACHE_VERSION}`;
 const STATIC_ASSETS = [
   "/manifest.json",
@@ -40,7 +40,11 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   // Let Next.js handle API and dynamic navigation — network first, cache fallback
-  if (event.request.method !== "GET" || event.request.url.includes("/api/")) {
+  if (
+    event.request.method !== "GET" ||
+    !event.request.url.startsWith("http") ||
+    event.request.url.includes("/api/")
+  ) {
     return;
   }
 

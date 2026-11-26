@@ -741,23 +741,26 @@ ESTADO EN TIEMPO REAL DE LA CUENTA DEL USUARIO:
 
     if (geminiKey && (rawMsg || body.imageBase64)) {
       const configuredModel = (process.env.GEMINI_MODEL || "").trim();
+      const deprecated = new Set(["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"]);
       const candidateModels = Array.from(
         new Set(
           [
+            "gemini-3-flash-preview",
+            "gemini-3.1-flash-lite",
+            "gemini-flash-lite-latest",
+            "gemini-3.5-flash-lite",
             configuredModel,
-            "gemini-2.5-flash",
-            "gemini-flash-latest",
-            "gemini-3.6-flash",
-            "gemini-3.5-flash",
             "gemini-3.8-flash",
-          ].filter(Boolean)
+            "gemini-3.6-flash",
+            "gemini-flash-latest",
+          ].filter((m) => Boolean(m) && !deprecated.has(m))
         )
       );
 
       for (const model of candidateModels) {
         try {
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 12000);
+          const timeout = setTimeout(() => controller.abort(), 7500);
           const resp = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
             {
@@ -768,7 +771,7 @@ ESTADO EN TIEMPO REAL DE LA CUENTA DEL USUARIO:
                 contents: conversationTurns,
                 generationConfig: {
                   temperature: 0.75,
-                  maxOutputTokens: 900,
+                  maxOutputTokens: 2048,
                 },
               }),
               signal: controller.signal,

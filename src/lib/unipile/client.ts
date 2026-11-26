@@ -1283,18 +1283,26 @@ export class UnipileClient {
       }
 
       if (category === 'people') {
-        const res = await this.request<any>(
-          `/v2/${encodeURIComponent(account_id)}/linkedin/search/people?${query.toString()}`,
-          {
-            method: 'POST',
-            body: JSON.stringify({ keywords: params.keywords || '', ...filters }),
-          }
-        );
-        const items = res.data || res.items || [];
+        const peopleQuery = new URLSearchParams();
+        if (cursor) peopleQuery.set('cursor', cursor);
+        const qs = peopleQuery.toString();
+        const endpoint = `/v2/${encodeURIComponent(account_id)}/linkedin/search/people${qs ? `?${qs}` : ''}`;
+
+        const res = await this.request<any>(endpoint, {
+          method: 'POST',
+          body: JSON.stringify({ keywords: params.keywords || '', ...filters }),
+        });
+        const rawItems = (res.data || res.items || []).slice(0, safeLimit);
+        const items = rawItems.map((item: any) => ({
+          ...item,
+          name: item.name || item.display_name || [item.first_name, item.last_name].filter(Boolean).join(' ').trim(),
+          profile_picture_url:
+            item.profile_picture_url || item.public_picture_url_large || item.public_picture_url || item.picture_url || undefined,
+        }));
         return {
           object: 'LinkedinSearch',
           items,
-          cursor: res.next_cursor || null,
+          cursor: res.next_cursor || res.cursor || null,
           paging: {
             start: 0,
             page_count: items.length,

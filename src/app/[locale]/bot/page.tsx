@@ -525,10 +525,27 @@ export default function InhubBotAppPage() {
             payload: explicitPayload,
             imageBase64: imageToSend?.base64,
             imageMimeType: imageToSend?.mimeType,
-            history: messagesRef.current.slice(-6).map((m) => ({
-              sender: m.sender,
-              text: m.text,
-            })),
+            history: messagesRef.current.slice(-6).map((m) => {
+              const cardSnippets = (m.cards || [])
+                .map((c) => {
+                  if (c.type === "approval" && c.data?.approval?.preview) {
+                    return `[Borrador ${String(c.data.approval.type || "post")}]: ${String(
+                      c.data.approval.preview
+                    ).slice(0, 600)}`;
+                  }
+                  if (c.type === "profile_verify" && Array.isArray(c.data?.candidates) && c.data.candidates[0]) {
+                    const p = c.data.candidates[0] as VerifiedPersonCandidate;
+                    return `[Perfil mostrado]: ${p.name} - ${p.headline}`;
+                  }
+                  return "";
+                })
+                .filter(Boolean)
+                .join("\n");
+              return {
+                sender: m.sender,
+                text: [m.text, cardSnippets].filter(Boolean).join("\n"),
+              };
+            }),
             locale,
           }),
         });
