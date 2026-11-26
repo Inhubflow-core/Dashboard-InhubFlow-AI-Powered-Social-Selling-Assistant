@@ -15,7 +15,7 @@ import {
   getSpeechLang,
   type BotUiLabels,
 } from "@/lib/bot/i18n";
-import { cleanTextForSpeech, listVoicesForLang, pickBestVoice } from "@/lib/bot/voice-engine";
+import { cleanTextForSpeech, listVoicesForLang, pickBestVoice, NEURAL_VOICES_BY_LOCALE } from "@/lib/bot/voice-engine";
 import {
   Mic,
   MicOff,
@@ -741,7 +741,6 @@ export default function InhubBotAppPage() {
   const [liveMode, setLiveMode] = useState(false);
   const [isBotSpeaking, setIsBotSpeaking] = useState(false);
   const [isVoiceMenuOpen, setIsVoiceMenuOpen] = useState(false);
-  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceUri, setSelectedVoiceUri] = useState<string>("");
   const [emotion, setEmotion] = useState<InHubEmotion>("idle");
   const [recognitionSupported, setRecognitionSupported] = useState(true);
@@ -756,9 +755,11 @@ export default function InhubBotAppPage() {
   const isSendingRef = useRef(false);
   isSendingRef.current = isSending;
   const isSpeakingRef = useRef(false);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
-  const selectedVoiceUriRef = useRef("");
-  selectedVoiceUriRef.current = selectedVoiceUri;
+  const selectedNeuralVoiceRef = useRef("");
+  selectedNeuralVoiceRef.current = selectedVoiceUri;
+  const neuralVoiceOptions = NEURAL_VOICES_BY_LOCALE[locale] || NEURAL_VOICES_BY_LOCALE.es;
   const voiceBaseTextRef = useRef("");
   const sessionFinalTextRef = useRef("");
   const liveVoiceTranscriptRef = useRef("");
@@ -856,6 +857,10 @@ export default function InhubBotAppPage() {
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
       isSpeakingRef.current = false;
       setIsBotSpeaking(false);
       stopVoiceSession();
@@ -874,7 +879,7 @@ export default function InhubBotAppPage() {
 
   useEffect(() => {
     try {
-      const savedVoice = window.localStorage.getItem(`inhub_bot_voice_uri_${locale}`) || "";
+      const savedVoice = window.localStorage.getItem(`inhub_bot_neural_voice_${locale}`) || "";
       setSelectedVoiceUri(savedVoice);
     } catch {}
   }, [locale]);
@@ -885,10 +890,8 @@ export default function InhubBotAppPage() {
       try {
         const all = window.speechSynthesis.getVoices() || [];
         voicesRef.current = all;
-        setAvailableVoices(listVoicesForLang(all, speechLang));
       } catch {
         voicesRef.current = [];
-        setAvailableVoices([]);
       }
     };
     loadVoices();
@@ -899,107 +902,151 @@ export default function InhubBotAppPage() {
   }, [speechLang]);
 
   const previewAndSelectVoice = useCallback(
-    (voiceUri: string) => {
-      setSelectedVoiceUri(voiceUri);
-      selectedVoiceUriRef.current = voiceUri;
+    (voiceId: string) => {
+      setSelectedVoiceUri(voiceId);
+      selectedNeuralVoiceRef.current = voiceId;
       setVoiceEnabled(true);
       try {
-        if (voiceUri) {
-          window.localStorage.setItem(`inhub_bot_voice_uri_${locale}`, voiceUri);
+        if (voiceId) {
+          window.localStorage.setItem(`inhub_bot_neural_voice_${locale}`, voiceId);
         } else {
-          window.localStorage.removeItem(`inhub_bot_voice_uri_${locale}`);
+          window.localStorage.removeItem(`inhub_bot_neural_voice_${locale}`);
         }
       } catch {}
 
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        try {
-          window.speechSynthesis.cancel();
-          const all = window.speechSynthesis.getVoices() || voicesRef.current;
-          voicesRef.current = all;
-          const chosen = pickBestVoice(all, speechLang, voiceUri || undefined);
-          const utterance = new SpeechSynthesisUtterance(ui.voiceSampleText);
-          if (chosen) {
-            utterance.voice = chosen;
-            utterance.lang = chosen.lang || speechLang;
-          } else {
-            utterance.lang = speechLang;
+      // Play neural preview via server TTS
+      const previewVoice = voiceId || (neuralVoiceOptions[0]?.id ?? "es-ES-AlvaroNeural");
+      setEmotion("talking");
+      fetch("/api/bot/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: ui.voiceSampleText, locale, voiceId: previewVoice }),
+      })
+        .then((r) => r.ok ? r.arrayBuffer() : Promise.reject())
+        .then((buf) => {
+          if (currentAudioRef.current) {
+            currentAudioRef.current.pause();
+            currentAudioRef.current = null;
           }
-          utterance.rate = chosen?.name.toLowerCase().includes("natural") ? 1.02 : 1.04;
-          utterance.onstart = () => setEmotion("talking");
-          utterance.onend = () => setEmotion("idle");
-          utterance.onerror = () => setEmotion("idle");
-          window.speechSynthesis.speak(utterance);
-        } catch {}
-      }
+          const blob = new Blob([buf], { type: "audio/mpeg" });
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          currentAudioRef.current = audio;
+          audio.onended = () => {
+            if (currentAudioRef.current === audio) currentAudioRef.current = null;
+            setEmotion("idle");
+            URL.revokeObjectURL(url);
+          };
+          audio.onerror = () => {
+            if (currentAudioRef.current === audio) currentAudioRef.current = null;
+            setEmotion("idle");
+            URL.revokeObjectURL(url);
+          };
+          return audio.play();
+        })
+        .catch(() => setEmotion("idle"));
+
       setIsVoiceMenuOpen(false);
     },
-    [locale, speechLang, ui.voiceSampleText]
+    [locale, neuralVoiceOptions, ui.voiceSampleText]
+  );
+
+  const speakTextViaNeural = useCallback(
+    async (text: string): Promise<boolean> => {
+      try {
+        const voiceId = selectedNeuralVoiceRef.current || (neuralVoiceOptions[0]?.id ?? "es-ES-AlvaroNeural");
+        const res = await fetch("/api/bot/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, locale, voiceId }),
+        });
+        if (!res.ok) return false;
+        const buf = await res.arrayBuffer();
+        if (!buf.byteLength) return false;
+        if (currentAudioRef.current) {
+          currentAudioRef.current.pause();
+          currentAudioRef.current = null;
+        }
+        const blob = new Blob([buf], { type: "audio/mpeg" });
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        currentAudioRef.current = audio;
+        return new Promise((resolve) => {
+          audio.onplay = () => { isSpeakingRef.current = true; setIsBotSpeaking(true); setEmotion("talking"); };
+          const done = () => {
+            if (currentAudioRef.current === audio) currentAudioRef.current = null;
+            isSpeakingRef.current = false;
+            setIsBotSpeaking(false);
+            setEmotion("idle");
+            URL.revokeObjectURL(url);
+            if (liveModeRef.current && !isSendingRef.current) {
+              if (liveResumeTimerRef.current) clearTimeout(liveResumeTimerRef.current);
+              liveResumeTimerRef.current = setTimeout(() => startLiveListening(), 280);
+            }
+            resolve(true);
+          };
+          audio.onended = done;
+          audio.onerror = () => {
+            if (currentAudioRef.current === audio) currentAudioRef.current = null;
+            URL.revokeObjectURL(url);
+            resolve(false);
+          };
+          audio.play().catch(() => {
+            if (currentAudioRef.current === audio) currentAudioRef.current = null;
+            URL.revokeObjectURL(url);
+            resolve(false);
+          });
+        });
+      } catch {
+        return false;
+      }
+    },
+    [locale, neuralVoiceOptions, startLiveListening]
   );
 
   const speakText = useCallback(
     (text: string) => {
-      if (
-        (!voiceEnabled && !liveModeRef.current) ||
-        typeof window === "undefined" ||
-        !("speechSynthesis" in window)
-      ) {
+      if (!voiceEnabled && !liveModeRef.current) return;
+      const clean = cleanTextForSpeech(text);
+      if (!clean) {
+        if (liveModeRef.current && !isSendingRef.current) {
+          liveResumeTimerRef.current = setTimeout(() => startLiveListening(), 280);
+        }
         return;
       }
-      try {
-        window.speechSynthesis.cancel();
-        const clean = cleanTextForSpeech(text);
-        if (!clean) {
-          if (liveModeRef.current && !isSendingRef.current) {
-            liveResumeTimerRef.current = setTimeout(() => startLiveListening(), 280);
+      // Try neural server TTS first (msedge-tts)
+      setEmotion("talking");
+      speakTextViaNeural(clean).then((success) => {
+        if (!success) {
+          // Fallback to browser speechSynthesis
+          if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+            setEmotion("idle");
+            return;
           }
-          return;
+          try {
+            window.speechSynthesis.cancel();
+            if (voicesRef.current.length === 0) voicesRef.current = window.speechSynthesis.getVoices() || [];
+            const bestVoice = pickBestVoice(voicesRef.current, speechLang);
+            const utterance = new SpeechSynthesisUtterance(clean);
+            if (bestVoice) { utterance.voice = bestVoice; utterance.lang = bestVoice.lang || speechLang; }
+            else { utterance.lang = speechLang; }
+            utterance.rate = bestVoice?.name.toLowerCase().includes("natural") ? 1.02 : 1.04;
+            utterance.pitch = 1.0;
+            utterance.onstart = () => { isSpeakingRef.current = true; setIsBotSpeaking(true); setEmotion("talking"); };
+            const done = () => {
+              isSpeakingRef.current = false; setIsBotSpeaking(false); setEmotion("idle");
+              if (liveModeRef.current && !isSendingRef.current) {
+                if (liveResumeTimerRef.current) clearTimeout(liveResumeTimerRef.current);
+                liveResumeTimerRef.current = setTimeout(() => startLiveListening(), 280);
+              }
+            };
+            utterance.onend = done; utterance.onerror = done;
+            window.speechSynthesis.speak(utterance);
+          } catch { isSpeakingRef.current = false; setIsBotSpeaking(false); setEmotion("idle"); }
         }
-        if (voicesRef.current.length === 0) {
-          voicesRef.current = window.speechSynthesis.getVoices() || [];
-        }
-        const bestVoice = pickBestVoice(
-          voicesRef.current,
-          speechLang,
-          selectedVoiceUriRef.current || undefined
-        );
-        const utterance = new SpeechSynthesisUtterance(clean);
-        if (bestVoice) {
-          utterance.voice = bestVoice;
-          utterance.lang = bestVoice.lang || speechLang;
-        } else {
-          utterance.lang = speechLang;
-        }
-        const isNatural = bestVoice?.name.toLowerCase().includes("natural") ?? false;
-        utterance.rate = isNatural ? 1.02 : 1.04;
-        utterance.pitch = 1.0;
-
-        utterance.onstart = () => {
-          isSpeakingRef.current = true;
-          setIsBotSpeaking(true);
-          setEmotion("talking");
-        };
-        const handleSpeechFinish = () => {
-          isSpeakingRef.current = false;
-          setIsBotSpeaking(false);
-          setEmotion("idle");
-          if (liveModeRef.current && !isSendingRef.current) {
-            if (liveResumeTimerRef.current) clearTimeout(liveResumeTimerRef.current);
-            liveResumeTimerRef.current = setTimeout(() => {
-              startLiveListening();
-            }, 280);
-          }
-        };
-        utterance.onend = handleSpeechFinish;
-        utterance.onerror = handleSpeechFinish;
-
-        window.speechSynthesis.speak(utterance);
-      } catch {
-        isSpeakingRef.current = false;
-        setIsBotSpeaking(false);
-        setEmotion("idle");
-      }
+      });
     },
-    [voiceEnabled, speechLang, startLiveListening]
+    [voiceEnabled, speechLang, startLiveListening, speakTextViaNeural]
   );
 
   const handleSend = useCallback(
@@ -1593,6 +1640,10 @@ export default function InhubBotAppPage() {
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
       liveModeRef.current = false;
       setLiveMode(false);
       isSpeakingRef.current = false;
@@ -1906,18 +1957,17 @@ export default function InhubBotAppPage() {
                   <span className="truncate font-medium">{ui.voiceAutoOption}</span>
                   {!selectedVoiceUri && <Check className="w-3.5 h-3.5 text-[#0099ff] shrink-0" />}
                 </button>
-                {availableVoices.length === 0 ? (
+                {neuralVoiceOptions.length === 0 ? (
                   <p className="px-2.5 py-3 text-xs text-slate-400">{ui.noVoicesFound}</p>
                 ) : (
                   <div className="mt-1 space-y-0.5">
-                    {availableVoices.map((voice) => {
-                      const isSelected = selectedVoiceUri === voice.voiceURI;
-                      const isNatural = voice.name.toLowerCase().includes("natural");
+                    {neuralVoiceOptions.map((voice) => {
+                      const isSelected = selectedVoiceUri === voice.id;
                       return (
                         <button
-                          key={voice.voiceURI}
+                          key={voice.id}
                           type="button"
-                          onClick={() => previewAndSelectVoice(voice.voiceURI)}
+                          onClick={() => previewAndSelectVoice(voice.id)}
                           className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between gap-2 transition cursor-pointer ${
                             isSelected
                               ? "bg-[#0099ff]/20 text-white border border-[#0099ff]/40"
@@ -1925,10 +1975,9 @@ export default function InhubBotAppPage() {
                           }`}
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium">{voice.name}</p>
+                            <p className="truncate font-medium">{voice.label}</p>
                             <p className="text-[10px] text-slate-400">
-                              {voice.lang}
-                              {isNatural ? " · Natural" : ""}
+                              {voice.region} · {voice.gender === "male" ? "♂" : "♀"} · Neural
                             </p>
                           </div>
                           {isSelected && <Check className="w-3.5 h-3.5 text-[#0099ff] shrink-0" />}

@@ -1,5 +1,47 @@
 import type { BotLocale } from "@/lib/bot/i18n";
 
+export interface NeuralVoiceOption {
+  id: string;
+  label: string;
+  region: string;
+  gender: "male" | "female";
+}
+
+export const NEURAL_VOICES_BY_LOCALE: Record<BotLocale, NeuralVoiceOption[]> = {
+  es: [
+    { id: "es-ES-AlvaroNeural", label: "Álvaro", region: "España", gender: "male" },
+    { id: "es-MX-JorgeNeural", label: "Jorge", region: "México", gender: "male" },
+    { id: "es-AR-TomasNeural", label: "Tomás", region: "Argentina", gender: "male" },
+    { id: "es-CO-GonzaloNeural", label: "Gonzalo", region: "Colombia", gender: "male" },
+    { id: "es-ES-ElviraNeural", label: "Elvira", region: "España", gender: "female" },
+    { id: "es-MX-DaliaNeural", label: "Dalia", region: "México", gender: "female" },
+  ],
+  "pt-BR": [
+    { id: "pt-BR-AntonioNeural", label: "Antônio", region: "Brasil", gender: "male" },
+    { id: "pt-BR-FabioNeural", label: "Fábio", region: "Brasil", gender: "male" },
+    { id: "pt-BR-NicolauNeural", label: "Nicolau", region: "Brasil", gender: "male" },
+    { id: "pt-BR-FranciscaNeural", label: "Francisca", region: "Brasil", gender: "female" },
+  ],
+  en: [
+    { id: "en-US-AndrewNeural", label: "Andrew", region: "US", gender: "male" },
+    { id: "en-US-BrianNeural", label: "Brian", region: "US", gender: "male" },
+    { id: "en-US-GuyNeural", label: "Guy", region: "US", gender: "male" },
+    { id: "en-US-AriaNeural", label: "Aria", region: "US", gender: "female" },
+  ],
+};
+
+export function getDefaultNeuralVoiceId(locale: BotLocale): string {
+  return NEURAL_VOICES_BY_LOCALE[locale]?.[0]?.id || "es-ES-AlvaroNeural";
+}
+
+export function resolveNeuralVoiceId(locale: BotLocale, requestedVoiceId?: string): string {
+  const list = NEURAL_VOICES_BY_LOCALE[locale] || NEURAL_VOICES_BY_LOCALE.es;
+  if (requestedVoiceId && list.some((v) => v.id === requestedVoiceId)) {
+    return requestedVoiceId;
+  }
+  return list[0].id;
+}
+
 const PREFERRED_MALE_VOICE_NAMES = [
   "alvaro",
   "jorge",
@@ -59,7 +101,7 @@ const KNOWN_FEMALE_VOICE_NAMES = [
 ];
 
 /**
- * Cleans markdown, URLs, and emojis so browser speech synthesis reads naturally.
+ * Cleans markdown, URLs, and emojis so speech synthesis reads naturally.
  */
 export function cleanTextForSpeech(text: string): string {
   return text
@@ -71,10 +113,6 @@ export function cleanTextForSpeech(text: string): string {
     .trim();
 }
 
-/**
- * Scores a SpeechSynthesisVoice deterministically for a target speech language
- * (e.g. "es-ES", "pt-BR", "en-US"), prioritizing Online/Natural/Google neural male voices.
- */
 function scoreVoice(voice: SpeechSynthesisVoice, targetLang: string): number {
   const voiceLang = (voice.lang || "").toLowerCase().replace("_", "-");
   const target = targetLang.toLowerCase().replace("_", "-");
@@ -126,9 +164,6 @@ function scoreVoice(voice: SpeechSynthesisVoice, targetLang: string): number {
   return score;
 }
 
-/**
- * Returns all voices matching the target language sorted by quality (best first).
- */
 export function listVoicesForLang(
   voices: SpeechSynthesisVoice[],
   speechLang: string
@@ -146,8 +181,7 @@ export function listVoicesForLang(
 }
 
 /**
- * Picks the user's preferred voice if available, otherwise the highest-quality
- * consistent male neural voice available in the browser for the given locale.
+ * Fallback browser voice selector if neural server TTS is unavailable.
  */
 export function pickBestVoice(
   voices: SpeechSynthesisVoice[],
@@ -163,10 +197,4 @@ export function pickBestVoice(
 
   const ranked = listVoicesForLang(voices, speechLang);
   return ranked[0] || null;
-}
-
-export function getVoiceLocaleHint(locale: BotLocale): string {
-  if (locale === "en") return "en-US";
-  if (locale === "pt-BR") return "pt-BR";
-  return "es-ES";
 }
