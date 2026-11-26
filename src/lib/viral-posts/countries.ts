@@ -119,6 +119,16 @@ export const TARGET_COUNTRY_LIST: TargetCountryConfig[] = [
     keywords: ["ecuador", "quito", "guayaquil", "cuenca", "ambato", "manta"],
   },
   {
+    code: "VE",
+    name: "Venezuela",
+    flag: "🇻🇪",
+    region: "latam",
+    searchTerm: "Venezuela",
+    primaryLang: "es",
+    defaultLocationLabel: "Caracas, Venezuela",
+    keywords: ["venezuela", "caracas", "maracaibo", "valencia", "barquisimeto", "maracay", "mérida", "merida", "lechería"],
+  },
+  {
     code: "UY",
     name: "Uruguay",
     flag: "🇺🇾",
