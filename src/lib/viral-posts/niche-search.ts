@@ -1,4 +1,5 @@
 import type { CarouselSlide, PostFormat, ViralPostTemplate } from "./types";
+import { TARGET_COUNTRIES } from "./countries";
 
 function calculateVirality(likes: number, comments: number, shares: number) {
   const viralityScore = Math.round(likes * 1 + comments * 3.5 + shares * 5);
@@ -882,20 +883,18 @@ function getNicheImagePool(keyword: string): string[] {
   ];
 }
 
-const COUNTRY_NICHE_META: Record<string, { location: string; countryCode: string; lang: "es" | "pt" | "en" }> = {
-  BR: { location: "São Paulo, Brasil", countryCode: "BR", lang: "pt" },
-  US: { location: "Austin, Texas, United States", countryCode: "US", lang: "en" },
-  ES: { location: "Madrid, España", countryCode: "ES", lang: "es" },
-  MX: { location: "Ciudad de México, México", countryCode: "MX", lang: "es" },
-  CO: { location: "Bogotá, Colombia", countryCode: "CO", lang: "es" },
-  AR: { location: "Buenos Aires, Argentina", countryCode: "AR", lang: "es" },
-  CL: { location: "Santiago, Chile", countryCode: "CL", lang: "es" },
-  PE: { location: "Lima, Perú", countryCode: "PE", lang: "es" },
-  PA: { location: "Ciudad de Panamá, Panamá", countryCode: "PA", lang: "es" },
-  PT: { location: "Lisboa, Portugal", countryCode: "PT", lang: "pt" },
-  GB: { location: "London, United Kingdom", countryCode: "GB", lang: "en" },
-  AU: { location: "Sydney, Australia", countryCode: "AU", lang: "en" },
-};
+const COUNTRY_NICHE_META: Record<string, { location: string; countryCode: string; lang: "es" | "pt" | "en" }> = Object.fromEntries(
+  Object.values(TARGET_COUNTRIES)
+    .filter((c) => c.code !== "ALL")
+    .map((c) => [
+      c.code,
+      {
+        location: c.defaultLocationLabel,
+        countryCode: c.code,
+        lang: c.primaryLang === "pt" || c.primaryLang === "es" || c.primaryLang === "en" ? c.primaryLang : "en",
+      },
+    ])
+);
 
 // Función para generar dinámicamente 12 publicaciones virales especializadas con ángulos y ganchos únicos
 function generateDynamicNicheTemplates(nicheKeyword: string, targetMarket: string, targetCountry?: string): ViralPostTemplate[] {

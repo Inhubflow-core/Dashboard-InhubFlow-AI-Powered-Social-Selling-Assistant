@@ -29,6 +29,7 @@ import {
   getStoredCreatedPosts,
 } from "@/lib/viral-posts/store";
 import { SAMPLE_B2B_BACKGROUNDS } from "./CreateViralPostView";
+import { TARGET_COUNTRY_LIST } from "@/lib/viral-posts/countries";
 import type { CreatedPost, PostFormat, ViralPostTemplate } from "@/lib/viral-posts/types";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -982,18 +983,41 @@ export default function ViralRadarView({
                   title="Filtrar por ubicación geográfica real del autor"
                 >
                   <option value="ALL">🌐 Todos los países / Global</option>
-                  <option value="BR">🇧🇷 Brasil</option>
-                  <option value="US">🇺🇸 Estados Unidos</option>
-                  <option value="ES">🇪🇸 España</option>
-                  <option value="MX">🇲🇽 México</option>
-                  <option value="CO">🇨🇴 Colombia</option>
-                  <option value="AR">🇦🇷 Argentina</option>
-                  <option value="CL">🇨🇱 Chile</option>
-                  <option value="PE">🇵🇪 Perú</option>
-                  <option value="PA">🇵🇦 Panamá</option>
-                  <option value="PT">🇵🇹 Portugal</option>
-                  <option value="GB">🇬🇧 Reino Unido</option>
-                  <option value="AU">🇦🇺 Australia</option>
+                  <optgroup label="🌎 Latinoamérica">
+                    {TARGET_COUNTRY_LIST.filter((c) => c.region === "latam").map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="🌎 Norteamérica">
+                    {TARGET_COUNTRY_LIST.filter((c) => c.region === "north_america").map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="🌍 Europa">
+                    {TARGET_COUNTRY_LIST.filter((c) => c.region === "europe").map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="🌏 Asia">
+                    {TARGET_COUNTRY_LIST.filter((c) => c.region === "asia").map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="🌏 Oceanía">
+                    {TARGET_COUNTRY_LIST.filter((c) => c.region === "oceania").map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
 

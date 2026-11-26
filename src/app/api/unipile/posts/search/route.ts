@@ -1,5 +1,6 @@
 import { unipile } from "@/lib/unipile/client";
 import { getStoredAccounts } from "@/lib/unipile/store";
+import { TARGET_COUNTRIES, type CountryPrimaryLang } from "@/lib/viral-posts/countries";
 import {
   isExcludedCorporateAuthor,
   isFreelanceOrServiceSpam,
@@ -8,118 +9,6 @@ import {
   isNonWestern,
 } from "@/lib/viral-posts/filters";
 import { NextResponse } from "next/server";
-
-export interface TargetCountryConfig {
-  code: string;
-  name: string;
-  flag: string;
-  keywords: string[];
-}
-
-export const TARGET_COUNTRIES: Record<string, TargetCountryConfig> = {
-  ALL: { code: "ALL", name: "Todos los países / Global", flag: "🌐", keywords: [] },
-  BR: {
-    code: "BR",
-    name: "Brasil",
-    flag: "🇧🇷",
-    keywords: [
-      "brasil", "brazil", "são paulo", "sao paulo", "rio de janeiro", "belo horizonte",
-      "curitiba", "porto alegre", "florianópolis", "florianopolis", "recife", "fortaleza",
-      "salvador", "brasília", "brasilia", "campinas", "goiânia", "goiania", "vitória",
-      "vitoria", "joinville", "blumenau", "londrina", "maringá", "maringa", "ribeirão preto",
-      "santos", "sorocaba", "manaus", "belém", "belem", "cuiabá", "cuiaba", "espirito santo",
-      "minas gerais", "santa catarina", "paraná", "parana", "rio grande do sul", "bahia",
-      "ceará", "ceara", "pernambuco", "distrito federal"
-    ],
-  },
-  US: {
-    code: "US",
-    name: "Estados Unidos",
-    flag: "🇺🇸",
-    keywords: [
-      "united states", "usa", "u.s.", "u.s.a.", "california", "new york", "texas",
-      "florida", "san francisco", "silicon valley", "los angeles", "austin", "chicago",
-      "seattle", "boston", "miami", "atlanta", "denver", "dallas", "houston", "phoenix",
-      "san diego", "las vegas", "washington dc", "philadelphia", "portland", "nashville"
-    ],
-  },
-  ES: {
-    code: "ES",
-    name: "España",
-    flag: "🇪🇸",
-    keywords: [
-      "españa", "spain", "madrid", "barcelona", "valencia", "sevilla", "zaragoza",
-      "málaga", "malaga", "bilbao", "alicante", "galicia", "andalucía", "andalucia",
-      "cataluña", "catalunya", "país vasco", "asturias", "murcia", "toledo", "vigo"
-    ],
-  },
-  MX: {
-    code: "MX",
-    name: "México",
-    flag: "🇲🇽",
-    keywords: [
-      "méxico", "mexico", "cdmx", "ciudad de méxico", "guadalajara", "monterrey",
-      "puebla", "querétaro", "queretaro", "tijuana", "cancún", "mérida", "león", "jalisco"
-    ],
-  },
-  CO: {
-    code: "CO",
-    name: "Colombia",
-    flag: "🇨🇴",
-    keywords: [
-      "colombia", "bogotá", "bogota", "medellín", "medellin", "cali", "barranquilla",
-      "cartagena", "bucaramanga", "pereira", "manizales", "antioquia"
-    ],
-  },
-  AR: {
-    code: "AR",
-    name: "Argentina",
-    flag: "🇦🇷",
-    keywords: [
-      "argentina", "buenos aires", "caba", "córdoba", "cordoba", "rosario", "mendoza",
-      "la plata", "mar del plata", "santa fe", "salta", "tucumán"
-    ],
-  },
-  CL: {
-    code: "CL",
-    name: "Chile",
-    flag: "🇨🇱",
-    keywords: [
-      "chile", "santiago", "valparaíso", "valparaiso", "viña del mar", "concepción",
-      "concepcion", "antofagasta", "temuco", "la serena"
-    ],
-  },
-  PE: {
-    code: "PE",
-    name: "Perú",
-    flag: "🇵🇪",
-    keywords: ["perú", "peru", "lima", "arequipa", "trujillo", "cusco", "chiclayo", "piura"],
-  },
-  PA: {
-    code: "PA",
-    name: "Panamá",
-    flag: "🇵🇦",
-    keywords: ["panamá", "panama", "ciudad de panamá", "panama city", "colón", "david"],
-  },
-  PT: {
-    code: "PT",
-    name: "Portugal",
-    flag: "🇵🇹",
-    keywords: ["portugal", "lisboa", "lisbon", "porto", "braga", "coimbra", "faro", "aveiro"],
-  },
-  GB: {
-    code: "GB",
-    name: "Reino Unido",
-    flag: "🇬🇧",
-    keywords: ["united kingdom", "uk", "london", "manchester", "birmingham", "edinburgh", "glasgow", "england"],
-  },
-  AU: {
-    code: "AU",
-    name: "Australia",
-    flag: "🇦🇺",
-    keywords: ["australia", "sydney", "melbourne", "brisbane", "perth", "adelaide", "new south wales", "victoria"],
-  },
-};
 
 // Caché compartida de 12h + deduplicación + cuota diaria segura anti-restricciones LinkedIn
 const SEARCH_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
@@ -167,130 +56,89 @@ function detectCountryFromLocationString(loc: string, headline: string): { count
   };
 }
 
-function detectPostLanguage(text: string): "pt" | "es" | "en" | "other" {
+function detectPostLanguage(text: string): CountryPrimaryLang {
   if (isNonWestern(text)) return "other";
-  const lower = " " + text.toLowerCase().replace(/[^a-záéíóúüñãõçâêîôûàèìòù]/g, " ") + " ";
+  const lower = " " + text.toLowerCase().replace(/[^a-záéíóúüñãõçâêîôûàèìòùäöß]/g, " ") + " ";
 
-  const ptWords = [
-    " o ", " a ", " os ", " as ", " de ", " do ", " da ", " dos ", " das ", " em ", " no ", " na ",
-    " nos ", " nas ", " por ", " para ", " com ", " como ", " você ", " voce ", " não ", " nao ",
-    " mais ", " que ", " se ", " um ", " uma ", " sua ", " seu ", " muito ", " vendas ", " clientes ",
-    " prospecção ", " equipe ", " mercado "
-  ];
-  const esWords = [
-    " el ", " la ", " los ", " las ", " de ", " del ", " en ", " por ", " para ", " con ", " como ",
-    " que ", " se ", " un ", " una ", " unos ", " unas ", " su ", " sus ", " más ", " mas ", " pero ",
-    " este ", " esta ", " estos ", " estas ", " ventas ", " clientes ", " prospección ", " equipo ", " empresa "
-  ];
-  const enWords = [
-    " the ", " and ", " to ", " of ", " in ", " for ", " is ", " on ", " that ", " by ", " this ",
-    " with ", " from ", " at ", " it ", " you ", " your ", " are ", " we ", " have ", " our ",
-    " be ", " will ", " can ", " sales ", " business ", " growth ", " team "
-  ];
+  const scoreWords = (words: string[]) => {
+    let score = 0;
+    for (const w of words) {
+      if (lower.includes(w)) score++;
+    }
+    return score;
+  };
 
-  let ptScore = 0;
-  for (const w of ptWords) {
-    if (lower.includes(w)) ptScore++;
+  const scores: Record<Exclude<CountryPrimaryLang, "other">, number> = {
+    pt: scoreWords([
+      " o ", " a ", " os ", " as ", " de ", " do ", " da ", " dos ", " das ", " em ", " no ", " na ",
+      " nos ", " nas ", " por ", " para ", " com ", " como ", " você ", " voce ", " não ", " nao ",
+      " mais ", " que ", " um ", " uma ", " sua ", " seu ", " muito ", " vendas ", " clientes ",
+      " prospecção ", " equipe ", " mercado "
+    ]),
+    es: scoreWords([
+      " el ", " la ", " los ", " las ", " de ", " del ", " en ", " por ", " para ", " con ", " como ",
+      " que ", " se ", " un ", " una ", " unos ", " unas ", " su ", " sus ", " más ", " pero ",
+      " este ", " esta ", " estos ", " estas ", " ventas ", " clientes ", " prospección ", " equipo ", " empresa "
+    ]),
+    en: scoreWords([
+      " the ", " and ", " to ", " of ", " in ", " for ", " is ", " on ", " that ", " by ", " this ",
+      " with ", " from ", " at ", " it ", " you ", " your ", " are ", " we ", " have ", " our ",
+      " be ", " will ", " can ", " sales ", " business ", " growth ", " team "
+    ]),
+    fr: scoreWords([
+      " le ", " la ", " les ", " des ", " du ", " dans ", " pour ", " avec ", " sur ", " est ",
+      " vous ", " votre ", " nous ", " notre ", " pas ", " plus ", " une ", " mais ", " ventes ", " clients "
+    ]),
+    de: scoreWords([
+      " der ", " die ", " das ", " und ", " in ", " für ", " mit ", " auf ", " ist ", " sind ",
+      " sie ", " wir ", " nicht ", " ein ", " eine ", " oder ", " von ", " zu ", " unternehmen ", " vertrieb "
+    ]),
+    it: scoreWords([
+      " il ", " lo ", " la ", " gli ", " le ", " di ", " del ", " della ", " in ", " per ", " con ",
+      " che ", " non ", " più ", " siamo ", " aziende ", " vendite ", " clienti ", " questo ", " questa "
+    ]),
+    nl: scoreWords([
+      " de ", " het ", " een ", " van ", " en ", " in ", " voor ", " met ", " op ", " zijn ",
+      " niet ", " dat ", " die ", " wij ", " je ", " maar ", " bedrijven ", " klanten ", " verkoop "
+    ]),
+  };
+
+  let bestLang: CountryPrimaryLang = "en";
+  let bestScore = 0;
+  for (const [langKey, sc] of Object.entries(scores) as Array<[Exclude<CountryPrimaryLang, "other">, number]>) {
+    if (sc > bestScore) {
+      bestScore = sc;
+      bestLang = langKey;
+    }
   }
-
-  let esScore = 0;
-  for (const w of esWords) {
-    if (lower.includes(w)) esScore++;
-  }
-
-  let enScore = 0;
-  for (const w of enWords) {
-    if (lower.includes(w)) enScore++;
-  }
-
-  if (ptScore > esScore && ptScore > enScore && ptScore >= 2) return "pt";
-  if (esScore > ptScore && esScore > enScore && esScore >= 2) return "es";
-  if (enScore > ptScore && enScore > esScore && enScore >= 2) return "en";
-  if (ptScore >= 2) return "pt";
-  if (esScore >= 2) return "es";
-  if (enScore >= 2) return "en";
-  return "en";
+  return bestScore >= 2 ? bestLang : "en";
 }
 
-function detectMarketOrigin(text: string, headline: string, lang: "pt" | "es" | "en" | "other"): string {
+function detectMarketOrigin(text: string, headline: string, lang: CountryPrimaryLang, allowNonWestern?: boolean): string {
   const combined = (text + " " + headline).toLowerCase();
 
-  // Detección estricta de geografías fuera del objetivo comercial (Asia del Sur / Medio Oriente / África Subsahariana)
-  if (isNonTargetGeography(text, headline)) {
+  // Detección estricta de geografías fuera del objetivo comercial (solo cuando no fue solicitada explícitamente)
+  if (!allowNonWestern && isNonTargetGeography(text, headline)) {
     return "Asia del Sur / Medio Oriente";
   }
 
-  if (
-    combined.includes("brasil") ||
-    combined.includes("brazil") ||
-    combined.includes("são paulo") ||
-    combined.includes("rio de janeiro") ||
-    combined.includes("curitiba") ||
-    combined.includes("belo horizonte") ||
-    combined.includes("porto alegre")
-  ) {
-    return "Brasil";
-  }
-  if (
-    combined.includes("panamá") ||
-    combined.includes("panama") ||
-    combined.includes("costa rica") ||
-    combined.includes("guatemala") ||
-    combined.includes("centroamérica") ||
-    combined.includes("centroamerica")
-  ) {
-    return "Centroamérica / Panamá";
-  }
-  if (
-    combined.includes("méxico") ||
-    combined.includes("mexico") ||
-    combined.includes("colombia") ||
-    combined.includes("argentina") ||
-    combined.includes("chile") ||
-    combined.includes("perú") ||
-    combined.includes("peru") ||
-    combined.includes("latam") ||
-    combined.includes("uruguay") ||
-    combined.includes("ecuador")
-  ) {
-    return "LATAM";
-  }
-  if (
-    combined.includes("united states") ||
-    combined.includes("usa") ||
-    combined.includes("san francisco") ||
-    combined.includes("silicon valley") ||
-    combined.includes("new york") ||
-    combined.includes("austin") ||
-    combined.includes("california") ||
-    combined.includes("boston") ||
-    combined.includes("seattle") ||
-    combined.includes("florida") ||
-    combined.includes("texas")
-  ) {
-    return "EE.UU.";
-  }
-  if (
-    combined.includes("españa") ||
-    combined.includes("spain") ||
-    combined.includes("madrid") ||
-    combined.includes("barcelona") ||
-    combined.includes("united kingdom") ||
-    combined.includes("london") ||
-    combined.includes("france") ||
-    combined.includes("germany") ||
-    combined.includes("europe") ||
-    combined.includes("emea")
-  ) {
-    return "Europa Occidental";
+  for (const [code, def] of Object.entries(TARGET_COUNTRIES)) {
+    if (code === "ALL") continue;
+    if (def.keywords.some((kw) => combined.includes(kw))) {
+      return def.name;
+    }
   }
 
-  // Fallback por idioma (solo asigna EE.UU./Global si NO es de geografía excluida ni idioma ajeno)
+  // Fallback por idioma
   if (lang === "pt") return "Brasil / Cono Sur";
   if (lang === "es") return "LATAM / Hispanoamérica";
+  if (lang === "fr") return "Europa (Francia / Bélgica)";
+  if (lang === "de") return "Europa (Alemania / Suiza / Austria)";
+  if (lang === "it") return "Europa (Italia)";
+  if (lang === "nl") return "Europa (Países Bajos)";
   if (lang === "other") return "Global (Otro idioma)";
   if (lang === "en") {
-    if (isNonTargetGeography(text, headline)) {
+    if (!allowNonWestern && isNonTargetGeography(text, headline)) {
       return "Asia del Sur / Medio Oriente";
     }
     return "EE.UU. / Global";
@@ -330,44 +178,40 @@ function generateQueryVariations(rawKeywords: string, targetMarket: string, targ
   if (targetCountry && targetCountry !== "ALL") {
     const cDef = TARGET_COUNTRIES[targetCountry];
     if (cDef) {
-      if (targetCountry === "BR") {
-        const brLocalizedMap: Record<string, string> = {
-          "b2b outreach": "Prospecção B2B Brasil",
-          "b2b outbound": "Outbound B2B Brasil",
-          "lead generation": "Geração de Leads Brasil",
-          "cold email": "Cold Email Prospecção Brasil",
-          "saas growth": "SaaS B2B Brasil",
-          "social selling": "Social Selling Brasil",
-          "inteligencia artificial": "Inteligência Artificial Brasil",
-          "artificial intelligence": "Inteligência Artificial Brasil",
+      const countryTerm = cDef.searchTerm || cDef.name;
+      if (cDef.primaryLang === "pt") {
+        const ptMap: Record<string, string> = {
+          "b2b outreach": `Prospecção B2B ${countryTerm}`,
+          "b2b outbound": `Outbound B2B ${countryTerm}`,
+          "lead generation": `Geração de Leads ${countryTerm}`,
+          "cold email": `Cold Email ${countryTerm}`,
+          "saas growth": `SaaS B2B ${countryTerm}`,
+          "social selling": `Social Selling ${countryTerm}`,
+          "inteligencia artificial": `Inteligência Artificial ${countryTerm}`,
+          "artificial intelligence": `Inteligência Artificial ${countryTerm}`,
         };
-        const localized = brLocalizedMap[lower];
-        if (localized) variations.push(localized);
-        variations.push(`${kw} Brasil`);
-        variations.push(`${kw} São Paulo`);
-      } else if (targetCountry === "US") {
-        variations.push(`${kw} USA`);
-        variations.push(`${kw} United States`);
-      } else if (targetCountry === "ES") {
-        variations.push(`${kw} España`);
-        variations.push(`${kw} Madrid`);
-      } else if (targetCountry === "MX") {
-        variations.push(`${kw} México`);
-      } else if (targetCountry === "CO") {
-        variations.push(`${kw} Colombia`);
-      } else if (targetCountry === "AR") {
-        variations.push(`${kw} Argentina`);
-      } else if (targetCountry === "CL") {
-        variations.push(`${kw} Chile`);
-      } else if (targetCountry === "PE") {
-        variations.push(`${kw} Perú`);
-      } else if (targetCountry === "PA") {
-        variations.push(`${kw} Panamá`);
-      } else if (targetCountry === "PT") {
-        variations.push(`${kw} Portugal`);
-      } else {
-        variations.push(`${kw} ${cDef.name}`);
+        if (ptMap[lower]) variations.push(ptMap[lower]);
+      } else if (cDef.primaryLang === "es") {
+        const esMap: Record<string, string> = {
+          "b2b outreach": `Prospección B2B ${countryTerm}`,
+          "b2b outbound": `Outbound B2B ${countryTerm}`,
+          "lead generation": `Generación de Leads ${countryTerm}`,
+          "cold email": `Cold Email B2B ${countryTerm}`,
+          "saas growth": `Crecimiento SaaS ${countryTerm}`,
+          "social selling": `Social Selling ${countryTerm}`,
+          "artificial intelligence": `Inteligencia Artificial ${countryTerm}`,
+        };
+        if (esMap[lower]) variations.push(esMap[lower]);
+      } else if (cDef.primaryLang === "fr") {
+        const frMap: Record<string, string> = {
+          "b2b outreach": `Prospection B2B ${countryTerm}`,
+          "lead generation": `Génération de Leads ${countryTerm}`,
+          "social selling": `Social Selling ${countryTerm}`,
+          "inteligencia artificial": `Intelligence Artificielle ${countryTerm}`,
+        };
+        if (frMap[lower]) variations.push(frMap[lower]);
       }
+      variations.push(`${kw} ${countryTerm}`);
     }
   }
 
@@ -944,9 +788,17 @@ export async function POST(req: Request) {
         ? `${Math.min(25, Math.max(1.2, parseFloat((4.0 + Math.log10(totalInteractions + 1) * 3.5).toFixed(1))))}%`
         : "0.0%";
 
+      const targetCountryDef = targetCountry && targetCountry !== "ALL" ? TARGET_COUNTRIES[targetCountry] : undefined;
+      const allowNonWesternCountry = Boolean(targetCountryDef?.allowNonWestern);
+
       // Detección de idioma y origen de mercado geográfico
       const lang = detectPostLanguage(text);
-      const marketOrigin = detectMarketOrigin(text, item.author?.headline || item.author?.description || "", lang);
+      const marketOrigin = detectMarketOrigin(
+        text,
+        item.author?.headline || item.author?.description || "",
+        lang,
+        allowNonWesternCountry
+      );
 
       const resolveExactPostUrl = (): string | null => {
         const directCandidates = [
@@ -1033,12 +885,17 @@ export async function POST(req: Request) {
       };
     });
 
+    const targetCountryDef = targetCountry && targetCountry !== "ALL" ? TARGET_COUNTRIES[targetCountry] : undefined;
+    const allowNonWesternCountry = Boolean(targetCountryDef?.allowNonWestern);
+
     // 2. Filtro Estricto Anti-Cirílico / Anti-Ruso y Alfabetos No Occidentales
-    // Elimina publicaciones en ruso, ucraniano, búlgaro, kazajo o scripts asiáticos irrelevantes
-    const nonRussianPosts = normalized.filter((item) => {
-      const combined = `${item.author} ${item.authorHeadline} ${item.fullContent}`;
-      return !isNonWestern(combined);
-    });
+    // (Si el usuario seleccionó explícitamente un país de Asia con alfabeto propio, respetamos su elección)
+    const nonRussianPosts = allowNonWesternCountry
+      ? normalized
+      : normalized.filter((item) => {
+          const combined = `${item.author} ${item.authorHeadline} ${item.fullContent}`;
+          return !isNonWestern(combined);
+        });
 
     // 3. Filtro de Exclusión de Cuentas Corporativas e Institucionales
     const nonCorporatePosts = nonRussianPosts.filter(
@@ -1094,36 +951,41 @@ export async function POST(req: Request) {
       };
     });
 
-    // 5.2. Filtro Estricto por País de Residencia/Idioma del Autor si el usuario seleccionó un país específico
+    // 5.2. Filtro Estricto por País de Residencia/Idioma del Autor (uniforme para TODOS los países)
     let strictCountryActive = false;
-    if (targetCountry && targetCountry !== "ALL") {
+    if (targetCountry && targetCountry !== "ALL" && targetCountryDef) {
       strictCountryActive = true;
-      const spanishCountries = new Set(["ES", "MX", "CO", "AR", "CL", "PE", "PA"]);
-      const englishCountries = new Set(["US", "GB", "AU"]);
+      const otherCountriesWithSameLang = Object.values(TARGET_COUNTRIES).filter(
+        (c) => c.code !== "ALL" && c.code !== targetCountry && c.primaryLang === targetCountryDef.primaryLang
+      );
 
       const countryFiltered = qualifiedPosts.filter((item: any) => {
         if (item.authorCountry === targetCountry) return true;
-        const countryDef = TARGET_COUNTRIES[targetCountry];
+
         const combined = `${item.authorLocation || ""} ${item.authorHeadline || ""} ${item.fullContent || ""} ${item.marketOrigin || ""}`.toLowerCase();
-        if (countryDef && countryDef.keywords.some((kw) => combined.includes(kw))) {
+        if (targetCountryDef.keywords.some((kw) => combined.includes(kw))) {
           return true;
         }
-        // Para Brasil: aceptar publicaciones en portugués (excluyendo menciones explícitas a Portugal)
-        if (targetCountry === "BR" && item.detectedLanguage === "pt" && !combined.includes("portugal") && !combined.includes("lisboa")) {
+
+        // Verificar si menciona explícitamente otro país del mismo idioma (para no mezclar ej. México con España, o Canadá con EE.UU.)
+        const mentionsDifferentSameLangCountry = otherCountriesWithSameLang.some((other) =>
+          other.keywords.some((kw) => combined.includes(kw))
+        );
+        if (mentionsDifferentSameLangCountry) {
+          return false;
+        }
+
+        // Para países donde el idioma nativo coincide (pt, es, fr, de, it, nl, en), aceptar si no pertenece a otro país
+        if (targetCountryDef.primaryLang !== "other" && item.detectedLanguage === targetCountryDef.primaryLang) {
           return true;
         }
-        // Para Portugal: aceptar portugués solo si menciona Portugal o no es Brasil
-        if (targetCountry === "PT" && item.detectedLanguage === "pt" && !combined.includes("brasil") && !combined.includes("brazil") && !combined.includes("são paulo")) {
+
+        // Para países con idioma local distinto (ej. Japón, Corea, Suecia, Polonia, Dinamarca, Noruega)
+        // aceptamos si contiene keywords del país o si fue devuelto específicamente para esa query localizada (excluyendo geografías no solicitadas)
+        if (targetCountryDef.primaryLang === "other" && item.detectedLanguage === "other") {
           return true;
         }
-        // Para países hispanohablantes: aceptar español si no menciona otro país hispano explícito
-        if (spanishCountries.has(targetCountry) && item.detectedLanguage === "es") {
-          return true;
-        }
-        // Para países angloparlantes: aceptar inglés occidental si no pertenece a país excluido
-        if (englishCountries.has(targetCountry) && item.detectedLanguage === "en") {
-          return true;
-        }
+
         return false;
       });
 
@@ -1132,17 +994,16 @@ export async function POST(req: Request) {
 
     // 6. Segmentación Regional Inteligente (targetMarket)
     // Regla fija: Siempre incluye Estados Unidos (EE.UU.) como referente de innovación global cuando no hay país específico seleccionado.
-    // Excluye tajantemente regiones de gig spam (Asia del Sur, Medio Oriente, África Subsahariana)
     const matchesTargetMarket = (item: any) => {
       const lang = item.detectedLanguage;
       const origin = item.marketOrigin || "";
 
-      // Exclusión tajante de regiones fuera del objetivo comercial
       if (
-        origin.includes("Asia del Sur") ||
-        origin.includes("Medio Oriente") ||
-        origin.includes("Otro idioma") ||
-        isNonTargetGeography(item.fullContent, item.authorHeadline)
+        !allowNonWesternCountry &&
+        (origin.includes("Asia del Sur") ||
+          origin.includes("Medio Oriente") ||
+          origin.includes("Otro idioma") ||
+          isNonTargetGeography(item.fullContent, item.authorHeadline))
       ) {
         return false;
       }
