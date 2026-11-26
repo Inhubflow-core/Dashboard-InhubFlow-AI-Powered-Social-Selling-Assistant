@@ -30,6 +30,7 @@ import {
 } from "@/lib/viral-posts/store";
 import { SAMPLE_B2B_BACKGROUNDS } from "./CreateViralPostView";
 import { TARGET_COUNTRY_LIST } from "@/lib/viral-posts/countries";
+import { getStoredKnowledgeSources } from "@/lib/sdr/store";
 import type { CreatedPost, PostFormat, ViralPostTemplate } from "@/lib/viral-posts/types";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -684,8 +685,11 @@ export default function ViralRadarView({
 
       const activeAcc = getActiveAccountForUser(currentUser);
       const targetAccountId = monthPlanTargetAccountId || activeAcc?.id || currentUser?.id;
+      const approvedKnowledge = getStoredKnowledgeSources().filter((k) => k.status === "approved");
+      const leadMagnetOptions = ["SISTEMA", "GUIA", "PLAYBOOK", "METODO"];
 
-      // 4. Adaptar y traducir cada post viral con IA
+      // 4. Modelar y reescribir 100% original cada post viral con IA y la Base de Conocimiento del usuario
+      // (Nunca copiar literal el post original de otro autor)
       const newScheduledPosts: CreatedPost[] = [];
 
       for (let i = 0; i < targetSourcePosts.length; i++) {
@@ -695,79 +699,59 @@ export default function ViralRadarView({
         setGeneratingProgress({
           current: i + 1,
           total: 12,
-          message: `Adaptando post ${i + 1} de 12 al ${langLabel} con IA...`,
+          message: `Modelando post original ${i + 1} de 12 en ${langLabel} con IA...`,
         });
 
         const rawHook = sourcePost.hook?.replace(/:$/, "").trim() || sourcePost.topic || "Estrategia B2B en LinkedIn";
-        let rawContent = "";
-        if (sourcePost.fullContent && sourcePost.fullContent.length > 120) {
-          rawContent = sourcePost.fullContent;
-        } else {
-          rawContent = `${rawHook}\n\nLa mayoría de las empresas B2B cometen el error de precipitar el pitch comercial antes de entender el contexto real del decisor.\n\nAquí los 3 puntos clave para generar demanda cualificada:\n• 1. Diagnóstico previo: No presentes una propuesta sin entender el problema real.\n• 2. Relevancia sobre volumen: 10 conversaciones contextualizadas superan a 500 mensajes genéricos.\n• 3. Construcción de confianza: Aporta perspectiva y casos reales antes de pedir una reunión.\n\n¿Cuál de estos tres puntos representa tu mayor desafío actual? Te leo en comentarios.`;
-        }
+        const rawContent = sourcePost.fullContent || rawHook;
+        const postTopic = sourcePost.topic || searchKeyword || "Social Selling B2B";
+        const leadMagnetKeyword = leadMagnetOptions[i % leadMagnetOptions.length];
 
-        let translatedHook = rawHook;
-        let translatedContent = rawContent;
+        let modeledTitle = "";
+        let modeledContent = "";
 
-        const isAlreadyTarget =
-          (targetLang === "en" && (sourcePost.detectedLanguage === "en" || !sourcePost.detectedLanguage)) ||
-          (targetLang === "es" && sourcePost.detectedLanguage === "es") ||
-          (targetLang === "pt" && sourcePost.detectedLanguage === "pt");
+        try {
+          const res = await fetch("/api/ai/model-post", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              hook: rawHook,
+              originalContent: rawContent,
+              topic: postTopic,
+              format: "text",
+              leadMagnetKeyword,
+              tone: "Autoridad B2B directa y conversacional",
+              targetLanguage: targetLang,
+              knowledgeSources: approvedKnowledge,
+            }),
+          });
 
-        if (!isAlreadyTarget) {
-          try {
-            const promptText = `HOOK: ${rawHook}\n\nCONTENT:\n${rawContent}`;
-            const res = await fetch("/api/ai/translate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                text: promptText,
-                targetLanguage: targetLang,
-              }),
-            });
-
-            if (res.ok) {
-              const data = await res.json();
-              if (data.translatedText) {
-                const text = data.translatedText;
-                if (text.includes("HOOK:") && text.includes("CONTENT:")) {
-                  const afterHook = text.split("HOOK:")[1] || "";
-                  const parts = afterHook.split("CONTENT:");
-                  translatedHook = parts[0]?.trim() || rawHook;
-                  translatedContent = parts[1]?.trim() || text;
-                } else {
-                  translatedContent = text.trim();
-                  const firstLine = translatedContent.split("\n")[0].trim();
-                  if (firstLine.length > 5) translatedHook = firstLine;
-                }
-              } else {
-                const fb = getLocalizedViralFallback(rawHook, rawContent, targetLang);
-                translatedHook = fb.hook;
-                translatedContent = fb.content;
-              }
-            } else {
-              const fb = getLocalizedViralFallback(rawHook, rawContent, targetLang);
-              translatedHook = fb.hook;
-              translatedContent = fb.content;
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.result?.content) {
+              modeledContent = String(data.result.content).trim();
+              modeledTitle = String(data.result.title || data.result.hook || "").trim();
             }
-          } catch (e) {
-            const fb = getLocalizedViralFallback(rawHook, rawContent, targetLang);
-            translatedHook = fb.hook;
-            translatedContent = fb.content;
           }
-        } else if (targetLang !== "en" && (!sourcePost.detectedLanguage || sourcePost.detectedLanguage === "en")) {
-          const fb = getLocalizedViralFallback(rawHook, rawContent, targetLang);
-          translatedHook = fb.hook;
-          translatedContent = fb.content;
+        } catch (e) {
+          console.warn(`[Generate Month Plan] Falló modelado IA en post ${i + 1}, usando síntesis local:`, e);
         }
 
-        const title = translatedHook.replace(/^["'«»]|["'«»]$/g, "").slice(0, 75);
+        if (!modeledContent) {
+          const fb = getLocalizedViralFallback(rawHook, rawContent, targetLang);
+          modeledTitle = fb.hook;
+          modeledContent = fb.content;
+        }
+
+        const firstLine = modeledContent.split("\n")[0]?.trim() || postTopic;
+        const title = (modeledTitle || firstLine).replace(/^["'«»]|["'«»]$/g, "").slice(0, 75);
 
         const post: CreatedPost = {
           id: `scheduled-month-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
           title,
           format: "text",
-          content: translatedContent,
+          content: modeledContent,
+          leadMagnetKeyword,
           sourceMode: "viral",
           status: "scheduled",
           scheduledAt: scheduledDate.toISOString(),

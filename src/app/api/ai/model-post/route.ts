@@ -11,8 +11,21 @@ export async function POST(req: Request) {
       format = "text",
       leadMagnetKeyword = "SISTEMA",
       tone = "Autoridad B2B con llamada a la acción",
+      targetLanguage = "es",
       knowledgeSources = null,
     } = body;
+
+    const normalizedLang = String(targetLanguage || "es").toLowerCase().startsWith("pt")
+      ? "pt"
+      : String(targetLanguage || "es").toLowerCase().startsWith("en")
+      ? "en"
+      : "es";
+    const targetLangLabel =
+      normalizedLang === "pt"
+        ? "Portugués brasileño natural, profesional y persuasivo"
+        : normalizedLang === "en"
+        ? "Inglés profesional natural, directo y persuasivo"
+        : "Español profesional natural y persuasivo";
 
     // 1. Integración Inteligente de la Base de Conocimiento (RAG Multi-Tenant para SaaS)
     const hasCustomKnowledge = Array.isArray(knowledgeSources) && knowledgeSources.length > 0;
@@ -56,8 +69,8 @@ REGLAS DE COPYWRITING UNIVERSALES PARA SAAS:
 3. No redactes un anuncio publicitario aburrido; redacta contenido educativo y de alto valor que posicione al autor como un referente en "${cleanTopic}".
 4. El llamado a la acción (CTA) final debe invitar a comentar la palabra clave "${leadMagnetKeyword}" para recibir un recurso, guía o plantilla en PDF por mensaje privado.
 5. Tono: ${tone}.
-6. Idioma: Español profesional y persuasivo adaptado al nicho de "${cleanTopic}".
-7. NUNCA menciones nombres de marcas o herramientas ajenas a menos que estén explícitamente en la Base de Conocimiento del usuario.
+6. Idioma OBLIGATORIO de salida: ${targetLangLabel} adaptado al nicho de "${cleanTopic}". Todo el JSON (title, hook, content, slides) debe escribirse estrictamente en ese idioma.
+7. PROHIBIDO COPIAR O PLAGIAR: NUNCA copies frases literales del post de referencia, ni menciones nombres de empresas o marcas ajenas (como Asymmetrika, Jobint u otras), ni enlaces externos (como lnkd.in/...), ni ofertas de empleo del post de referencia. Toma únicamente el ángulo o idea de valor y redáctalo 100% ORIGINAL desde cero desde la perspectiva del negocio del usuario.
 
 RESPONDE EXCLUSIVAMENTE CON UN OBJETO JSON VÁLIDO (sin bloques de markdown ni texto extra alrededor) con la siguiente estructura según el formato solicitado:
 
@@ -131,17 +144,21 @@ CONTENIDO ORIGINAL DE REFERENCIA:
 Genera ahora el contenido modelado en JSON según las instrucciones, enfocado en el nicho de "${cleanTopic}".`;
 
     // 2. Ejecución con Failover Multi-Modelo de Google Gemini
-    const apiKey = (process.env.GEMINI_API_KEY || "").trim();
+    const apiKey = (
+      process.env.GEMINI_API_KEY ||
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+      process.env.GOOGLE_API_KEY ||
+      ""
+    ).trim();
     const configuredModel = (process.env.GEMINI_MODEL || "").trim();
 
     const candidateModels = Array.from(
       new Set(
         [
-          "gemini-flash-lite-latest",
-          "gemini-3.5-flash-lite",
           configuredModel,
-          "gemini-3.6-flash",
-          "gemini-3.8-flash",
+          "gemini-2.5-flash",
+          "gemini-2.0-flash",
+          "gemini-2.5-flash-lite",
           "gemini-flash-latest",
         ].filter(Boolean)
       )
@@ -153,7 +170,7 @@ Genera ahora el contenido modelado en JSON según las instrucciones, enfocado en
           const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 12000);
+          const timeout = setTimeout(() => controller.abort(), 14000);
 
           const response = await fetch(geminiUrl, {
             method: "POST",
@@ -166,7 +183,8 @@ Genera ahora el contenido modelado en JSON según las instrucciones, enfocado en
                 },
               ],
               generationConfig: {
-                temperature: 0.5,
+                temperature: 0.65,
+                responseMimeType: "application/json",
               },
             }),
             signal: controller.signal,
@@ -218,6 +236,7 @@ Genera ahora el contenido modelado en JSON según las instrucciones, enfocado en
       leadMagnetKeyword,
       hook,
       originalContent,
+      targetLanguage: normalizedLang,
     });
 
     return NextResponse.json({
@@ -245,13 +264,21 @@ function generateRagFallbackPost(params: {
   leadMagnetKeyword: string;
   hook?: string;
   originalContent?: string;
+  targetLanguage?: "es" | "pt" | "en";
 }) {
-  const { format, topic, leadMagnetKeyword, hook } = params;
+  const { format, topic, leadMagnetKeyword, hook, targetLanguage = "es" } = params;
   const cleanTopic = (topic || "Innovación y Estrategia").trim();
   const topicTag = cleanTopic.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "");
   const words = cleanTopic.split(/\s+/).filter(Boolean);
-  const cleanHook =
-    hook || `¿Cuál es el mayor error que comete la mayoría al trabajar en ${cleanTopic}?`;
+  const safeHook =
+    hook && !/http|lnkd\.in|buscando\s+(un\s+)?(sdr|bdr)/i.test(hook)
+      ? hook
+      : targetLanguage === "pt"
+      ? `Qual é o maior erro que a maioria comete em ${cleanTopic}?`
+      : targetLanguage === "en"
+      ? `What is the biggest mistake most teams make with ${cleanTopic}?`
+      : `¿Cuál es el mayor error que comete la mayoría al trabajar en ${cleanTopic}?`;
+  const cleanHook = safeHook;
 
   if (format === "carousel") {
     return {
@@ -342,6 +369,54 @@ Comenta "${leadMagnetKeyword}" abajo y te comparto el recurso completo en PDF si
   }
 
   // Format == 'text'
+  if (targetLanguage === "pt") {
+    return {
+      title: `Os 4 Pilares de ${cleanTopic}`,
+      hook: cleanHook,
+      content: `${cleanHook}
+
+Os métodos tradicionais para escalar ${cleanTopic} estão perdendo força rapidamente:
+- Processos manuais lentos e sem contexto
+- Alto esforço em ações de baixo retorno
+- Resultados imprevisíveis semana após semana
+
+Para construir previsibilidade em ${cleanTopic}, aplicamos uma estrutura em 4 pilares:
+
+1. Diagnóstico objetivo: Analisar os dados reais antes de agir.
+2. Posicionamento e estratégia: Focar apenas no que gera tração real.
+3. Otimização contínua: Refinar cada etapa com base em métricas.
+4. Escala sustentável: Criar processos sólidos e replicáveis.
+
+Quer aplicar esse framework no seu negócio?
+Comente "${leadMagnetKeyword}" abaixo que eu envio o guia completo em PDF por mensagem privada.`,
+      suggestedHashtags: [`#${topicTag}`, `#${words[0] || "Estrategia"}`, "#B2B", "#Crescimento"],
+    };
+  }
+
+  if (targetLanguage === "en") {
+    return {
+      title: `The 4 Core Pillars of ${cleanTopic}`,
+      hook: cleanHook,
+      content: `${cleanHook}
+
+Legacy playbooks for ${cleanTopic} are losing effectiveness fast:
+- Slow manual workflows with little context
+- Wasted effort on low-impact outreach
+- Unpredictable pipeline week after week
+
+To build predictable traction in ${cleanTopic}, we rely on a 4-pillar system:
+
+1. Objective diagnosis: Look at real signals before acting.
+2. Focused strategy: Double down only on what drives real conversations.
+3. Continuous iteration: Refine each step using measurable feedback.
+4. Sustainable scale: Build repeatable systems that compound over time.
+
+Want to apply this framework in your company?
+Comment "${leadMagnetKeyword}" below and I'll send you the full PDF guide via DM.`,
+      suggestedHashtags: [`#${topicTag}`, `#${words[0] || "Strategy"}`, "#B2B", "#Growth"],
+    };
+  }
+
   return {
     title: `Los 4 Pilares Fundamentales de ${cleanTopic}`,
     hook: cleanHook,
