@@ -1222,11 +1222,7 @@ export default function ViralRadarView({
                           <h4 className="font-semibold text-gray-900 dark:text-white text-sm truncate">
                             {post.author}
                           </h4>
-                          {post.isLive ? (
-                            <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 shrink-0">
-                              ● EN VIVO
-                            </span>
-                          ) : (
+                          {!post.isLive && (
                             <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-900 shrink-0" title="Plantilla de inspiración simulada (modo local)">
                               SIMULADO
                             </span>
@@ -1583,11 +1579,6 @@ export default function ViralRadarView({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     {selectedPostForModal.marketOrigin}
-                  </span>
-                )}
-                {selectedPostForModal.isLive && (
-                  <span className="rounded-lg bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900">
-                    {t("liveBadge")}
                   </span>
                 )}
               </div>
