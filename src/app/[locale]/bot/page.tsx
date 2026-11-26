@@ -509,10 +509,29 @@ export default function InhubBotAppPage() {
   const [recognitionSupported, setRecognitionSupported] = useState(true);
 
   const recognitionRef = useRef<any>(null);
+  const userStoppedVoiceRef = useRef(true);
+  const voiceActiveRef = useRef(false);
+  const voiceBaseTextRef = useRef("");
+  const sessionFinalTextRef = useRef("");
+  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const messagesRef = useRef<Message[]>(messages);
   messagesRef.current = messages;
+
+  const stopVoiceSession = useCallback(() => {
+    userStoppedVoiceRef.current = true;
+    voiceActiveRef.current = false;
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+    setIsListening(false);
+    setEmotion("idle");
+  }, []);
 
   const speakText = useCallback(
     (text: string) => {
@@ -551,6 +570,10 @@ export default function InhubBotAppPage() {
         overrideAttachment !== undefined ? overrideAttachment : pendingAttachment;
 
       if (!textToSend && !explicitAction && !attachmentToSend) return;
+
+      if (voiceActiveRef.current) {
+        stopVoiceSession();
+      }
 
       const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -658,11 +681,8 @@ export default function InhubBotAppPage() {
         setIsSending(false);
       }
     },
-    [inputValue, pendingAttachment, speakText, voiceEnabled, locale, ui.quickActions, ui.genericError, ui.connectionError]
+    [inputValue, pendingAttachment, speakText, voiceEnabled, locale, ui.quickActions, ui.genericError, ui.connectionError, stopVoiceSession]
   );
-
-  const handleSendRef = useRef(handleSend);
-  handleSendRef.current = handleSend;
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -671,8 +691,9 @@ export default function InhubBotAppPage() {
 
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
         recognition.lang = speechLang;
 
         recognition.onstart = () => {
@@ -681,20 +702,69 @@ export default function InhubBotAppPage() {
         };
 
         recognition.onresult = (event: any) => {
-          const transcript = event.results[0]?.[0]?.transcript || "";
-          if (transcript.trim()) {
-            handleSendRef.current(transcript.trim());
+          let sessionFinal = "";
+          let sessionInterim = "";
+          let lastFinalChunk = "";
+
+          for (let i = 0; i < event.results.length; i++) {
+            const res = event.results[i];
+            const piece = String(res?.[0]?.transcript || "").trim();
+            if (!piece) continue;
+            if (res.isFinal) {
+              if (piece !== lastFinalChunk) {
+                sessionFinal = sessionFinal ? `${sessionFinal} ${piece}` : piece;
+                lastFinalChunk = piece;
+              }
+            } else {
+              sessionInterim = sessionInterim ? `${sessionInterim} ${piece}` : piece;
+            }
+          }
+
+          sessionFinalTextRef.current = sessionFinal;
+          const combined = [voiceBaseTextRef.current, sessionFinal, sessionInterim]
+            .filter(Boolean)
+            .join(" ");
+          setInputValue(combined);
+        };
+
+        recognition.onerror = (event: any) => {
+          const err = String(event?.error || "");
+          if (err === "not-allowed" || err === "service-not-allowed" || err === "audio-capture") {
+            userStoppedVoiceRef.current = true;
+            voiceActiveRef.current = false;
+            setIsListening(false);
+            setEmotion("idle");
           }
         };
 
-        recognition.onerror = () => {
-          setIsListening(false);
-          setEmotion("idle");
-        };
-
         recognition.onend = () => {
-          setIsListening(false);
-          setEmotion("idle");
+          // Consolidar lo ya dictado antes de reiniciar o detener
+          if (sessionFinalTextRef.current) {
+            voiceBaseTextRef.current = [voiceBaseTextRef.current, sessionFinalTextRef.current]
+              .filter(Boolean)
+              .join(" ");
+            sessionFinalTextRef.current = "";
+          }
+
+          if (!userStoppedVoiceRef.current && voiceActiveRef.current) {
+            // En Android/iOS el navegador corta tras pausas breves: reanudamos sin perder el texto
+            restartTimerRef.current = setTimeout(() => {
+              if (!userStoppedVoiceRef.current && voiceActiveRef.current) {
+                try {
+                  recognition.lang = speechLang;
+                  recognition.start();
+                } catch {
+                  userStoppedVoiceRef.current = true;
+                  voiceActiveRef.current = false;
+                  setIsListening(false);
+                  setEmotion("idle");
+                }
+              }
+            }, 120);
+          } else {
+            setIsListening(false);
+            setEmotion("idle");
+          }
         };
 
         recognitionRef.current = recognition;
@@ -702,6 +772,15 @@ export default function InhubBotAppPage() {
         setRecognitionSupported(false);
       }
     }
+
+    return () => {
+      userStoppedVoiceRef.current = true;
+      voiceActiveRef.current = false;
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+      try {
+        recognitionRef.current?.stop();
+      } catch {}
+    };
   }, [speechLang]);
 
   useEffect(() => {
@@ -723,17 +802,21 @@ export default function InhubBotAppPage() {
 
   const toggleListening = () => {
     if (!recognitionRef.current) return;
-    if (isListening) {
-      recognitionRef.current.stop();
+    if (isListening || voiceActiveRef.current) {
+      stopVoiceSession();
     } else {
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
+      userStoppedVoiceRef.current = false;
+      voiceActiveRef.current = true;
+      voiceBaseTextRef.current = inputValue.trim();
+      sessionFinalTextRef.current = "";
       try {
         recognitionRef.current.lang = speechLang;
         recognitionRef.current.start();
       } catch {
-        recognitionRef.current.stop();
+        stopVoiceSession();
       }
     }
   };
@@ -1248,16 +1331,32 @@ export default function InhubBotAppPage() {
       {/* Voice Active Listening Notification Bar */}
       {isListening && (
         <div
-          className="px-4 py-2 flex items-center justify-between text-white text-xs animate-pulse shrink-0"
+          className="px-4 py-2 flex items-center justify-between gap-2 text-white text-xs shrink-0"
           style={{ background: "linear-gradient(135deg, #0099ff, #0070cc)" }}
         >
-          <div className="flex items-center gap-2">
-            <Mic className="w-4 h-4" />
-            <span className="font-medium">{ui.listeningBanner}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-ping shrink-0" />
+            <Mic className="w-4 h-4 shrink-0" />
+            <span className="font-medium truncate">{ui.listeningBanner}</span>
           </div>
-          <button onClick={toggleListening} className="text-[11px] underline font-bold hover:text-blue-100">
-            {ui.stopListeningBtn}
-          </button>
+          <div className="flex items-center gap-3 shrink-0">
+            {inputValue.trim() && (
+              <button
+                type="button"
+                onClick={() => handleSend()}
+                className="px-2.5 py-0.5 rounded-full bg-white text-[#0070cc] text-[11px] font-bold cursor-pointer"
+              >
+                {ui.sendTitle}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={toggleListening}
+              className="text-[11px] underline font-bold hover:text-blue-100 cursor-pointer"
+            >
+              {ui.stopListeningBtn}
+            </button>
+          </div>
         </div>
       )}
 
@@ -1352,7 +1451,7 @@ export default function InhubBotAppPage() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            disabled={isSending || isListening}
+            disabled={isSending}
             className="flex items-center justify-center w-11 h-11 rounded-2xl bg-white/6 text-[#70c4ff] hover:text-white hover:bg-[#0099ff]/20 border border-[#0099ff]/25 transition shrink-0 cursor-pointer disabled:opacity-40"
             title={ui.cameraTitle}
             aria-label={ui.cameraTitle}
@@ -1379,7 +1478,7 @@ export default function InhubBotAppPage() {
                     ? ui.inputImagePlaceholder
                     : ui.inputDefaultPlaceholder
               }
-              disabled={isSending || isListening}
+              disabled={isSending}
               className="w-full h-11 px-4 rounded-2xl text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition"
               style={{
                 background: "rgba(0,153,255,0.08)",
@@ -1390,7 +1489,7 @@ export default function InhubBotAppPage() {
 
           <button
             type="submit"
-            disabled={(!inputValue.trim() && !pendingAttachment) || isSending || isListening}
+            disabled={(!inputValue.trim() && !pendingAttachment) || isSending}
             className="flex items-center justify-center w-11 h-11 rounded-2xl text-white disabled:opacity-30 transition shadow-lg shrink-0 cursor-pointer"
             style={{ background: "linear-gradient(135deg, #0099ff, #0070cc)", boxShadow: "0 4px 15px rgba(0,153,255,0.25)" }}
             title={ui.sendTitle}
