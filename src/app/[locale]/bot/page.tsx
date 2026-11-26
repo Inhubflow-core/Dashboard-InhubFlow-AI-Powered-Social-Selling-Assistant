@@ -39,10 +39,26 @@ import {
   SendHorizonal,
   MessageSquarePlus,
   UserPlus,
+  Radar,
+  Inbox,
+  Kanban,
+  Rocket,
+  Plus,
 } from "lucide-react";
 
 interface ActionCard {
-  type: "summary" | "campaigns" | "post" | "leads" | "accounts" | "profile_verify" | "approval";
+  type:
+    | "summary"
+    | "campaigns"
+    | "post"
+    | "leads"
+    | "accounts"
+    | "profile_verify"
+    | "approval"
+    | "signals"
+    | "inbox"
+    | "pipeline"
+    | "campaign_draft";
   data: Record<string, any>;
 }
 
@@ -486,6 +502,98 @@ function ApprovalActionCard({
               {ui.discardBtn}
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CampaignDraftCard({
+  initialName,
+  initialIcebreaker,
+  disabled,
+  ui,
+  onCreate,
+  onDiscard,
+}: {
+  initialName: string;
+  initialIcebreaker: string;
+  disabled: boolean;
+  ui: BotUiLabels;
+  onCreate: (name: string, icebreaker: string) => void;
+  onDiscard: () => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const [icebreaker, setIcebreaker] = useState(initialIcebreaker);
+  const [status, setStatus] = useState<"pending" | "created" | "discarded">("pending");
+
+  return (
+    <div
+      className="p-3.5 rounded-2xl space-y-2.5"
+      style={{
+        background: "rgba(0,153,255,0.08)",
+        border: "1px solid rgba(0,153,255,0.32)",
+      }}
+    >
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#70c4ff]">
+        <Rocket className="w-3.5 h-3.5 text-[#0099ff]" />
+        <span>{ui.campaignDraftTitle}</span>
+      </div>
+
+      <div className="space-y-2">
+        <div>
+          <label className="block text-[10px] text-[#5abaff] mb-1">{ui.campaignNameLabel}</label>
+          <input
+            type="text"
+            value={name}
+            disabled={status !== "pending"}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full rounded-xl px-2.5 py-2 text-xs text-white bg-black/50 border border-white/10 focus:outline-none focus:border-[#0099ff] disabled:opacity-70"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] text-[#5abaff] mb-1">{ui.campaignIcebreakerLabel}</label>
+          <textarea
+            rows={3}
+            value={icebreaker}
+            disabled={status !== "pending"}
+            onChange={(e) => setIcebreaker(e.target.value)}
+            className="w-full rounded-xl px-2.5 py-2 text-xs text-slate-100 bg-black/50 border border-white/10 focus:outline-none focus:border-[#0099ff] leading-relaxed disabled:opacity-70"
+          />
+        </div>
+      </div>
+
+      {status !== "pending" ? (
+        <div className="text-xs font-semibold text-emerald-300">
+          {status === "created" ? ui.campaignCreatedStatus : ui.statusDiscarded}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+          <button
+            type="button"
+            disabled={disabled || !name.trim()}
+            onClick={() => {
+              setStatus("created");
+              onCreate(name.trim(), icebreaker.trim());
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white cursor-pointer disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg, #0099ff, #0070cc)" }}
+          >
+            <Check className="w-3.5 h-3.5" />
+            {ui.createCampaignCta}
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              setStatus("discarded");
+              onDiscard();
+            }}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 cursor-pointer"
+          >
+            <Trash2 className="w-3 h-3" />
+            {ui.discardBtn}
+          </button>
         </div>
       )}
     </div>
@@ -953,29 +1061,58 @@ export default function InhubBotAppPage() {
             </div>
           </div>
 
-          <div className="w-full max-w-sm grid grid-cols-2 gap-2.5">
-            {[
-              { icon: <BarChart3 className="w-4 h-4" />, label: ui.heroChips[0] },
-              { icon: <Layers className="w-4 h-4" />, label: ui.heroChips[1] },
-              { icon: <FileText className="w-4 h-4" />, label: ui.heroChips[2] },
-              { icon: <Users className="w-4 h-4" />, label: ui.heroChips[3] },
-            ].map((chip, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleSend(chip.label, undefined, undefined, null)}
-                disabled={isSending || isListening}
-                className="flex items-center gap-2.5 px-3.5 py-3 rounded-2xl text-[13px] font-medium transition cursor-pointer text-left leading-snug disabled:opacity-50"
-                style={{
-                  background: "rgba(0,153,255,0.08)",
-                  border: "1px solid rgba(0,153,255,0.2)",
-                  color: "#a8d8f8",
-                }}
-              >
-                <span className="text-[#0099ff] shrink-0">{chip.icon}</span>
-                <span>{chip.label}</span>
-              </button>
-            ))}
+          {/* 1-Line Infinite Carousel of Quick Actions */}
+          <style>{`
+            @keyframes inhubBotMarquee {
+              0% { transform: translateX(0); }
+              100% { transform: translateX(-50%); }
+            }
+            .inhub-marquee-track {
+              animation: inhubBotMarquee 28s linear infinite;
+            }
+            .inhub-marquee-wrap:hover .inhub-marquee-track,
+            .inhub-marquee-wrap:active .inhub-marquee-track {
+              animation-play-state: paused;
+            }
+          `}</style>
+          <div
+            className="w-full max-w-xl overflow-hidden inhub-marquee-wrap py-1"
+            style={{
+              WebkitMaskImage:
+                "linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)",
+              maskImage:
+                "linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)",
+            }}
+          >
+            <div className="flex w-max gap-2.5 inhub-marquee-track">
+              {(() => {
+                const heroItems = [
+                  { icon: <FileText className="w-4 h-4" />, label: ui.heroChips[0] },
+                  { icon: <Radar className="w-4 h-4" />, label: ui.heroChips[1] },
+                  { icon: <Rocket className="w-4 h-4" />, label: ui.heroChips[2] },
+                  { icon: <Inbox className="w-4 h-4" />, label: ui.heroChips[3] },
+                  { icon: <Kanban className="w-4 h-4" />, label: ui.heroChips[4] },
+                  { icon: <BarChart3 className="w-4 h-4" />, label: ui.heroChips[5] },
+                ];
+                return [...heroItems, ...heroItems].map((chip, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSend(chip.label, undefined, undefined, null)}
+                    disabled={isSending || isListening}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-full text-[13px] font-medium whitespace-nowrap shrink-0 transition cursor-pointer disabled:opacity-50 hover:border-[#0099ff]/60 hover:text-white"
+                    style={{
+                      background: "rgba(0,153,255,0.09)",
+                      border: "1px solid rgba(0,153,255,0.28)",
+                      color: "#bde2fc",
+                    }}
+                  >
+                    <span className="text-[#0099ff] shrink-0">{chip.icon}</span>
+                    <span>{chip.label}</span>
+                  </button>
+                ));
+              })()}
+            </div>
           </div>
         </div>
       )}
@@ -1275,6 +1412,241 @@ export default function InhubBotAppPage() {
                                 <span className="text-[#5abaff]">{ui.activeAccountsLabel}</span>
                                 <span className="font-bold text-white">{acc.active} / {acc.total}</span>
                               </div>
+                            </div>
+                          );
+                        }
+
+                        if (card.type === "signals") {
+                          const signals = (card.data.signals || []) as Array<{
+                            id: string;
+                            level: string;
+                            title: string;
+                            status: string;
+                            leadsCount: number;
+                          }>;
+                          return (
+                            <div
+                              key={cidx}
+                              className="p-3 rounded-xl space-y-2.5 text-xs"
+                              style={{ background: "rgba(0,153,255,0.06)", border: "1px solid rgba(0,153,255,0.2)" }}
+                            >
+                              <div className="flex items-center justify-between font-semibold text-slate-200">
+                                <span className="flex items-center gap-1.5">
+                                  <Radar className="w-3.5 h-3.5 text-[#0099ff]" />
+                                  {ui.signalsTitle}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={isSending}
+                                  onClick={() =>
+                                    handleSend(ui.createSignalCmdLabel, "create_signal", {}, null)
+                                  }
+                                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#0099ff]/20 text-[#70c4ff] hover:text-white text-[10px] font-semibold cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                  {ui.createSignalBtn}
+                                </button>
+                              </div>
+
+                              {signals.length === 0 ? (
+                                <p className="text-slate-300 text-xs">{ui.noSignalsText}</p>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  {signals.map((sig) => {
+                                    const isActive = sig.status === "active";
+                                    const nextStatus = isActive ? "paused" : "active";
+                                    return (
+                                      <div
+                                        key={sig.id}
+                                        className="flex items-center justify-between p-2 rounded-lg bg-white/5"
+                                      >
+                                        <div className="min-w-0 pr-2">
+                                          <span className="font-medium text-white block truncate">{sig.title}</span>
+                                          <span className="text-[10px] text-[#5abaff]">
+                                            {sig.level} · {sig.leadsCount} leads
+                                          </span>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          disabled={isSending}
+                                          onClick={() =>
+                                            handleSend(
+                                              ui.signalToggleLabel(!isActive, sig.title),
+                                              "toggle_signal",
+                                              { signalId: sig.id, signalTitle: sig.title, status: nextStatus },
+                                              null
+                                            )
+                                          }
+                                          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+                                            isActive
+                                              ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30"
+                                              : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
+                                          }`}
+                                        >
+                                          {isActive ? (
+                                            <>
+                                              <PauseCircle className="w-3 h-3" /> {ui.pauseBtn}
+                                            </>
+                                          ) : (
+                                            <>
+                                              <PlayCircle className="w-3 h-3" /> {ui.activateBtn}
+                                            </>
+                                          )}
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        if (card.type === "campaign_draft") {
+                          return (
+                            <CampaignDraftCard
+                              key={cidx}
+                              initialName={String(card.data.name || "")}
+                              initialIcebreaker={String(card.data.icebreaker || "")}
+                              disabled={isSending}
+                              ui={ui}
+                              onCreate={(name, icebreaker) =>
+                                handleSend(
+                                  `${ui.createCampaignCmdLabel}: ${name}`,
+                                  "create_campaign_confirm",
+                                  { name, icebreaker },
+                                  null
+                                )
+                              }
+                              onDiscard={() =>
+                                handleSend(ui.discardCmdLabel, "discard_action", {}, null)
+                              }
+                            />
+                          );
+                        }
+
+                        if (card.type === "inbox") {
+                          const inbox = card.data as {
+                            total?: number;
+                            unreadCount?: number;
+                            pendingSdrDrafts?: number;
+                            conversations?: Array<{
+                              id: string;
+                              leadName: string;
+                              stage: string;
+                              unread: number;
+                              lastMessage?: string;
+                            }>;
+                          };
+                          const convs = inbox.conversations || [];
+                          return (
+                            <div
+                              key={cidx}
+                              className="p-3 rounded-xl space-y-2.5 text-xs"
+                              style={{ background: "rgba(0,153,255,0.06)", border: "1px solid rgba(0,153,255,0.2)" }}
+                            >
+                              <div className="flex items-center justify-between font-semibold text-slate-200">
+                                <span className="flex items-center gap-1.5">
+                                  <Inbox className="w-3.5 h-3.5 text-[#0099ff]" />
+                                  {ui.inboxTitle}
+                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#0099ff]/20 text-[#70c4ff]">
+                                  {inbox.unreadCount || 0} {ui.unreadLabel}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="p-2 rounded-lg bg-white/5">
+                                  <span className="text-[10px] text-[#5abaff] block">{ui.unreadLabel}</span>
+                                  <span className="text-base font-bold text-white">{inbox.unreadCount || 0}</span>
+                                </div>
+                                <div className="p-2 rounded-lg bg-white/5">
+                                  <span className="text-[10px] text-[#5abaff] block">{ui.pendingSdrLabel}</span>
+                                  <span className="text-base font-bold text-amber-300">{inbox.pendingSdrDrafts || 0}</span>
+                                </div>
+                              </div>
+                              {convs.length === 0 ? (
+                                <p className="text-slate-300 text-xs">{ui.noInboxText}</p>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  {convs.map((c) => (
+                                    <div key={c.id} className="p-2 rounded-lg bg-white/5 flex items-center justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <span className="font-medium text-white block truncate">{c.leadName}</span>
+                                        {c.lastMessage && (
+                                          <span className="text-[10px] text-slate-300 block truncate">{c.lastMessage}</span>
+                                        )}
+                                      </div>
+                                      {c.unread > 0 && (
+                                        <span className="px-1.5 py-0.5 rounded-full bg-[#0099ff] text-white text-[10px] font-bold shrink-0">
+                                          {c.unread}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        if (card.type === "pipeline") {
+                          const pipe = card.data as {
+                            total?: number;
+                            stages?: Array<{ stage: string; count: number }>;
+                            topLeads?: Array<{
+                              id: string;
+                              name: string;
+                              headline: string;
+                              stage: string;
+                              score: number;
+                            }>;
+                          };
+                          const stages = pipe.stages || [];
+                          const topLeads = pipe.topLeads || [];
+                          return (
+                            <div
+                              key={cidx}
+                              className="p-3 rounded-xl space-y-2.5 text-xs"
+                              style={{ background: "rgba(0,153,255,0.06)", border: "1px solid rgba(0,153,255,0.2)" }}
+                            >
+                              <div className="flex items-center justify-between font-semibold text-slate-200">
+                                <span className="flex items-center gap-1.5">
+                                  <Kanban className="w-3.5 h-3.5 text-[#0099ff]" />
+                                  {ui.pipelineTitle}
+                                </span>
+                                <span className="text-[10px] text-[#70c4ff]">
+                                  {ui.totalLeadsLabel}: {pipe.total || 0}
+                                </span>
+                              </div>
+                              {stages.length === 0 ? (
+                                <p className="text-slate-300 text-xs">{ui.noPipelineText}</p>
+                              ) : (
+                                <>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {stages.map((st) => (
+                                      <span
+                                        key={st.stage}
+                                        className="px-2 py-1 rounded-lg bg-white/6 border border-white/10 text-[10px] text-slate-200"
+                                      >
+                                        {st.stage}: <strong className="text-white">{st.count}</strong>
+                                      </span>
+                                    ))}
+                                  </div>
+                                  {topLeads.length > 0 && (
+                                    <div className="space-y-1 pt-1">
+                                      <span className="text-[10px] text-[#5abaff] font-semibold block">
+                                        {ui.topLeadsLabel}
+                                      </span>
+                                      {topLeads.slice(0, 3).map((l) => (
+                                        <div key={l.id} className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
+                                          <span className="truncate text-white font-medium pr-2">{l.name}</span>
+                                          <span className="text-[10px] font-bold text-emerald-400 shrink-0">{l.score} pts</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              )}
                             </div>
                           );
                         }

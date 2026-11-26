@@ -22,7 +22,18 @@ import { getNicheViralPosts } from "@/lib/viral-posts/niche-search";
 import { NextRequest, NextResponse } from "next/server";
 
 export interface BotActionCard {
-  type: "summary" | "campaigns" | "post" | "leads" | "accounts" | "profile_verify" | "approval";
+  type:
+    | "summary"
+    | "campaigns"
+    | "post"
+    | "leads"
+    | "accounts"
+    | "profile_verify"
+    | "approval"
+    | "signals"
+    | "inbox"
+    | "pipeline"
+    | "campaign_draft";
   data: Record<string, unknown>;
 }
 
@@ -183,6 +194,176 @@ function getRecentLeads() {
     });
   } catch {
     return [];
+  }
+}
+
+function getSignalMonitorsList() {
+  const db = getSocialSellingDb();
+  try {
+    const rows = db
+      .prepare("SELECT id, level, title, status, leads_count, updated_at FROM signal_monitors ORDER BY updated_at DESC LIMIT 10")
+      .all() as Array<{
+      id: string;
+      level: string;
+      title: string;
+      status: string;
+      leads_count: number;
+      updated_at: string;
+    }>;
+    return rows.map((r) => ({
+      id: r.id,
+      level: r.level,
+      title: r.title,
+      status: r.status || "active",
+      leadsCount: Number(r.leads_count || 0),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function toggleSignalMonitorStatus(signalId: string, targetStatus: "active" | "paused") {
+  const db = getSocialSellingDb();
+  try {
+    const now = new Date().toISOString();
+    db.prepare("UPDATE signal_monitors SET status = ?, updated_at = ? WHERE id = ?").run(
+      targetStatus,
+      now,
+      signalId
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function createSignalMonitor(title: string, level = "level_3") {
+  const db = getSocialSellingDb();
+  const id = `sig-bot-${Date.now()}`;
+  const now = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO signal_monitors (id, level, title, status, leads_count, created_at, updated_at, metadata_json)
+     VALUES (?, ?, ?, 'active', 0, ?, ?, ?)`
+  ).run(id, level, title, now, now, JSON.stringify({ source: "inhub_bot" }));
+  return { id, level, title, status: "active", leadsCount: 0 };
+}
+
+function createLinearCampaignInDb(name: string, icebreaker: string) {
+  const db = getSocialSellingDb();
+  const id = `camp-bot-${Date.now()}`;
+  const now = new Date().toISOString();
+  const code = `CAMP-${String(Date.now()).slice(-4)}`;
+  const metadata = {
+    name,
+    code,
+    status: "active",
+    icebreaker,
+    source: "inhub_bot",
+    leadsCount: 0,
+  };
+  db.prepare(
+    `INSERT INTO linear_campaigns (id, name, code, status, created_at, updated_at, metadata_json)
+     VALUES (?, ?, ?, 'active', ?, ?, ?)`
+  ).run(id, name, code, now, now, JSON.stringify(metadata));
+  return { id, name, code, status: "active", leadsCount: 0 };
+}
+
+function getInboxOverview() {
+  const db = getSocialSellingDb();
+  try {
+    const rows = db
+      .prepare("SELECT id, lead_name, crm_stage_id, unread, updated_at, metadata_json FROM inbox_conversations_v2 ORDER BY updated_at DESC LIMIT 6")
+      .all() as Array<{
+      id: string;
+      lead_name: string;
+      crm_stage_id?: string;
+      unread: number;
+      updated_at: string;
+      metadata_json?: string;
+    }>;
+
+    const totalRow = db.prepare("SELECT COUNT(*) as c FROM inbox_conversations_v2").get() as { c: number } | undefined;
+    const unreadRow = db
+      .prepare("SELECT COUNT(*) as c FROM inbox_conversations_v2 WHERE unread > 0")
+      .get() as { c: number } | undefined;
+
+    let pendingSdrDrafts = 0;
+    try {
+      const pendingRow = db
+        .prepare("SELECT payload_json FROM sdr_state_v2 WHERE key = 'pending'")
+        .get() as { payload_json: string } | undefined;
+      if (pendingRow?.payload_json) {
+        const list = JSON.parse(pendingRow.payload_json);
+        if (Array.isArray(list)) {
+          pendingSdrDrafts = list.filter((i) => i?.status === "pending").length;
+        }
+      }
+    } catch {}
+
+    const conversations = rows.map((r) => {
+      let meta: Record<string, unknown> = {};
+      try {
+        meta = r.metadata_json ? JSON.parse(r.metadata_json) : {};
+      } catch {}
+      return {
+        id: r.id,
+        leadName: r.lead_name,
+        stage: r.crm_stage_id || String(meta.stage || "engaged"),
+        unread: Number(r.unread || 0),
+        lastMessage: String(meta.lastMessage || meta.last_message || meta.snippet || ""),
+        updatedAt: r.updated_at,
+      };
+    });
+
+    return {
+      total: Number(totalRow?.c || 0),
+      unreadCount: Number(unreadRow?.c || 0),
+      pendingSdrDrafts,
+      conversations,
+    };
+  } catch {
+    return { total: 0, unreadCount: 0, pendingSdrDrafts: 0, conversations: [] };
+  }
+}
+
+function getPipelineOverview() {
+  const db = getSocialSellingDb();
+  try {
+    const stageRows = db
+      .prepare("SELECT stage, COUNT(*) as count FROM crm_leads_360 GROUP BY stage ORDER BY count DESC")
+      .all() as Array<{ stage: string; count: number }>;
+    const topRows = db
+      .prepare("SELECT id, full_name, stage, intent_score, metadata_json FROM crm_leads_360 ORDER BY intent_score DESC, created_at DESC LIMIT 5")
+      .all() as Array<{
+      id: string;
+      full_name: string;
+      stage: string;
+      intent_score: number;
+      metadata_json?: string;
+    }>;
+
+    const total = stageRows.reduce((acc, s) => acc + Number(s.count || 0), 0);
+    const stages = stageRows.map((s) => ({
+      stage: s.stage || "lead_captured",
+      count: Number(s.count || 0),
+    }));
+    const topLeads = topRows.map((r) => {
+      let meta: Record<string, unknown> = {};
+      try {
+        meta = r.metadata_json ? JSON.parse(r.metadata_json) : {};
+      } catch {}
+      return {
+        id: r.id,
+        name: r.full_name,
+        headline: String(meta.headline || meta.title || "B2B Prospect"),
+        stage: r.stage,
+        score: Number(r.intent_score || 0),
+      };
+    });
+
+    return { total, stages, topLeads };
+  } catch {
+    return { total: 0, stages: [], topLeads: [] };
   }
 }
 
@@ -484,6 +665,95 @@ export async function POST(req: NextRequest) {
           `Campanha ${statusText} com sucesso.`
         ),
         emotion: "talking",
+        cards: [{ type: "campaigns", data: { campaigns } }],
+        quickActions: ui.quickActions,
+      } as BotCommandResponse);
+    }
+
+    if (action === "toggle_signal" && payload?.signalId && payload?.status) {
+      const ok = toggleSignalMonitorStatus(
+        String(payload.signalId),
+        payload.status === "active" ? "active" : "paused"
+      );
+      const signals = getSignalMonitorsList();
+      const isActivating = payload.status === "active";
+      const sigTitle = String(payload.signalTitle || payload.signalId);
+      const statusText = isActivating
+        ? t(locale, "activado", "activated", "ativado")
+        : t(locale, "pausado", "paused", "pausado");
+
+      return NextResponse.json({
+        ok,
+        reply: t(
+          locale,
+          `Listo. El monitor de señal **${sigTitle}** fue **${statusText}**.`,
+          `Done. Signal monitor **${sigTitle}** has been **${statusText}**.`,
+          `Pronto. O monitor de sinal **${sigTitle}** foi **${statusText}**.`
+        ),
+        spokenText: t(
+          locale,
+          `Monitor ${statusText} correctamente.`,
+          `Monitor ${statusText} successfully.`,
+          `Monitor ${statusText} com sucesso.`
+        ),
+        emotion: "talking",
+        cards: [{ type: "signals", data: { signals } }],
+        quickActions: ui.quickActions,
+      } as BotCommandResponse);
+    }
+
+    if (action === "create_signal") {
+      const kb = getApprovedKnowledgeContext();
+      const title =
+        String(payload?.title || "").trim() ||
+        t(
+          locale,
+          `Radar de intención · ${kb.companyName || "Social Selling B2B"}`,
+          `Intent Radar · ${kb.companyName || "B2B Social Selling"}`,
+          `Radar de intenção · ${kb.companyName || "Social Selling B2B"}`
+        );
+      createSignalMonitor(title, "level_3");
+      const signals = getSignalMonitorsList();
+      return NextResponse.json({
+        ok: true,
+        reply: t(
+          locale,
+          `✅ Monitor **"${title}"** creado y **activado** en Signal Radar.`,
+          `✅ Monitor **"${title}"** created and **activated** in Signal Radar.`,
+          `✅ Monitor **"${title}"** criado e **ativado** no Signal Radar.`
+        ),
+        spokenText: t(
+          locale,
+          "Monitor de señales activado.",
+          "Signal monitor activated.",
+          "Monitor de sinais ativado."
+        ),
+        emotion: "excited",
+        cards: [{ type: "signals", data: { signals } }],
+        quickActions: ui.quickActions,
+      } as BotCommandResponse);
+    }
+
+    if (action === "create_campaign_confirm" && payload?.name) {
+      const name = String(payload.name).trim();
+      const icebreaker = String(payload.icebreaker || "").trim();
+      createLinearCampaignInDb(name, icebreaker);
+      const campaigns = getCampaignsList();
+      return NextResponse.json({
+        ok: true,
+        reply: t(
+          locale,
+          `🚀 **Campaña "${name}" creada y activada** con pacing seguro (máx. 20 interacciones/día Lun–Vie y Stop on Reply).`,
+          `🚀 **Campaign "${name}" created and activated** with safe pacing (max 20 interactions/day Mon–Fri and Stop on Reply).`,
+          `🚀 **Campanha "${name}" criada e ativada** com ritmo seguro (máx. 20 interações/dia Seg–Sex e Stop on Reply).`
+        ),
+        spokenText: t(
+          locale,
+          `Campaña ${name} creada y activada.`,
+          `Campaign ${name} created and activated.`,
+          `Campanha ${name} criada e ativada.`
+        ),
+        emotion: "happy",
         cards: [{ type: "campaigns", data: { campaigns } }],
         quickActions: ui.quickActions,
       } as BotCommandResponse);
@@ -913,6 +1183,168 @@ export async function POST(req: NextRequest) {
         ),
         emotion: "talking",
         cards: campaigns.length > 0 ? [{ type: "campaigns", data: { campaigns } }] : [],
+        quickActions: ui.quickActions,
+      } as BotCommandResponse);
+    }
+
+    if (
+      !imageBase64 &&
+      !isStrategicQuestion &&
+      (action === "list_signals" ||
+        /^(activar |ver |revisar )?(se[ñn]ales( de intenci[oó]n)?|signal radar|activate intent signals|intent signals|ativar sinais( de inten[cç][aã]o)?|sinais de inten[cç][aã]o)[!?.]*$/i.test(
+          lower
+        ))
+    ) {
+      const signals = getSignalMonitorsList();
+      const activeCount = signals.filter((s) => s.status === "active").length;
+      return NextResponse.json({
+        ok: true,
+        reply:
+          signals.length > 0
+            ? t(
+                locale,
+                `Tienes **${signals.length} monitores en Signal Radar** (${activeCount} activos). Puedes activarlos, pausarlos o crear uno nuevo aquí:`,
+                `You have **${signals.length} Signal Radar monitors** (${activeCount} active). You can toggle them or activate a new one here:`,
+                `Você tem **${signals.length} monitores no Signal Radar** (${activeCount} ativos). Pode ativar, pausar ou criar um novo por aqui:`
+              )
+            : t(
+                locale,
+                "Aún no tienes monitores de **Signal Radar** configurados. Activa uno ahora con 1 clic para empezar a capturar prospectos con intención:",
+                "You don't have any **Signal Radar** monitors set up yet. Activate one in 1 click to start capturing intent leads:",
+                "Você ainda não tem monitores do **Signal Radar** configurados. Ative um agora com 1 clique para começar a capturar leads:"
+              ),
+        spokenText: t(
+          locale,
+          signals.length > 0
+            ? `Tienes ${activeCount} monitores de señales activos.`
+            : "No tienes monitores activos. Puedes activar uno ahora.",
+          signals.length > 0
+            ? `You have ${activeCount} active signal monitors.`
+            : "No active monitors yet. You can activate one right here.",
+          signals.length > 0
+            ? `Você tem ${activeCount} monitores de sinais ativos.`
+            : "Sem monitores ativos. Você pode ativar um agora."
+        ),
+        emotion: "talking",
+        cards: [{ type: "signals", data: { signals } }],
+        quickActions: ui.quickActions,
+      } as BotCommandResponse);
+    }
+
+    if (
+      !imageBase64 &&
+      !isStrategicQuestion &&
+      /^(crear (una )?campa[ñn]a( de prospecci[oó]n)?|create (an )?(outreach )?campaign|criar (uma )?campanha( de prospec[cç][aã]o)?)[!?.]*$/i.test(
+        lower
+      )
+    ) {
+      const kb = getApprovedKnowledgeContext();
+      const company = kb.companyName || "InhubFlow";
+      const aiDraft = await callGeminiMultimodal({
+        preferFast: true,
+        systemPrompt: `Propose a short LinkedIn outreach campaign name and a warm, non-spammy 2-line Icebreaker DM template using {{first_name}}. Write in ${langName}. Return ONLY JSON: {"name": "...", "icebreaker": "..."}`,
+        turns: [
+          {
+            role: "user",
+            parts: [{ text: `Company: ${company}\nKnowledge Base:\n${kb.contextText.slice(0, 1200)}` }],
+          },
+        ],
+        temperature: 0.65,
+        maxOutputTokens: 500,
+        jsonMode: true,
+      });
+
+      const parsed = aiDraft.ok ? parseJsonSafe<{ name?: string; icebreaker?: string }>(aiDraft.text) : null;
+      const defaultName = t(
+        locale,
+        `Prospección Signal Radar · ${company}`,
+        `Signal Radar Outreach · ${company}`,
+        `Prospecção Signal Radar · ${company}`
+      );
+      const defaultIce = t(
+        locale,
+        `Hola {{first_name}}, vi tu reciente actividad sobre crecimiento B2B y me encantó tu enfoque. En ${company} ayudamos a equipos a convertir LinkedIn en reuniones calificadas sin spam. ¿Te gustaría intercambiar ideas?`,
+        `Hi {{first_name}}, saw your recent LinkedIn activity on B2B growth and loved your take. At ${company} we help teams turn LinkedIn into qualified meetings without spam. Open to connecting?`,
+        `Olá {{first_name}}, vi sua atividade recente sobre crescimento B2B e gostei muito da sua abordagem. Na ${company} ajudamos equipes a gerar reuniões qualificadas no LinkedIn sem spam. Vamos trocar uma ideia?`
+      );
+
+      return NextResponse.json({
+        ok: true,
+        reply: t(
+          locale,
+          `🚀 Preparé esta propuesta de **Campaña de Prospección Segura** (Visita → Like/Comentar → Conexión → DM → Follow-up, máx. 20 acciones/día). Edita el nombre o mensaje si deseas y confirma:`,
+          `🚀 I prepared this **Safe Outreach Campaign** proposal (Visit → Like/Comment → Connect → DM → Follow-up, max 20 actions/day). Edit name or message if needed and confirm:`,
+          `🚀 Preparei esta proposta de **Campanha de Prospecção Segura** (Visita → Curtir/Comentar → Conexão → DM → Follow-up, máx. 20 ações/dia). Edite se quiser e confirme:`
+        ),
+        spokenText: t(
+          locale,
+          "Preparé una propuesta de campaña de prospección para que la revises y actives.",
+          "I prepared an outreach campaign proposal for you to review and activate.",
+          "Preparei uma proposta de campanha de prospecção para você revisar e ativar."
+        ),
+        emotion: "excited",
+        cards: [
+          {
+            type: "campaign_draft",
+            data: {
+              name: parsed?.name || defaultName,
+              icebreaker: parsed?.icebreaker || defaultIce,
+            },
+          },
+        ],
+        quickActions: ui.quickActions,
+      } as BotCommandResponse);
+    }
+
+    if (
+      !imageBase64 &&
+      !isStrategicQuestion &&
+      /^(revisar|ver|abrir)? ?(el |o )?(smart )?inbox[!?.]*$/i.test(lower)
+    ) {
+      const inbox = getInboxOverview();
+      return NextResponse.json({
+        ok: true,
+        reply: t(
+          locale,
+          `📥 Resumen de tu **Smart Inbox**: **${inbox.total}** conversaciones registradas, **${inbox.unreadCount}** sin leer y **${inbox.pendingSdrDrafts}** borradores del SDR esperando tu aprobación.`,
+          `📥 **Smart Inbox** overview: **${inbox.total}** conversations, **${inbox.unreadCount}** unread, and **${inbox.pendingSdrDrafts}** SDR drafts awaiting your approval.`,
+          `📥 Resumo do **Smart Inbox**: **${inbox.total}** conversas, **${inbox.unreadCount}** não lidas e **${inbox.pendingSdrDrafts}** rascunhos do SDR aguardando aprovação.`
+        ),
+        spokenText: t(
+          locale,
+          `Tienes ${inbox.unreadCount} conversaciones sin leer y ${inbox.pendingSdrDrafts} borradores SDR pendientes.`,
+          `You have ${inbox.unreadCount} unread conversations and ${inbox.pendingSdrDrafts} pending SDR drafts.`,
+          `Você tem ${inbox.unreadCount} conversas não lidas e ${inbox.pendingSdrDrafts} rascunhos do SDR pendentes.`
+        ),
+        emotion: "talking",
+        cards: [{ type: "inbox", data: inbox }],
+        quickActions: ui.quickActions,
+      } as BotCommandResponse);
+    }
+
+    if (
+      !imageBase64 &&
+      !isStrategicQuestion &&
+      /^(revisar|ver|abrir)? ?(el |o )?pipeline( crm)?[!?.]*$/i.test(lower) ||
+      /^review crm pipeline[!?.]*$/i.test(lower)
+    ) {
+      const pipeline = getPipelineOverview();
+      return NextResponse.json({
+        ok: true,
+        reply: t(
+          locale,
+          `📊 Estado de tu **Pipeline CRM**: tienes **${pipeline.total}** prospectos distribuidos en **${pipeline.stages.length}** etapas activas.`,
+          `📊 **CRM Pipeline** status: you have **${pipeline.total}** prospects across **${pipeline.stages.length}** active stages.`,
+          `📊 Status do **Pipeline CRM**: você tem **${pipeline.total}** prospects distribuídos em **${pipeline.stages.length}** etapas ativas.`
+        ),
+        spokenText: t(
+          locale,
+          `Tu Pipeline CRM tiene ${pipeline.total} prospectos en total.`,
+          `Your CRM Pipeline has ${pipeline.total} prospects in total.`,
+          `Seu Pipeline CRM tem ${pipeline.total} prospects no total.`
+        ),
+        emotion: "talking",
+        cards: [{ type: "pipeline", data: pipeline }],
         quickActions: ui.quickActions,
       } as BotCommandResponse);
     }

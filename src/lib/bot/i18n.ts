@@ -23,7 +23,7 @@ export interface BotUiLabels {
   greetingSubtitle: string;
   welcomeMessage: string;
   resetMessage: string;
-  heroChips: [string, string, string, string];
+  heroChips: [string, string, string, string, string, string];
   quickActions: string[];
   processingText: string;
   listeningBanner: string;
@@ -100,6 +100,26 @@ export interface BotUiLabels {
   approveCmdLabel: string;
   scheduleCmdLabel: string;
   discardCmdLabel: string;
+  // Signals, Inbox, Pipeline, Campaign Draft cards
+  signalsTitle: string;
+  noSignalsText: string;
+  createSignalBtn: string;
+  signalToggleLabel: (activate: boolean, title: string) => string;
+  createSignalCmdLabel: string;
+  inboxTitle: string;
+  unreadLabel: string;
+  pendingSdrLabel: string;
+  noInboxText: string;
+  pipelineTitle: string;
+  totalLeadsLabel: string;
+  topLeadsLabel: string;
+  noPipelineText: string;
+  campaignDraftTitle: string;
+  campaignNameLabel: string;
+  campaignIcebreakerLabel: string;
+  createCampaignCta: string;
+  campaignCreatedStatus: string;
+  createCampaignCmdLabel: string;
 }
 
 export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
@@ -110,17 +130,20 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
       "Hola, soy **InhubBot**. Puedo controlar tu plataforma de Social Selling en LinkedIn por voz, texto o foto.\n\n• Sácale foto a un artículo de revista para modelar un post.\n• Pídeme buscar a un prospecto (verifico su foto y grado de conexión antes de actuar).\n• Nunca publico ni envío nada sin tu aprobación.",
     resetMessage: "Conversación reiniciada. ¿Qué trabajo deseas que ejecute en tu LinkedIn hoy?",
     heroChips: [
-      "Dame el resumen de hoy",
-      "¿Cómo van las campañas?",
       "Crear post viral",
-      "Últimos prospectos del radar",
+      "Activar señales de intención",
+      "Crear campaña de prospección",
+      "Revisar el Inbox",
+      "Revisar el Pipeline CRM",
+      "Resumen de hoy",
     ],
     quickActions: [
-      "Dame el resumen de hoy",
-      "¿Cómo van las campañas?",
-      "Crear post viral sobre ventas B2B",
-      "Últimos prospectos del radar",
-      "Estado de mi cuenta de LinkedIn",
+      "Crear post viral",
+      "Activar señales de intención",
+      "Crear campaña de prospección",
+      "Revisar el Inbox",
+      "Revisar el Pipeline CRM",
+      "Resumen de hoy",
     ],
     processingText: "InhubBot está procesando...",
     listeningBanner: "Escuchando tu comando de voz en español...",
@@ -194,6 +217,25 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     approveCmdLabel: "Aprobado, ejecutar ahora",
     scheduleCmdLabel: "Agendar publicación",
     discardCmdLabel: "Descartar borrador",
+    signalsTitle: "Signal Radar · Señales de Intención",
+    noSignalsText: "Aún no tienes monitores creados. Activa uno para capturar compradores con intención.",
+    createSignalBtn: "Activar monitor de señales",
+    signalToggleLabel: (activate, title) => `${activate ? "Activar" : "Pausar"} señal ${title}`,
+    createSignalCmdLabel: "Activar nuevo monitor de señales",
+    inboxTitle: "Smart Inbox Unificado",
+    unreadLabel: "Sin leer",
+    pendingSdrLabel: "Borradores SDR",
+    noInboxText: "No hay conversaciones recientes en tu bandeja.",
+    pipelineTitle: "Pipeline CRM",
+    totalLeadsLabel: "Total leads",
+    topLeadsLabel: "Mayor intención",
+    noPipelineText: "No hay leads registrados en tu Pipeline todavía.",
+    campaignDraftTitle: "Nueva Campaña de Prospección",
+    campaignNameLabel: "Nombre de campaña",
+    campaignIcebreakerLabel: "Mensaje inicial (Icebreaker)",
+    createCampaignCta: "Crear y activar campaña",
+    campaignCreatedStatus: "✅ Campaña creada y activada en tu dashboard.",
+    createCampaignCmdLabel: "Crear y activar campaña",
   },
   en: {
     greetingTitle: "Hello!",
@@ -202,17 +244,20 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
       "Hi, I'm **InhubBot**. I can control your LinkedIn Social Selling platform by voice, text, or photo.\n\n• Snap a photo of a magazine article to model a post.\n• Ask me to find a prospect (I verify their profile photo and connection degree before acting).\n• I never publish or send anything without your approval.",
     resetMessage: "Conversation reset. What would you like me to run on your LinkedIn today?",
     heroChips: [
-      "Give me today's summary",
-      "How are campaigns going?",
       "Create viral post",
-      "Latest radar prospects",
+      "Activate intent signals",
+      "Create outreach campaign",
+      "Review Inbox",
+      "Review CRM Pipeline",
+      "Today's summary",
     ],
     quickActions: [
-      "Give me today's summary",
-      "How are campaigns going?",
-      "Create a viral post about B2B sales",
-      "Latest radar prospects",
-      "LinkedIn account status",
+      "Create viral post",
+      "Activate intent signals",
+      "Create outreach campaign",
+      "Review Inbox",
+      "Review CRM Pipeline",
+      "Today's summary",
     ],
     processingText: "InhubBot is processing...",
     listeningBanner: "Listening to your voice command in English...",
@@ -286,6 +331,25 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     approveCmdLabel: "Approved, execute now",
     scheduleCmdLabel: "Schedule post",
     discardCmdLabel: "Discard draft",
+    signalsTitle: "Signal Radar · Intent Signals",
+    noSignalsText: "No monitors created yet. Activate one to capture high-intent buyers.",
+    createSignalBtn: "Activate signal monitor",
+    signalToggleLabel: (activate, title) => `${activate ? "Activate" : "Pause"} signal ${title}`,
+    createSignalCmdLabel: "Activate new signal monitor",
+    inboxTitle: "Unified Smart Inbox",
+    unreadLabel: "Unread",
+    pendingSdrLabel: "SDR drafts",
+    noInboxText: "No recent conversations in your inbox.",
+    pipelineTitle: "CRM Pipeline",
+    totalLeadsLabel: "Total leads",
+    topLeadsLabel: "Highest intent",
+    noPipelineText: "No leads recorded in your Pipeline yet.",
+    campaignDraftTitle: "New Outreach Campaign",
+    campaignNameLabel: "Campaign name",
+    campaignIcebreakerLabel: "Icebreaker message",
+    createCampaignCta: "Create & activate campaign",
+    campaignCreatedStatus: "✅ Campaign created and activated in your dashboard.",
+    createCampaignCmdLabel: "Create and activate campaign",
   },
   "pt-BR": {
     greetingTitle: "Olá!",
@@ -294,17 +358,20 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
       "Olá, sou o **InhubBot**. Posso controlar toda a sua plataforma de Social Selling no LinkedIn por voz, texto ou foto.\n\n• Tire foto de um artigo de revista para modelar um post.\n• Peça para buscar um prospect (eu verifico a foto de perfil e o grau de conexão antes de agir).\n• Nunca publico nem envio nada sem a sua aprovação.",
     resetMessage: "Conversa reiniciada. O que você deseja que eu execute no seu LinkedIn hoje?",
     heroChips: [
-      "Me dê o resumo de hoje",
-      "Como estão as campanhas?",
       "Criar post viral",
-      "Últimos prospects do radar",
+      "Ativar sinais de intenção",
+      "Criar campanha de prospecção",
+      "Revisar o Inbox",
+      "Revisar o Pipeline CRM",
+      "Resumo de hoje",
     ],
     quickActions: [
-      "Me dê o resumo de hoje",
-      "Como estão as campanhas?",
-      "Criar post viral sobre vendas B2B",
-      "Últimos prospects do radar",
-      "Status da minha conta do LinkedIn",
+      "Criar post viral",
+      "Ativar sinais de intenção",
+      "Criar campanha de prospecção",
+      "Revisar o Inbox",
+      "Revisar o Pipeline CRM",
+      "Resumo de hoje",
     ],
     processingText: "InhubBot está processando...",
     listeningBanner: "Ouvindo seu comando de voz em português...",
@@ -378,5 +445,24 @@ export const BOT_UI_LABELS: Record<BotLocale, BotUiLabels> = {
     approveCmdLabel: "Aprovado, executar agora",
     scheduleCmdLabel: "Agendar publicação",
     discardCmdLabel: "Descartar rascunho",
+    signalsTitle: "Signal Radar · Sinais de Intenção",
+    noSignalsText: "Você ainda não tem monitores criados. Ative um para capturar compradores.",
+    createSignalBtn: "Ativar monitor de sinais",
+    signalToggleLabel: (activate, title) => `${activate ? "Ativar" : "Pausar"} sinal ${title}`,
+    createSignalCmdLabel: "Ativar novo monitor de sinais",
+    inboxTitle: "Smart Inbox Unificado",
+    unreadLabel: "Não lidas",
+    pendingSdrLabel: "Rascunhos SDR",
+    noInboxText: "Não há conversas recentes na sua caixa de entrada.",
+    pipelineTitle: "Pipeline CRM",
+    totalLeadsLabel: "Total leads",
+    topLeadsLabel: "Maior intenção",
+    noPipelineText: "Ainda não há leads registrados no seu Pipeline.",
+    campaignDraftTitle: "Nova Campanha de Prospecção",
+    campaignNameLabel: "Nome da campanha",
+    campaignIcebreakerLabel: "Mensagem inicial (Icebreaker)",
+    createCampaignCta: "Criar e ativar campanha",
+    campaignCreatedStatus: "✅ Campanha criada e ativada no seu dashboard.",
+    createCampaignCmdLabel: "Criar e ativar campanha",
   },
 };
