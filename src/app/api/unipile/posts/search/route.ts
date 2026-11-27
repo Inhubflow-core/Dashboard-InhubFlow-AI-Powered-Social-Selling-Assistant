@@ -1,4 +1,5 @@
 import { unipile } from "@/lib/unipile/client";
+import { extractUnipilePostMedia } from "@/lib/unipile/post-media";
 import { getStoredAccounts } from "@/lib/unipile/store";
 import { TARGET_COUNTRIES, type CountryPrimaryLang } from "@/lib/viral-posts/countries";
 import {
@@ -546,83 +547,10 @@ export async function POST(req: Request) {
       const hook = lines[0] || "Publicación destacada en LinkedIn";
 
       // Extraer todas las imágenes/previews reales y URL de PDF/documento si existen
-      const mediaUrls: string[] = [];
-      const pushMediaUrl = (candidate: unknown) => {
-        if (typeof candidate !== "string") return;
-        const trimmed = candidate.trim();
-        if (!trimmed.startsWith("http")) return;
-        if (!mediaUrls.includes(trimmed)) mediaUrls.push(trimmed);
-      };
-
-      let documentUrl: string | null = null;
-      const setDocumentUrl = (candidate: unknown) => {
-        if (documentUrl || typeof candidate !== "string") return;
-        const trimmed = candidate.trim();
-        if (trimmed.startsWith("http")) documentUrl = trimmed;
-      };
-
-      if (Array.isArray(item.attachments) && item.attachments.length > 0) {
-        for (const att of item.attachments) {
-          if (typeof att === "string" && att.startsWith("http")) {
-            if (att.toLowerCase().includes(".pdf")) {
-              setDocumentUrl(att);
-            } else {
-              pushMediaUrl(att);
-            }
-          } else if (att && typeof att === "object") {
-            const attType = String(att.type || "").toUpperCase();
-            const mime = String(att.mimetype || att.mime_type || "").toLowerCase();
-            const rawDocCandidate = att.file_url || att.document_url || att.url || "";
-            const isPdfOrDoc =
-              attType === "DOCUMENT" ||
-              attType === "CAROUSEL" ||
-              attType === "PRESENTATION" ||
-              mime.includes("pdf") ||
-              String(rawDocCandidate).toLowerCase().includes(".pdf") ||
-              String(rawDocCandidate).toLowerCase().includes("feedshare-document");
-
-            if (isPdfOrDoc) {
-              setDocumentUrl(att.file_url || att.document_url || att.url);
-            }
-
-            // Para imágenes y portadas/miniaturas de PDFs
-            const previewCandidates = [
-              att.preview_url,
-              att.thumbnail_url,
-              att.cover_url,
-              att.image_url,
-              att.picture_url,
-              att.media_url,
-              att.src,
-              !isPdfOrDoc ? att.url : null,
-              !isPdfOrDoc ? att.file_url : null,
-            ];
-            for (const c of previewCandidates) {
-              pushMediaUrl(c);
-            }
-          }
-        }
-      }
-
-      const directMediaCandidates = [
-        item.image_url,
-        item.media_url,
-        item.thumbnail_url,
-        item.article?.thumbnail_url,
-        item.article?.image_url,
-        item.media?.url,
-        item.document?.thumbnail_url,
-        item.document?.preview_url,
-      ];
-      for (const c of directMediaCandidates) {
-        pushMediaUrl(c);
-      }
-
-      if (!documentUrl) {
-        setDocumentUrl(item.document_url || item.document?.url || item.document?.file_url);
-      }
-
-      const mediaUrl: string | null = mediaUrls[0] || null;
+      const extractedMedia = extractUnipilePostMedia(item);
+      const mediaUrls = extractedMedia.mediaUrls;
+      const documentUrl = extractedMedia.documentUrl;
+      const mediaUrl: string | null = extractedMedia.mediaUrl;
 
       // Detectar formato técnico real (Carrusel / Imagen / Video / Solo Texto)
       const lower = text.toLowerCase();
@@ -632,10 +560,7 @@ export async function POST(req: Request) {
       let isImage = false;
       let hasExplicitNonDocAttachment = Boolean(item.article);
       let imageAttachmentCount = 0;
-      let documentPageCount: number | undefined =
-        Number(item.document?.page_count || item.document?.pages || 0) > 0
-          ? Number(item.document?.page_count || item.document?.pages)
-          : undefined;
+      let documentPageCount: number | undefined = extractedMedia.documentPageCount;
 
       // A. Inspeccionar adjuntos de Unipile
       const attachments = Array.isArray(item.attachments) ? item.attachments : [];

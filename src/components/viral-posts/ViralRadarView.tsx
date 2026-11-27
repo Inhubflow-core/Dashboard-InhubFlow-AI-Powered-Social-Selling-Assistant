@@ -40,6 +40,7 @@ import {
   Sparkles,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Layers,
   FileText,
@@ -55,6 +56,7 @@ import {
   MessageSquare,
   Repeat2,
   Send,
+  ExternalLink,
 } from "lucide-react";
 
 function formatLinkedInDate(raw?: string): string {
@@ -159,6 +161,13 @@ function getProxiedAssetUrl(url?: string | null): string | undefined {
     return `/api/proxy-image?url=${encodeURIComponent(trimmed)}`;
   }
   return trimmed;
+}
+
+function getProxiedPdfUrl(url?: string | null): string | undefined {
+  if (!url || typeof url !== "string") return undefined;
+  const trimmed = url.trim();
+  if (!trimmed.startsWith("http")) return trimmed;
+  return `/api/proxy-image?url=${encodeURIComponent(trimmed)}&inline=1`;
 }
 
 export interface DetectedMarketInfo {
@@ -326,6 +335,11 @@ export default function ViralRadarView({
   // Filtros generales y Modal
   const [selectedFormat, setSelectedFormat] = useState<"all" | PostFormat>("all");
   const [selectedPostForModal, setSelectedPostForModal] = useState<ViralPostTemplate | null>(null);
+  const [modalSlideIndex, setModalSlideIndex] = useState(0);
+  const [carouselViewMode, setCarouselViewMode] = useState<"pdf" | "cover">("pdf");
+  const [pdfEmbedFailed, setPdfEmbedFailed] = useState(false);
+  const [isLoadingModalDocument, setIsLoadingModalDocument] = useState(false);
+  const fetchedPostDetailsRef = useRef<Set<string>>(new Set());
 
   // Estados de Traducción de la Publicación (estilo LinkedIn) tanto para Tarjetas del Grid como para Modal
   const [translations, setTranslations] = useState<
@@ -632,12 +646,64 @@ export default function ViralRadarView({
     }
   };
 
-  const handleOpenPostModal = (post: ViralPostTemplate) => {
+  const handleOpenPostModal = async (post: ViralPostTemplate) => {
     setSelectedPostForModal(post);
+    setModalSlideIndex(0);
+    setCarouselViewMode("pdf");
+    setPdfEmbedFailed(false);
+    setIsLoadingModalDocument(false);
+
+    const needsDetailFetch =
+      Boolean(post.isLive) &&
+      post.format === "carousel" &&
+      !post.documentUrl &&
+      (!post.mediaUrls || post.mediaUrls.length <= 1) &&
+      !fetchedPostDetailsRef.current.has(post.id);
+
+    if (!needsDetailFetch) return;
+
+    fetchedPostDetailsRef.current.add(post.id);
+    setIsLoadingModalDocument(true);
+
+    try {
+      const res = await fetch("/api/unipile/posts/detail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          postId: post.id,
+          socialId: post.socialId || undefined,
+          accountId: activeAccount?.id || undefined,
+        }),
+      });
+      if (!res.ok) return;
+      const detail = await res.json();
+      if (!detail?.documentUrl && (!Array.isArray(detail?.mediaUrls) || detail.mediaUrls.length === 0)) {
+        return;
+      }
+
+      const mergeDetail = (p: ViralPostTemplate): ViralPostTemplate => ({
+        ...p,
+        documentUrl: detail.documentUrl || p.documentUrl,
+        mediaUrl: p.mediaUrl || detail.mediaUrl || undefined,
+        mediaUrls:
+          Array.isArray(detail.mediaUrls) && detail.mediaUrls.length > (p.mediaUrls?.length || 0)
+            ? detail.mediaUrls
+            : p.mediaUrls,
+        documentPageCount: detail.documentPageCount || p.documentPageCount,
+      });
+
+      setLivePosts((prev) => prev.map((item) => (item.id === post.id ? mergeDetail(item) : item)));
+      setSelectedPostForModal((curr) => (curr && curr.id === post.id ? mergeDetail(curr) : curr));
+    } catch {
+      // Silencioso: se mantiene la vista de portada y enlace a LinkedIn
+    } finally {
+      setIsLoadingModalDocument(false);
+    }
   };
 
   const handleClosePostModal = () => {
     setSelectedPostForModal(null);
+    setIsLoadingModalDocument(false);
   };
 
   const formatScheduleDay = (isoDate: string) => {
@@ -1477,8 +1543,8 @@ export default function ViralRadarView({
                   {post.format === "carousel" && (post.documentUrl || post.mediaUrl || (post.carouselSlides && post.carouselSlides.length > 0)) ? (
                     <div
                       className="relative mb-4 h-32 sm:h-36 w-full overflow-hidden rounded-lg bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-3 text-white border border-slate-700/80 shadow-inner flex flex-col justify-between group cursor-pointer"
-                      onClick={() => setSelectedPostForModal(post)}
-                      title="Haz clic para ver todas las diapositivas del carrusel"
+                      onClick={() => handleOpenPostModal(post)}
+                      title="Haz clic para ver el documento PDF completo"
                     >
                       {/* Fondo real (portada del PDF si existe) o decorativo */}
                       {post.mediaUrl ? (
@@ -1836,8 +1902,129 @@ export default function ViralRadarView({
                 </div>
               </div>
 
-              {/* Recurso Visual (Imagen o Carrusel - Justo debajo del Texto) */}
-              {selectedPostForModal.mediaUrl && (
+              {/* Recurso Visual (PDF Completo, Carrusel Navegable o Imagen - Justo debajo del Texto) */}
+              {selectedPostForModal.documentUrl ? (
+                <div className="w-full border-y border-gray-300 dark:border-gray-800 bg-slate-950">
+                  {/* Barra de control del visor PDF dentro del modal */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-900 border-b border-slate-800 text-xs text-slate-200">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <FileText className="w-4 h-4 text-brand-400 shrink-0" />
+                      <span>
+                        Documento PDF
+                        {selectedPostForModal.documentPageCount
+                          ? ` • ${selectedPostForModal.documentPageCount} páginas`
+                          : ""}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {selectedPostForModal.mediaUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCarouselViewMode((m) => (m === "pdf" ? "cover" : "pdf"))
+                          }
+                          className="rounded-md bg-white/10 hover:bg-white/20 px-2.5 py-1 text-[11px] font-medium text-slate-200 transition cursor-pointer"
+                        >
+                          {carouselViewMode === "pdf" ? "Ver portada" : "Ver PDF completo"}
+                        </button>
+                      )}
+                      <a
+                        href={getProxiedPdfUrl(selectedPostForModal.documentUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-md bg-brand-600 hover:bg-brand-500 px-2.5 py-1 text-[11px] font-semibold text-white transition"
+                      >
+                        <span>Abrir aparte</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+
+                  {carouselViewMode === "pdf" && !pdfEmbedFailed ? (
+                    <iframe
+                      key={selectedPostForModal.documentUrl}
+                      src={`${getProxiedPdfUrl(selectedPostForModal.documentUrl)}#toolbar=1&navpanes=0&view=FitH`}
+                      title={`PDF de ${selectedPostForModal.author}`}
+                      className="w-full h-[520px] sm:h-[620px] border-0 bg-slate-900"
+                      onError={() => setPdfEmbedFailed(true)}
+                    />
+                  ) : (
+                    <div className="p-4 flex flex-col items-center justify-center bg-slate-900/90 text-center">
+                      {selectedPostForModal.mediaUrl && (
+                        <img
+                          src={getProxiedAssetUrl(selectedPostForModal.mediaUrl)}
+                          alt={selectedPostForModal.author}
+                          className="w-full h-auto max-h-[520px] object-contain mx-auto rounded"
+                        />
+                      )}
+                      {pdfEmbedFailed && (
+                        <p className="mt-3 text-xs text-amber-300">
+                          El navegador no pudo incrustar el PDF aquí; usa &quot;Abrir aparte&quot; arriba para verlo completo.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : selectedPostForModal.mediaUrls && selectedPostForModal.mediaUrls.length > 1 ? (
+                (() => {
+                  const slides = selectedPostForModal.mediaUrls;
+                  const safeIndex = Math.min(Math.max(0, modalSlideIndex), slides.length - 1);
+                  return (
+                    <div className="w-full bg-black/5 dark:bg-black/50 border-y border-gray-300 dark:border-gray-800">
+                      <div className="relative flex items-center justify-center bg-slate-950/95 min-h-[300px]">
+                        <img
+                          src={getProxiedAssetUrl(slides[safeIndex])}
+                          alt={`${selectedPostForModal.author} - Diapositiva ${safeIndex + 1}`}
+                          className="w-full h-auto max-h-[600px] object-contain mx-auto"
+                        />
+                        <span className="absolute top-3 right-3 rounded-full bg-black/75 px-2.5 py-1 text-[11px] font-semibold text-white">
+                          {safeIndex + 1} / {slides.length}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setModalSlideIndex((prev) => (prev - 1 + slides.length) % slides.length)
+                          }
+                          aria-label="Diapositiva anterior"
+                          className="absolute left-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/65 text-white hover:bg-black/85 transition cursor-pointer shadow"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setModalSlideIndex((prev) => (prev + 1) % slides.length)
+                          }
+                          aria-label="Siguiente diapositiva"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/65 text-white hover:bg-black/85 transition cursor-pointer shadow"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 overflow-x-auto p-2.5 border-t border-gray-200 dark:border-gray-800 bg-gray-100/90 dark:bg-gray-900/80">
+                        {slides.map((slideUrl, sIdx) => (
+                          <button
+                            key={sIdx}
+                            type="button"
+                            onClick={() => setModalSlideIndex(sIdx)}
+                            className={`relative shrink-0 h-14 w-14 rounded overflow-hidden border-2 transition cursor-pointer ${
+                              sIdx === safeIndex
+                                ? "border-brand-500 ring-2 ring-brand-500/30"
+                                : "border-transparent opacity-65 hover:opacity-100"
+                            }`}
+                          >
+                            <img
+                              src={getProxiedAssetUrl(slideUrl)}
+                              alt={`Miniatura ${sIdx + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : selectedPostForModal.mediaUrl ? (
                 <div className="w-full overflow-hidden bg-black/5 dark:bg-black/50 border-y border-gray-300 dark:border-gray-800">
                   <img
                     src={getProxiedAssetUrl(selectedPostForModal.mediaUrl)}
@@ -1847,23 +2034,40 @@ export default function ViralRadarView({
                       (e.currentTarget as HTMLElement).style.display = "none";
                     }}
                   />
-                  {selectedPostForModal.mediaUrls && selectedPostForModal.mediaUrls.length > 1 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 border-t border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/60">
-                      {selectedPostForModal.mediaUrls.slice(1).map((extraUrl, mIdx) => (
-                        <img
-                          key={mIdx}
-                          src={getProxiedAssetUrl(extraUrl)}
-                          alt={`${selectedPostForModal.author} - ${mIdx + 2}`}
-                          className="w-full h-28 object-cover rounded border border-gray-200 dark:border-gray-700"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLElement).style.display = "none";
-                          }}
-                        />
-                      ))}
+                  {selectedPostForModal.format === "carousel" && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-t border-gray-200 dark:border-gray-800 bg-slate-50 dark:bg-slate-900/70 text-xs">
+                      {isLoadingModalDocument ? (
+                        <span className="inline-flex items-center gap-2 text-brand-600 dark:text-brand-400 font-medium">
+                          <span className="h-3 w-3 border-2 border-brand-500/40 border-t-brand-500 rounded-full animate-spin" />
+                          Buscando páginas completas del documento PDF en LinkedIn...
+                        </span>
+                      ) : (
+                        <>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            LinkedIn solo entregó la portada de este carrusel vía API.
+                          </span>
+                          {selectedPostForModal.linkedinUrl && (
+                            <a
+                              href={selectedPostForModal.linkedinUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 font-semibold text-[#0a66c2] hover:underline dark:text-sky-400"
+                            >
+                              Ver PDF completo en LinkedIn
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+              ) : selectedPostForModal.format === "carousel" && isLoadingModalDocument ? (
+                <div className="w-full py-8 px-4 border-y border-gray-300 dark:border-gray-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-center gap-2 text-xs text-brand-600 dark:text-brand-400 font-medium">
+                  <span className="h-3.5 w-3.5 border-2 border-brand-500/40 border-t-brand-500 rounded-full animate-spin" />
+                  <span>Cargando documento PDF completo...</span>
+                </div>
+              ) : null}
 
               {/* Barra única de Acciones y Métricas del Feed de LinkedIn */}
               <LinkedInActionMetricsBar
@@ -1884,7 +2088,7 @@ export default function ViralRadarView({
                 <div className="flex items-center gap-3">
                   {selectedPostForModal.documentUrl && (
                     <a
-                      href={getProxiedAssetUrl(selectedPostForModal.documentUrl)}
+                      href={getProxiedPdfUrl(selectedPostForModal.documentUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-semibold text-purple-600 hover:underline dark:text-purple-400 flex items-center gap-1"
