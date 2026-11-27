@@ -109,41 +109,38 @@ function LinkedInActionMetricsBar({
   sendLabel,
   compact = false,
 }: LinkedInActionBarProps) {
-  const activeColor = "text-emerald-600 dark:text-emerald-400";
+  const activeCountColor = "text-emerald-600 dark:text-emerald-400 font-bold";
   return (
     <div
       className={`flex flex-wrap items-center justify-between gap-1 border-t border-gray-200 dark:border-gray-800 font-semibold text-gray-600 dark:text-gray-300 ${
         compact ? "mt-2 pt-2 pb-1 text-[10.5px]" : "py-1.5 px-2 text-xs"
       }`}
     >
-      <div
-        className={`flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap ${
-          likes > 0 ? activeColor : ""
-        }`}
-      >
+      <div className="flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap">
         <ThumbsUp className="w-5 h-5 shrink-0" />
         <span>
-          {reactLabel} ({likes.toLocaleString()})
+          {reactLabel}{" "}
+          <span className={likes > 0 ? activeCountColor : ""}>
+            ({likes.toLocaleString()})
+          </span>
         </span>
       </div>
-      <div
-        className={`flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap ${
-          comments > 0 ? activeColor : ""
-        }`}
-      >
+      <div className="flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap">
         <MessageSquare className="w-5 h-5 shrink-0" />
         <span>
-          {commentLabel} ({comments.toLocaleString()})
+          {commentLabel}{" "}
+          <span className={comments > 0 ? activeCountColor : ""}>
+            ({comments.toLocaleString()})
+          </span>
         </span>
       </div>
-      <div
-        className={`flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap ${
-          shares > 0 ? activeColor : ""
-        }`}
-      >
+      <div className="flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap">
         <Repeat2 className="w-5 h-5 shrink-0" />
         <span>
-          {shareLabel} ({shares.toLocaleString()})
+          {shareLabel}{" "}
+          <span className={shares > 0 ? activeCountColor : ""}>
+            ({shares.toLocaleString()})
+          </span>
         </span>
       </div>
       <div className="flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap">
