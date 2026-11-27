@@ -109,27 +109,36 @@ function LinkedInActionMetricsBar({
   sendLabel,
   compact = false,
 }: LinkedInActionBarProps) {
+  const activeColor = "text-emerald-600 dark:text-emerald-400";
   return (
     <div
       className={`flex flex-wrap items-center justify-between gap-1 border-t border-gray-200 dark:border-gray-800 font-semibold text-gray-600 dark:text-gray-300 ${
         compact ? "mt-2 pt-2 pb-1 text-[10.5px]" : "py-1.5 px-2 text-xs"
       }`}
     >
-      <div className="flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap">
-        <ThumbsUp className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
+      <div
+        className={`flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap ${
+          likes > 0 ? activeColor : ""
+        }`}
+      >
+        <ThumbsUp className="w-5 h-5 shrink-0" />
         <span>
           {reactLabel} ({likes.toLocaleString()})
         </span>
       </div>
-      <div className="flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap">
-        <MessageSquare className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
+      <div
+        className={`flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap ${
+          comments > 0 ? activeColor : ""
+        }`}
+      >
+        <MessageSquare className="w-5 h-5 shrink-0" />
         <span>
           {commentLabel} ({comments.toLocaleString()})
         </span>
       </div>
       <div
         className={`flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap ${
-          shares > 0 ? "text-emerald-600 dark:text-emerald-400" : ""
+          shares > 0 ? activeColor : ""
         }`}
       >
         <Repeat2 className="w-5 h-5 shrink-0" />
@@ -138,7 +147,7 @@ function LinkedInActionMetricsBar({
         </span>
       </div>
       <div className="flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap">
-        <Send className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
+        <Send className="w-5 h-5 shrink-0" />
         <span>{sendLabel}</span>
       </div>
     </div>
