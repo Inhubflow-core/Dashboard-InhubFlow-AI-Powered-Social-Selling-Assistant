@@ -715,12 +715,17 @@ export async function POST(req: Request) {
 
       // C. Inspeccionar propiedades directas en el objeto raíz de Unipile
       const postType = String(item.post_type || item.media_type || item.type || "").toUpperCase();
+      const hasRealDocumentObj = Boolean(
+        documentUrl ||
+        item.document?.url ||
+        item.document?.file_url ||
+        item.document?.id ||
+        (typeof item.document_url === "string" && item.document_url.trim().startsWith("http"))
+      );
       if (
         postType === "DOCUMENT" ||
         postType === "CAROUSEL" ||
-        Boolean(documentUrl) ||
-        item.document ||
-        item.document_url ||
+        hasRealDocumentObj ||
         item.is_carousel ||
         item.is_document
       ) {
@@ -729,7 +734,7 @@ export async function POST(req: Request) {
         isVideo = true;
       }
 
-      // D. Heurística lingüística estricta: solo aplicar si NO tenemos evidencia de que el adjunto es un artículo/imagen/video simple
+      // D. Heurística lingüística estricta: solo aplicar si existe un adjunto/recurso real y no es imagen/artículo/video simple
       const hasCarouselKeywords =
         lower.includes("swipe") ||
         lower.includes("carousel") ||
@@ -745,7 +750,13 @@ export async function POST(req: Request) {
         lower.includes("full pdf") ||
         lower.includes("document below");
 
-      if (!isCarousel && !isVideo && !hasExplicitNonDocAttachment && hasCarouselKeywords) {
+      if (
+        !isCarousel &&
+        !isVideo &&
+        !hasExplicitNonDocAttachment &&
+        (attachments.length > 0 || Boolean(mediaUrl) || hasRealDocumentObj) &&
+        hasCarouselKeywords
+      ) {
         isCarousel = true;
       }
 

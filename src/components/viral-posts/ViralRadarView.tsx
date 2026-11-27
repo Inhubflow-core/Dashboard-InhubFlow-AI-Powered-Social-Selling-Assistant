@@ -70,6 +70,22 @@ function formatLinkedInDate(raw?: string): string {
   return dt.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
+function normalizeLivePostFormat(post: ViralPostTemplate): ViralPostTemplate {
+  if (post.format !== "carousel") return post;
+  const hasCarouselEvidence = Boolean(
+    post.documentUrl ||
+    (post.carouselSlides && post.carouselSlides.length > 0) ||
+    (post.mediaUrls && post.mediaUrls.length > 1) ||
+    (post.documentPageCount && post.documentPageCount > 1)
+  );
+  if (hasCarouselEvidence) return post;
+  return {
+    ...post,
+    format: post.mediaUrl ? "image" : "text",
+    hasMedia: Boolean(post.mediaUrl),
+  };
+}
+
 interface LinkedInActionBarProps {
   likes: number;
   comments: number;
@@ -330,7 +346,7 @@ export default function ViralRadarView({
     const cached = getStoredRadarState();
     if (cached) {
       if (Array.isArray(cached.livePosts) && cached.livePosts.length > 0) {
-        setLivePosts(cached.livePosts);
+        setLivePosts(cached.livePosts.map(normalizeLivePostFormat));
         setHasSearchedOnce(true);
       }
       if (cached.searchKeyword) setSearchKeyword(cached.searchKeyword);
@@ -463,7 +479,7 @@ export default function ViralRadarView({
           throw new Error(data.error || "No se pudieron obtener resultados de LinkedIn.");
         }
 
-        const rawItems: ViralPostTemplate[] = data.items || [];
+        const rawItems: ViralPostTemplate[] = (data.items || []).map(normalizeLivePostFormat);
 
         const isExcluded = (p: ViralPostTemplate) => {
           const combined = `${p.author || ""} ${p.authorHeadline || ""} ${p.fullContent || ""}`;
@@ -1458,7 +1474,7 @@ export default function ViralRadarView({
                   </div>
 
                   {/* Vista previa: Para Carruseles renderizamos una portada de presentación PDF estilo LinkedIn, para imágenes la fotografía, y para videos la miniatura */}
-                  {post.format === "carousel" ? (
+                  {post.format === "carousel" && (post.documentUrl || post.mediaUrl || (post.carouselSlides && post.carouselSlides.length > 0)) ? (
                     <div
                       className="relative mb-4 h-32 sm:h-36 w-full overflow-hidden rounded-lg bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-3 text-white border border-slate-700/80 shadow-inner flex flex-col justify-between group cursor-pointer"
                       onClick={() => setSelectedPostForModal(post)}
