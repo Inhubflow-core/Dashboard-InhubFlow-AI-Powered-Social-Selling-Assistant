@@ -103,15 +103,61 @@ export default function ConnectLinkedInModal({
 }: ConnectLinkedInModalProps) {
   const { currentUser } = useAuth();
 
-  // Detección de extensión InhubFlow Connect instalada en el navegador
+  // Detección de extensión InhubFlow Connect instalada en el navegador y sesión automática de LinkedIn
   const [isExtensionInstalled, setIsExtensionInstalled] = useState(false);
+  const [extensionCookies, setExtensionCookies] = useState<{ liAt: string; liA?: string } | null>(null);
 
   useEffect(() => {
-    if (typeof document !== "undefined") {
+    if (typeof document === "undefined" || typeof window === "undefined") return;
+
+    const checkInstalled = () => {
       const isInstalled = document.documentElement.getAttribute("data-inhubflow-extension-installed") === "true";
       setIsExtensionInstalled(isInstalled);
+      return isInstalled;
+    };
+
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const handleExtensionMsg = (event: MessageEvent) => {
+      if (event.source !== window || !event.data) return;
+      if (event.data.source === "INHUBFLOW_EXTENSION" && event.data.type === "INHUBFLOW_COOKIES_RESPONSE") {
+        setIsExtensionInstalled(true);
+        if (event.data.liAt) {
+          const detected = {
+            liAt: String(event.data.liAt).trim(),
+            liA: event.data.liA ? String(event.data.liA).trim() : undefined,
+          };
+          setExtensionCookies(detected);
+          setAuthCookieLiAt((prev) => prev || detected.liAt);
+          if (detected.liA) {
+            setAuthCookieLiA((prev) => prev || detected.liA!);
+          }
+        }
+      }
+    };
+
+    const handleReady = () => {
+      checkInstalled();
+      if (isOpen) {
+        window.postMessage({ source: "INHUBFLOW_WEBAPP", type: "INHUBFLOW_REQUEST_COOKIES", requestId }, "*");
+      }
+    };
+
+    window.addEventListener("message", handleExtensionMsg);
+    window.addEventListener("INHUBFLOW_EXTENSION_READY", handleReady);
+
+    checkInstalled();
+    if (isOpen) {
+      window.postMessage({ source: "INHUBFLOW_WEBAPP", type: "INHUBFLOW_REQUEST_COOKIES", requestId }, "*");
+    } else {
+      setExtensionCookies(null);
     }
-  }, []);
+
+    return () => {
+      window.removeEventListener("message", handleExtensionMsg);
+      window.removeEventListener("INHUBFLOW_EXTENSION_READY", handleReady);
+    };
+  }, [isOpen]);
 
   // Paso del slider: 1 = Configuración de límites y horario, 2 = Autenticación y opciones avanzadas
   const [modalStep, setModalStep] = useState<1 | 2>(initialStep);
@@ -143,67 +189,83 @@ export default function ConnectLinkedInModal({
   const [showSuccessAdviceModal, setShowSuccessAdviceModal] = useState(false);
   const [connectedAccountResult, setConnectedAccountResult] = useState<ConnectedLinkedInAccount | null>(null);
 
-  // Evitar ejecuciones duplicadas de autoconexión para el mismo token
+  // Evitar ejecuciones duplicadas de autoconexión para el mismo token y resets accidentales al actualizar currentUser/autoConnectData
   const processedAutoConnectTokenRef = useRef<string | null>(null);
+  const wasOpenRef = useRef(false);
+  const lastInitialAccountIdRef = useRef<string | null>(null);
 
-  // Inicializar o resetear datos cuando cambia isOpen o initialAccount
+  // Inicializar o resetear datos SOLO al abrir el modal o cambiar la cuenta objetivo
   useEffect(() => {
-    if (isOpen) {
-      if (initialAccount) {
-        setForm({
-          name: initialAccount.name || "",
-          email: initialAccount.email || "",
-          daily_connection_limit: Math.min(20, initialAccount.daily_connection_limit ?? 20),
-          daily_message_limit: Math.min(20, initialAccount.daily_message_limit ?? 20),
-          daily_visit_limit: Math.min(20, initialAccount.daily_visit_limit ?? 20),
-          active_hours_start: initialAccount.active_hours_start ?? 9,
-          active_hours_end: initialAccount.active_hours_end ?? 18,
-          timezone: initialAccount.timezone ?? "Europe/Madrid",
-          working_days: initialAccount.working_days ?? "1,2,3,4,5",
-        });
-        setAuthEmail(initialAccount.email || "");
-        setModalStep(initialStep || 2);
-        if (initialAccount.status === "CHECKPOINT") {
-          setIsCheckpoint(true);
-          setCheckpointRemoteAccountId(initialAccount.unipileAccountId);
-        } else {
-          setIsCheckpoint(false);
-        }
+    const currentAccountId = initialAccount?.id || null;
+    const justOpened = isOpen && !wasOpenRef.current;
+    const accountChangedWhileOpen = isOpen && currentAccountId !== lastInitialAccountIdRef.current;
+
+    if (!isOpen) {
+      wasOpenRef.current = false;
+      lastInitialAccountIdRef.current = null;
+      processedAutoConnectTokenRef.current = null;
+      return;
+    }
+
+    if (!justOpened && !accountChangedWhileOpen) {
+      return;
+    }
+
+    wasOpenRef.current = true;
+    lastInitialAccountIdRef.current = currentAccountId;
+
+    if (initialAccount) {
+      setForm({
+        name: initialAccount.name || "",
+        email: initialAccount.email || "",
+        daily_connection_limit: Math.min(20, initialAccount.daily_connection_limit ?? 20),
+        daily_message_limit: Math.min(20, initialAccount.daily_message_limit ?? 20),
+        daily_visit_limit: Math.min(20, initialAccount.daily_visit_limit ?? 20),
+        active_hours_start: initialAccount.active_hours_start ?? 9,
+        active_hours_end: initialAccount.active_hours_end ?? 18,
+        timezone: initialAccount.timezone ?? "Europe/Madrid",
+        working_days: initialAccount.working_days ?? "1,2,3,4,5",
+      });
+      setAuthEmail(initialAccount.email || "");
+      setModalStep(initialStep || 2);
+      if (initialAccount.status === "CHECKPOINT") {
+        setIsCheckpoint(true);
+        setCheckpointRemoteAccountId(initialAccount.unipileAccountId);
       } else {
-        setForm({
-          ...BLANK_FORM,
-          name: currentUser?.name || "",
-          email: currentUser?.email || "",
-        });
-        setAuthEmail(currentUser?.email || "");
-        setModalStep(initialStep || (autoConnectData?.accessToken ? 2 : 1));
         setIsCheckpoint(false);
       }
-
-      if (autoConnectData?.accessToken) {
-        setAuthMode("cookie");
-        setAuthCookieLiAt(autoConnectData.accessToken);
-        if (autoConnectData.premiumToken) {
-          setAuthCookieLiA(autoConnectData.premiumToken);
-        }
-        setModalStep(2);
-      } else {
-        setAuthMode("credentials");
-        setAuthPassword("");
-        setShowAuthPassword(false);
-        setAuthCookieLiAt("");
-        setAuthCookieLiA("");
-      }
-
-      setAuthCountry(""); // Por defecto siempre Automático (Según tu IP)
-      setAuthCustomProxy("");
-      setAuthError(null);
-      setCheckpointCode("");
-      setShowSuccessAdviceModal(false);
-      setConnectedAccountResult(null);
     } else {
-      processedAutoConnectTokenRef.current = null;
+      setForm({
+        ...BLANK_FORM,
+        name: currentUser?.name || "",
+        email: currentUser?.email || "",
+      });
+      setAuthEmail(currentUser?.email || "");
+      setModalStep(initialStep || (autoConnectData?.accessToken ? 2 : 1));
+      setIsCheckpoint(false);
     }
+
+    if (autoConnectData?.accessToken) {
+      setAuthMode("cookie");
+      setAuthCookieLiAt(autoConnectData.accessToken);
+      if (autoConnectData.premiumToken) {
+        setAuthCookieLiA(autoConnectData.premiumToken);
+      }
+      setModalStep(2);
+    } else {
+      setAuthMode("credentials");
+      setAuthPassword("");
+      setShowAuthPassword(false);
+      setAuthCookieLiAt("");
+      setAuthCookieLiA("");
+    }
+
+    setAuthCountry(""); // Por defecto siempre Automático (Según tu IP)
+    setAuthCustomProxy("");
+    setAuthError(null);
+    setCheckpointCode("");
+    setShowSuccessAdviceModal(false);
+    setConnectedAccountResult(null);
   }, [isOpen, initialAccount, initialStep, autoConnectData, currentUser]);
 
   // Manejo de avance de Paso 1 al Paso 2
@@ -528,6 +590,7 @@ export default function ConnectLinkedInModal({
 
   return (
     <>
+      {!showSuccessAdviceModal && (
       <div className="fixed inset-0 z-99999 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
         <div className="relative w-full max-w-xl rounded-lg border border-gray-300 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900 overflow-hidden my-8">
           {/* Header Superior Común Idéntico a B2B */}
@@ -818,6 +881,43 @@ export default function ConnectLinkedInModal({
                           <div className="flex-1">
                             <span className="font-bold">Error de Conexión:</span> {authError}
                           </div>
+                        </div>
+                      )}
+
+                      {/* Banner de Conexión Automática en 1-Clic si la extensión detectó sesión sin pulsar el icono */}
+                      {extensionCookies?.liAt && (
+                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/25 p-3 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="p-1.5 rounded-lg bg-emerald-600 text-white shrink-0">
+                              <Zap className="size-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                                Sesión de LinkedIn detectada automáticamente
+                              </p>
+                              <p className="text-[11px] text-gray-600 dark:text-gray-300">
+                                Conectado vía extensión sin abrir su icono.
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={authLoading}
+                            onClick={() => {
+                              setAuthMode("cookie");
+                              setAuthCookieLiAt(extensionCookies.liAt);
+                              if (extensionCookies.liA) setAuthCookieLiA(extensionCookies.liA);
+                              performNativeLogin({
+                                mode: "cookie",
+                                accessToken: extensionCookies.liAt,
+                                premiumToken: extensionCookies.liA || undefined,
+                              });
+                            }}
+                            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+                          >
+                            <Zap className="size-3.5" />
+                            <span>Conectar 1-Clic</span>
+                          </button>
                         </div>
                       )}
 
@@ -1204,6 +1304,7 @@ export default function ConnectLinkedInModal({
           </div>
         </div>
       </div>
+      )}
 
       {/* ── Modal Elegante de Recomendación para Estabilidad (Idéntico a B2B) ── */}
       {showSuccessAdviceModal && (

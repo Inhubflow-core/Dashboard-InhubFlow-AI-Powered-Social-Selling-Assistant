@@ -3,6 +3,25 @@ console.log("[InHubFlow Connect] Service worker listo.");
 
 chrome.runtime.onInstalled.addListener((details) => {
   console.log("[InHubFlow Connect] Versión instalada/actualizada:", details.reason);
+  // Al instalar por primera vez, abrir la ventana del asistente automáticamente para no depender del icono en la barra
+  if (details.reason === "install") {
+    try {
+      chrome.windows.create(
+        {
+          url: chrome.runtime.getURL("popup.html"),
+          type: "popup",
+          width: 356,
+          height: 510,
+          focused: true,
+        },
+        () => {
+          void chrome.runtime.lastError;
+        }
+      );
+    } catch (e) {
+      console.warn("[InHubFlow Connect] No se pudo abrir ventana automática al instalar:", e);
+    }
+  }
 });
 
 function safeGetCookie(url, name, partitionKey) {

@@ -7,6 +7,7 @@
   try {
     document.documentElement.setAttribute("data-inhubflow-extension-installed", "true");
     document.documentElement.setAttribute("data-inhubflow-extension-version", "1.2.2");
+    window.dispatchEvent(new CustomEvent("INHUBFLOW_EXTENSION_READY", { detail: { version: "1.2.2" } }));
   } catch (e) {
     // ignorar
   }
@@ -14,6 +15,41 @@
   if (typeof chrome === "undefined" || !chrome.runtime || !chrome.runtime.onMessage) {
     return;
   }
+
+  // Permitir que el Dashboard solicite automáticamente la sesión de LinkedIn sin que el usuario tenga que pulsar el icono
+  window.addEventListener("message", (event) => {
+    if (event.source !== window || !event.data) return;
+    if (event.data.source === "INHUBFLOW_WEBAPP" && event.data.type === "INHUBFLOW_REQUEST_COOKIES") {
+      const requestId = event.data.requestId || null;
+      try {
+        chrome.runtime.sendMessage({ type: "GET_LINKEDIN_COOKIES" }, (res) => {
+          const err = chrome.runtime.lastError;
+          window.postMessage(
+            {
+              source: "INHUBFLOW_EXTENSION",
+              type: "INHUBFLOW_COOKIES_RESPONSE",
+              requestId,
+              liAt: !err && res?.liAt ? res.liAt : null,
+              liA: !err && res?.liA ? res.liA : null,
+              sourceMethod: !err && res?.source ? res.source : null,
+            },
+            "*"
+          );
+        });
+      } catch {
+        window.postMessage(
+          {
+            source: "INHUBFLOW_EXTENSION",
+            type: "INHUBFLOW_COOKIES_RESPONSE",
+            requestId,
+            liAt: null,
+            liA: null,
+          },
+          "*"
+        );
+      }
+    }
+  });
 
   // Escuchar mensajes provenientes del popup de la extensión
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
