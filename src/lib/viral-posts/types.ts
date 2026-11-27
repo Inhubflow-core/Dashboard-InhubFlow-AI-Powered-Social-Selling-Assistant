@@ -42,6 +42,7 @@ export interface ViralPostTemplate {
   mediaUrl?: string;
   mediaUrls?: string[];
   documentUrl?: string;
+  documentPageCount?: number;
   hasMedia?: boolean;
   marketOrigin?: string;
   detectedLanguage?: "es" | "pt" | "en" | "other";
