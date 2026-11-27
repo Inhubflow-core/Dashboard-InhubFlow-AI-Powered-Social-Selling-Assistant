@@ -5,11 +5,12 @@ import { parsePostHeader } from '@/lib/viral-posts/hookHighlighter';
 import ComponentCard from "@/components/common/ComponentCard";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import {
+  addStoredAccount,
   getActiveAccountForUser,
   getVisibleAccountsForUser,
   accountMatchesUser,
 } from "@/lib/unipile/store";
-import type { UnipileAccount } from "@/lib/unipile/types";
+import type { ConnectedLinkedInAccount } from "@/lib/unipile/types";
 import { exportCarouselToPdf } from "@/lib/viral-posts/carousel-exporter";
 import { getStoredKnowledgeSources } from "@/lib/sdr/store";
 import { upsertLevel1MonitorFromPost } from "@/lib/signals/store";
@@ -145,7 +146,7 @@ export default function CreateViralPostView({
   const [format, setFormat] = useState<PostFormat>("text"); // "text" | "image" | "carousel"
 
   // Cuentas de LinkedIn disponibles
-  const [accounts, setAccounts] = useState<UnipileAccount[]>([]);
+  const [accounts, setAccounts] = useState<ConnectedLinkedInAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
 
   // Datos principales del Post
@@ -196,6 +197,7 @@ export default function CreateViralPostView({
   }, []);
   const [publishFeedback, setPublishFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isExpandedPreview, setIsExpandedPreview] = useState(false);
+  const [avatarImgError, setAvatarImgError] = useState(false);
   const [suggestedHashtags, setSuggestedHashtags] = useState<string[]>([
     "#SocialSelling",
     "#B2B",
@@ -240,7 +242,7 @@ export default function CreateViralPostView({
     authorHandle: `@${currentUser.name.toLowerCase().replace(/[^a-z0-9]/g, "")}`,
   }));
 
-  // Cargar cuentas conectadas de LinkedIn
+  // Cargar cuentas conectadas de LinkedIn (y sincronizar foto/título real si falta)
   useEffect(() => {
     const syncAccounts = () => {
       const visible = getVisibleAccountsForUser(currentUser);
@@ -251,10 +253,33 @@ export default function CreateViralPostView({
       } else if (visible.length > 0 && !selectedAccountId) {
         setSelectedAccountId(visible[0].id);
       }
+      return active;
     };
-    syncAccounts();
+    const currentActive = syncAccounts();
+
+    if (
+      !currentActive?.profilePictureUrl ||
+      currentActive.profilePictureUrl.includes("owner.png") ||
+      !currentActive?.headline ||
+      currentActive.headline === "Perfil LinkedIn Conectado"
+    ) {
+      fetch("/api/unipile/accounts")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.accounts && Array.isArray(data.accounts) && data.accounts.length > 0) {
+            data.accounts.forEach((acc: ConnectedLinkedInAccount) => addStoredAccount(acc));
+            syncAccounts();
+          }
+        })
+        .catch(() => {});
+    }
+
     window.addEventListener("storage", syncAccounts);
-    return () => window.removeEventListener("storage", syncAccounts);
+    window.addEventListener("inhubflow-account-update", syncAccounts);
+    return () => {
+      window.removeEventListener("storage", syncAccounts);
+      window.removeEventListener("inhubflow-account-update", syncAccounts);
+    };
   }, [currentUser]);
 
   // Carga inicial según URL, publicación en edición, plantilla de Radar o borrador previo
@@ -628,6 +653,21 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
   };
 
   const activeAccObj = accounts.find((a) => a.id === selectedAccountId);
+  const previewDisplayName = activeAccObj?.name || currentUser.name;
+  const previewHeadline =
+    activeAccObj?.headline && activeAccObj.headline !== "Perfil LinkedIn Conectado"
+      ? activeAccObj.headline
+      : activeAccObj?.headline || "Líder B2B · Fundador & Estratega de Crecimiento";
+  const previewAvatarUrl =
+    activeAccObj?.profilePictureUrl && !activeAccObj.profilePictureUrl.includes("owner.png")
+      ? activeAccObj.profilePictureUrl
+      : currentUser.avatarUrl && !currentUser.avatarUrl.includes("owner.png")
+      ? currentUser.avatarUrl
+      : null;
+
+  useEffect(() => {
+    setAvatarImgError(false);
+  }, [previewAvatarUrl, selectedAccountId]);
   const charCount = content.length;
   const estimatedReadingTimeMin = Math.max(1, Math.ceil(content.split(/\s+/).length / 200));
 
@@ -1349,13 +1389,23 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
               {/* Header de Autor */}
               <div className="p-3.5 flex items-start justify-between border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2.5">
-                  <div className="size-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center font-bold text-sm shrink-0">
-                    {(activeAccObj?.name || currentUser.name).charAt(0)}
-                  </div>
+                  {previewAvatarUrl && !avatarImgError ? (
+                    <img
+                      src={previewAvatarUrl}
+                      alt={previewDisplayName}
+                      className="size-10 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                      referrerPolicy="no-referrer"
+                      onError={() => setAvatarImgError(true)}
+                    />
+                  ) : (
+                    <div className="size-10 rounded-full bg-gradient-to-tr from-[#0099ff] via-indigo-500 to-fuchsia-500 text-white flex items-center justify-center font-extrabold text-sm shadow-xs shrink-0">
+                      {previewDisplayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <div>
-                    <h4 className="text-xs font-bold leading-tight">{activeAccObj?.name || currentUser.name}</h4>
+                    <h4 className="text-xs font-bold leading-tight">{previewDisplayName}</h4>
                     <p className="text-[10px] text-slate-500 leading-tight line-clamp-1">
-                      Líder B2B · Fundador & Estratega de Crecimiento
+                      {previewHeadline}
                     </p>
                     <span className="text-[9px] text-slate-400 flex items-center gap-1 mt-0.5">
                       Ahora · 🌐
