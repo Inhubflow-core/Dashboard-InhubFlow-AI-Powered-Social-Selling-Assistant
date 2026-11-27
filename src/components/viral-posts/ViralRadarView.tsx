@@ -51,7 +51,24 @@ import {
   Globe,
   UserCheck,
   MapPin,
+  ThumbsUp,
+  MessageSquare,
+  Repeat2,
+  Send,
 } from "lucide-react";
+
+function formatLinkedInDate(raw?: string): string {
+  if (!raw) return "";
+  const dt = new Date(raw);
+  if (Number.isNaN(dt.getTime())) return raw;
+  const diffDays = Math.floor((Date.now() - dt.getTime()) / 86400000);
+  if (diffDays === 0) return "Hoy";
+  if (diffDays === 1) return "1 día";
+  if (diffDays > 1 && diffDays < 7) return `${diffDays} días`;
+  const diffWeeks = Math.floor(diffDays / 7);
+  if (diffWeeks >= 1 && diffWeeks < 5) return `${diffWeeks} sem`;
+  return dt.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
 
 export type TargetMarket =
   | "latam_us"
@@ -1625,15 +1642,15 @@ export default function ViralRadarView({
                       <h3 className="text-sm font-bold text-gray-900 dark:text-white hover:underline cursor-pointer">
                         {selectedPostForModal.author}
                       </h3>
-                      <span className="text-[#0a66c2] text-xs font-semibold hover:underline cursor-pointer flex items-center gap-0.5">
-                        + Seguir
+                      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-[2px] bg-[#c37d16] text-white text-[9px] font-extrabold leading-none">
+                        in
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 mt-0.5">
                       {selectedPostForModal.authorHeadline}
                     </p>
                     <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex-wrap">
-                      <span>{selectedPostForModal.publishedDate}</span>
+                      <span>{formatLinkedInDate(selectedPostForModal.publishedDate)}</span>
                       <span>•</span>
                       <svg className="w-3 h-3 text-gray-400 fill-current inline" viewBox="0 0 16 16">
                         <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0ZM4.88 5.75A5.72 5.72 0 0 1 8 4.75c1.17 0 2.25.35 3.12 1L9.75 7.12A3.24 3.24 0 0 0 8 6.75c-.64 0-1.24.19-1.75.52L4.88 5.75Zm6.24 4.5A5.72 5.72 0 0 1 8 11.25a5.72 5.72 0 0 1-3.12-1l1.37-1.37c.51.33 1.11.52 1.75.52.64 0 1.24-.19 1.75-.52l1.37 1.37Z" />
@@ -1670,12 +1687,17 @@ export default function ViralRadarView({
                   </div>
                 </div>
 
-                <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 cursor-pointer">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <circle cx="5" cy="12" r="2" />
-                    <circle cx="12" cy="12" r="2" />
-                    <circle cx="19" cy="12" r="2" />
-                  </svg>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[#0a66c2] text-xs font-bold hover:underline cursor-pointer">
+                    + Seguir
+                  </span>
+                  <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 cursor-pointer">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <circle cx="5" cy="12" r="2" />
+                      <circle cx="12" cy="12" r="2" />
+                      <circle cx="19" cy="12" r="2" />
+                    </svg>
+                  </div>
                 </div>
               </div>
 
@@ -1774,18 +1796,21 @@ export default function ViralRadarView({
                 </div>
               )}
 
-              {/* Barra de Reacciones y Contadores de LinkedIn (Likes, Comentarios, Compartidos) */}
-              <div className="flex items-center justify-between px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-300 dark:border-gray-800">
+              {/* Barra de Reacciones y Contadores de LinkedIn (Likes, Comentarios, Compartidos / Reposts) */}
+              <div className="flex items-center justify-between px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800">
                 <div className="flex items-center gap-1.5">
                   <span className="flex items-center -space-x-1">
-                    <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#0a66c2] text-white shadow-xs">
+                    <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#378fe9] text-white ring-1 ring-white dark:ring-gray-900">
+                      <ThumbsUp className="h-2.5 w-2.5 fill-current" />
+                    </span>
+                    <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#df704d] text-white ring-1 ring-white dark:ring-gray-900">
                       <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24">
-                        <path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                       </svg>
                     </span>
-                    <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#df704d] text-white shadow-xs">
+                    <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#6dae4f] text-white ring-1 ring-white dark:ring-gray-900">
                       <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                       </svg>
                     </span>
                   </span>
@@ -1796,34 +1821,37 @@ export default function ViralRadarView({
                 <div className="flex items-center gap-2 text-xs">
                   <span>{t("commentsCount", { count: selectedPostForModal.comments.toLocaleString() })}</span>
                   <span>•</span>
-                  <span>{t("sharesCount", { count: selectedPostForModal.shares.toLocaleString() })}</span>
+                  <span className={`inline-flex items-center gap-1 ${selectedPostForModal.shares > 0 ? "font-semibold text-emerald-600 dark:text-emerald-400" : ""}`}>
+                    <Repeat2 className="w-3.5 h-3.5" />
+                    {t("sharesCount", { count: selectedPostForModal.shares.toLocaleString() })}
+                  </span>
                 </div>
               </div>
 
               {/* Barra de Acciones del Feed de LinkedIn */}
               <div className="grid grid-cols-4 py-1 px-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
                 <div className="flex items-center justify-center gap-1.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition">
-                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017a2 2 0 01-1.789-1.106l-3.5-7A2 2 0 017.747 10H10V4a2 2 0 012-2h1a2 2 0 012 2v6z" />
-                  </svg>
+                  <ThumbsUp className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                   <span className="hidden sm:inline">{t("reactAction")}</span>
                 </div>
                 <div className="flex items-center justify-center gap-1.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition">
-                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
+                  <MessageSquare className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                   <span className="hidden sm:inline">{t("commentAction")}</span>
                 </div>
-                <div className="flex items-center justify-center gap-1.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition">
-                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  <span className="hidden sm:inline">{t("shareAction")}</span>
+                <div
+                  className={`flex items-center justify-center gap-1.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition ${
+                    selectedPostForModal.shares > 0 ? "text-emerald-600 dark:text-emerald-400" : ""
+                  }`}
+                >
+                  <Repeat2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">
+                    {selectedPostForModal.shares > 0
+                      ? `${t("shareAction")} (${selectedPostForModal.shares})`
+                      : t("shareAction")}
+                  </span>
                 </div>
                 <div className="flex items-center justify-center gap-1.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition">
-                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
+                  <Send className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                   <span className="hidden sm:inline">{t("sendAction")}</span>
                 </div>
               </div>
@@ -1903,53 +1931,28 @@ export default function ViralRadarView({
             )}
 
             {/* Botones de Acción */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-gray-300 pt-4 dark:border-gray-800">
-              <a
-                href={
-                  selectedPostForModal.linkedinUrl ||
-                  (selectedPostForModal.socialId
-                    ? `https://www.linkedin.com/feed/update/${selectedPostForModal.socialId}`
-                    : `https://www.linkedin.com/search/results/content/?keywords=${encodeURIComponent(
-                        selectedPostForModal.hook?.replace(/:$/, "").slice(0, 90) || selectedPostForModal.topic
-                      )}`)
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0a66c2] hover:text-[#004182] dark:text-sky-400 dark:hover:text-sky-300 hover:underline transition self-start sm:self-center"
-              >
-                <svg className="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24">
-                  <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9h2.77v8.37H6.46v-8.37M7.85 6.6a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z" />
-                </svg>
-                <span>
-                  {selectedPostForModal.isLive
-                    ? "Ver publicación original en LinkedIn ↗"
-                    : "Buscar temática en LinkedIn ↗"}
-                </span>
-              </a>
-
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={handleClosePostModal}
-                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 cursor-pointer"
-                >{t("backBtn")}</button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const contentToModel =
-                      translations[selectedPostForModal.id]?.isShowing &&
-                      translations[selectedPostForModal.id]?.translatedText
-                        ? {
-                            ...selectedPostForModal,
-                            fullContent:
-                              translations[selectedPostForModal.id].translatedText,
-                          }
-                        : selectedPostForModal;
-                    handleModelWithAi(contentToModel);
-                  }}
-                  className="rounded-lg bg-brand-500 px-5 py-2 text-xs font-semibold text-white hover:bg-brand-600 transition shadow-xs cursor-pointer"
-                >{t("modelThisPostBtn")}</button>
-              </div>
+            <div className="flex items-center justify-end gap-2 border-t border-gray-300 pt-4 dark:border-gray-800">
+              <button
+                type="button"
+                onClick={handleClosePostModal}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 cursor-pointer"
+              >{t("backBtn")}</button>
+              <button
+                type="button"
+                onClick={() => {
+                  const contentToModel =
+                    translations[selectedPostForModal.id]?.isShowing &&
+                    translations[selectedPostForModal.id]?.translatedText
+                      ? {
+                          ...selectedPostForModal,
+                          fullContent:
+                            translations[selectedPostForModal.id].translatedText,
+                        }
+                      : selectedPostForModal;
+                  handleModelWithAi(contentToModel);
+                }}
+                className="rounded-lg bg-brand-500 px-5 py-2 text-xs font-semibold text-white hover:bg-brand-600 transition shadow-xs cursor-pointer"
+              >{t("modelThisPostBtn")}</button>
             </div>
           </div>
         </div>
