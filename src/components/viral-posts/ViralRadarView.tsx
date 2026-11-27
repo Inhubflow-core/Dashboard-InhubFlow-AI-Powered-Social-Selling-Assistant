@@ -70,6 +70,61 @@ function formatLinkedInDate(raw?: string): string {
   return dt.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
+interface LinkedInActionBarProps {
+  likes: number;
+  comments: number;
+  shares: number;
+  reactLabel: string;
+  commentsLabel: string;
+  shareLabel: string;
+  sendLabel: string;
+  compact?: boolean;
+}
+
+function LinkedInActionMetricsBar({
+  likes,
+  comments,
+  shares,
+  reactLabel,
+  commentsLabel,
+  shareLabel,
+  sendLabel,
+  compact = false,
+}: LinkedInActionBarProps) {
+  return (
+    <div
+      className={`flex flex-wrap items-center justify-between gap-1 border-t border-gray-200 dark:border-gray-800 font-semibold text-gray-600 dark:text-gray-300 ${
+        compact ? "mt-2 pt-2 pb-1 text-[10.5px]" : "py-1.5 px-2 text-xs"
+      }`}
+    >
+      <div className="flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap">
+        <ThumbsUp className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
+        <span>
+          {reactLabel} ({likes.toLocaleString()})
+        </span>
+      </div>
+      <div className="flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap">
+        <MessageSquare className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
+        <span>{commentsLabel}</span>
+      </div>
+      <div
+        className={`flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap ${
+          shares > 0 ? "text-emerald-600 dark:text-emerald-400" : ""
+        }`}
+      >
+        <Repeat2 className="w-5 h-5 shrink-0" />
+        <span>
+          {shareLabel} ({shares.toLocaleString()})
+        </span>
+      </div>
+      <div className="flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap">
+        <Send className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
+        <span>{sendLabel}</span>
+      </div>
+    </div>
+  );
+}
+
 export type TargetMarket =
   | "latam_us"
   | "brazil_us"
@@ -1521,27 +1576,17 @@ export default function ViralRadarView({
                     </div>
                   ) : null}
 
-                  {/* Métricas Públicas de LinkedIn: Likes, Comentarios, Reposts */}
-                  <div className="mb-5 grid grid-cols-3 gap-2 border-y border-gray-300 py-2.5 text-center dark:border-gray-800">
-                    <div>
-                      <span className="block text-xs leading-5 font-normal tracking-normal text-gray-400 uppercase">{t("likes")}</span>
-                      <span className="text-xs font-bold text-gray-800 dark:text-white">
-                        {post.likes.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="rounded-lg bg-brand-50/50 py-0.5 dark:bg-brand-950/20">
-                      <span className="block text-xs leading-5 font-normal tracking-normal text-gray-400 uppercase">{t("comments")}</span>
-                      <span className="text-xs font-bold text-brand-600 dark:text-brand-400">
-                        {post.comments.toLocaleString()}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-xs leading-5 font-normal tracking-normal text-gray-400 uppercase">{t("reposts")}</span>
-                      <span className="text-xs font-bold text-gray-800 dark:text-white">
-                        {post.shares.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
+                  {/* Barra unificada de Acciones y Métricas estilo LinkedIn */}
+                  <LinkedInActionMetricsBar
+                    likes={post.likes}
+                    comments={post.comments}
+                    shares={post.shares}
+                    reactLabel={t("reactAction")}
+                    commentsLabel={t("commentsCount", { count: post.comments.toLocaleString() })}
+                    shareLabel={t("shareAction")}
+                    sendLabel={t("sendAction")}
+                    compact
+                  />
                 </div>
 
                 <div className="flex items-center gap-2 pt-2 border-t border-gray-300 dark:border-gray-800">
@@ -1803,37 +1848,15 @@ export default function ViralRadarView({
               )}
 
               {/* Barra única de Acciones y Métricas del Feed de LinkedIn */}
-              <div className="grid grid-cols-4 border-t border-gray-200 dark:border-gray-800 py-1.5 px-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
-                <div className="flex items-center justify-center gap-1.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition">
-                  <ThumbsUp className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
-                  <span className="hidden sm:inline">
-                    {t("reactAction")} ({selectedPostForModal.likes.toLocaleString()})
-                  </span>
-                  <span className="sm:hidden">{selectedPostForModal.likes.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-center gap-1.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition">
-                  <MessageSquare className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
-                  <span className="hidden sm:inline">
-                    {t("commentsCount", { count: selectedPostForModal.comments.toLocaleString() })}
-                  </span>
-                  <span className="sm:hidden">{selectedPostForModal.comments.toLocaleString()}</span>
-                </div>
-                <div
-                  className={`flex items-center justify-center gap-1.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition ${
-                    selectedPostForModal.shares > 0 ? "text-emerald-600 dark:text-emerald-400" : ""
-                  }`}
-                >
-                  <Repeat2 className="w-5 h-5 shrink-0" />
-                  <span className="hidden sm:inline">
-                    {t("shareAction")} ({selectedPostForModal.shares.toLocaleString()})
-                  </span>
-                  <span className="sm:hidden">{selectedPostForModal.shares.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-center gap-1.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition">
-                  <Send className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
-                  <span className="hidden sm:inline">{t("sendAction")}</span>
-                </div>
-              </div>
+              <LinkedInActionMetricsBar
+                likes={selectedPostForModal.likes}
+                comments={selectedPostForModal.comments}
+                shares={selectedPostForModal.shares}
+                reactLabel={t("reactAction")}
+                commentsLabel={t("commentsCount", { count: selectedPostForModal.comments.toLocaleString() })}
+                shareLabel={t("shareAction")}
+                sendLabel={t("sendAction")}
+              />
             </div>
 
             {/* Enlace a publicación original en LinkedIn y PDF si existe */}
