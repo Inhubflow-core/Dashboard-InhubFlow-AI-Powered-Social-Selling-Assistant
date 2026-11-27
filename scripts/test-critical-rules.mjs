@@ -2333,12 +2333,10 @@ assert(viralTypesCode.includes('highlightColor?: string'), "CarouselSlide incluy
 const createPostViewCode = fs.readFileSync('c:/Users/Roberto/Documents/CLIENTES/INHUBFLOW/InHubFlow - Social Selling/Dashboard InHubFlow Social Selling Suite/src/components/viral-posts/CreateViralPostView.tsx', 'utf8');
 assert(createPostViewCode.includes('SAMPLE_B2B_BACKGROUNDS'), "Catálogo de fondos ejecutivos B2B presente");
 assert(createPostViewCode.includes('parseHighlightedTitle'), "Función de resaltado de palabras clave con asteriscos implementada");
-assert(createPostViewCode.includes('coverLayout = "bottom"'), "Selector de composición Inferior / Pie presente");
-assert(createPostViewCode.includes('coverLayout = "split_left"'), "Selector de composición Split Izquierdo presente");
-assert(createPostViewCode.includes('coverLayout = "split_right"'), "Selector de composición Split Derecho presente");
-assert(createPostViewCode.includes('linear-gradient(to right'), "Degradé dinámico para split_left configurado");
-assert(createPostViewCode.includes('linear-gradient(to left'), "Degradé dinámico para split_right configurado");
-assert(createPostViewCode.includes('linear-gradient(to top'), "Degradé dinámico para bottom configurado");
+assert(createPostViewCode.includes('Sin portada adjunta aún'), "Estado vacío para portada en editor presente");
+assert(createPostViewCode.includes('Sin carrusel adjunto aún'), "Estado vacío para carrusel en editor presente");
+assert(createPostViewCode.includes('+ Diseñar carrusel en Editor Visual'), "Botón directo para diseñar carrusel en Editor Visual presente");
+assert(!createPostViewCode.includes('Presets de Composición de Portada (1 Clic)'), "Presets de composición removidos de la vista de carrusel");
 
 const carouselExporterCode = fs.readFileSync('c:/Users/Roberto/Documents/CLIENTES/INHUBFLOW/InHubFlow - Social Selling/Dashboard InHubFlow Social Selling Suite/src/lib/viral-posts/carousel-exporter.ts', 'utf8');
 assert(carouselExporterCode.includes('replace(/\\*\\*/g, "")'), "Limpieza de sintaxis de resalto en PDF");

@@ -30,10 +30,6 @@ import {
   Image as ImageIcon,
   Bot,
   Upload,
-  Layout,
-  AlignCenter,
-  AlignLeft,
-  AlignRight,
   Palette,
   Check,
   Flame,
@@ -1230,66 +1226,6 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
                       </label>
                     </div>
                   )}
-
-                  {/* Presets de Composición de Portada (1 Clic) para Carruseles B2B */}
-                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                        <Layout className="size-3 text-[#0099ff]" />
-                        Presets de Composición de Portada (1 Clic)
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = [...slides];
-                          updated[0].coverLayout = "bottom";
-                          setSlides(updated);
-                        }}
-                        className={`p-1.5 rounded-lg border text-[11px] font-semibold text-center transition flex items-center justify-center gap-1 ${
-                          (slides[0]?.coverLayout || "bottom") === "bottom"
-                            ? "border-[#0099ff] bg-blue-50 dark:bg-blue-950 text-[#0099ff]"
-                            : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
-                        }`}
-                      >
-                        <AlignCenter className="size-3" />
-                        <span>Inferior / Pie</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = [...slides];
-                          updated[0].coverLayout = "split_left";
-                          setSlides(updated);
-                        }}
-                        className={`p-1.5 rounded-lg border text-[11px] font-semibold text-center transition flex items-center justify-center gap-1 ${
-                          slides[0]?.coverLayout === "split_left"
-                            ? "border-[#0099ff] bg-blue-50 dark:bg-blue-950 text-[#0099ff]"
-                            : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
-                        }`}
-                      >
-                        <AlignLeft className="size-3" />
-                        <span>Split Izquierdo</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = [...slides];
-                          updated[0].coverLayout = "split_right";
-                          setSlides(updated);
-                        }}
-                        className={`p-1.5 rounded-lg border text-[11px] font-semibold text-center transition flex items-center justify-center gap-1 ${
-                          slides[0]?.coverLayout === "split_right"
-                            ? "border-[#0099ff] bg-blue-50 dark:bg-blue-950 text-[#0099ff]"
-                            : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
-                        }`}
-                      >
-                        <AlignRight className="size-3" />
-                        <span>Split Derecho</span>
-                      </button>
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -1498,45 +1434,16 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
                       </div>
                     </div>
                   ) : (
-                    <div
-                      className="relative aspect-4/5 w-full flex flex-col justify-between p-5 text-white"
-                      style={{
-                        backgroundImage: `url(${slides[0]?.backgroundImageUrl || SAMPLE_B2B_BACKGROUNDS[0].url})`,
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                      }}
-                    >
-                      {/* Capa de degradé dinámico según coverLayout */}
-                      <div
-                        className="absolute inset-0 pointer-events-none"
-                        style={{
-                          background:
-                            slides[0]?.coverLayout === "split_left"
-                              ? "linear-gradient(to right, rgba(10, 18, 42, 0.96) 0%, rgba(10, 18, 42, 0.88) 45%, rgba(10, 18, 42, 0.25) 75%, transparent 100%)"
-                              : slides[0]?.coverLayout === "split_right"
-                              ? "linear-gradient(to left, rgba(10, 18, 42, 0.96) 0%, rgba(10, 18, 42, 0.88) 45%, rgba(10, 18, 42, 0.25) 75%, transparent 100%)"
-                              : "linear-gradient(to top, rgba(10, 18, 42, 0.97) 0%, rgba(10, 18, 42, 0.82) 48%, rgba(10, 18, 42, 0.15) 78%, transparent 100%)",
-                        }}
-                      />
-                      <div className="relative z-10 flex items-center justify-between">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-xs">
-                          PORTADA B2B
-                        </span>
-                        <button
-                          type="button"
-                          onClick={handleOpenVisualStudio}
-                          className="text-xs font-bold text-white bg-[#0099ff] hover:bg-[#0082db] px-2.5 py-1 rounded-md transition shadow-xs flex items-center gap-1"
-                        >
-                          <Layers className="size-3" />
-                          <span>Abrir en Editor Visual</span>
-                        </button>
-                      </div>
-                      <div className="relative z-10 space-y-1">
-                        <h4 className="text-sm font-extrabold leading-snug">
-                          {parseHighlightedTitle(slides[0]?.title || topic, slides[0]?.highlightColor || "#f97316")}
-                        </h4>
-                        <p className="text-[11px] text-white/80">{slides[0]?.subtitle}</p>
-                      </div>
+                    <div className="py-12 px-4 text-center">
+                      <Layers className="size-8 text-slate-400 mx-auto mb-2 opacity-60" />
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">Sin carrusel adjunto aún</p>
+                      <button
+                        type="button"
+                        onClick={handleOpenVisualStudio}
+                        className="mt-2 text-xs font-bold text-[#0099ff] hover:underline"
+                      >
+                        + Diseñar carrusel en Editor Visual
+                      </button>
                     </div>
                   )}
                 </div>
