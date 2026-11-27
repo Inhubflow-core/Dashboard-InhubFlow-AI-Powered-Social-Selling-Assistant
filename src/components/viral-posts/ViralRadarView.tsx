@@ -75,7 +75,7 @@ interface LinkedInActionBarProps {
   comments: number;
   shares: number;
   reactLabel: string;
-  commentsLabel: string;
+  commentLabel: string;
   shareLabel: string;
   sendLabel: string;
   compact?: boolean;
@@ -86,7 +86,7 @@ function LinkedInActionMetricsBar({
   comments,
   shares,
   reactLabel,
-  commentsLabel,
+  commentLabel,
   shareLabel,
   sendLabel,
   compact = false,
@@ -105,7 +105,9 @@ function LinkedInActionMetricsBar({
       </div>
       <div className="flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap">
         <MessageSquare className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
-        <span>{commentsLabel}</span>
+        <span>
+          {commentLabel} ({comments.toLocaleString()})
+        </span>
       </div>
       <div
         className={`flex items-center justify-center gap-1 py-1.5 px-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition whitespace-nowrap ${
@@ -1582,7 +1584,7 @@ export default function ViralRadarView({
                     comments={post.comments}
                     shares={post.shares}
                     reactLabel={t("reactAction")}
-                    commentsLabel={t("commentsCount", { count: post.comments.toLocaleString() })}
+                    commentLabel={t("comments")}
                     shareLabel={t("shareAction")}
                     sendLabel={t("sendAction")}
                     compact
@@ -1853,7 +1855,7 @@ export default function ViralRadarView({
                 comments={selectedPostForModal.comments}
                 shares={selectedPostForModal.shares}
                 reactLabel={t("reactAction")}
-                commentsLabel={t("commentsCount", { count: selectedPostForModal.comments.toLocaleString() })}
+                commentLabel={t("comments")}
                 shareLabel={t("shareAction")}
                 sendLabel={t("sendAction")}
               />
