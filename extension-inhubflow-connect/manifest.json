@@ -17,11 +17,11 @@
     "https://*.linkedin.com/*",
     "https://linkedin.com/*",
     "http://localhost/*",
-    "http://localhost:*/*",
     "http://127.0.0.1/*",
-    "http://127.0.0.1:*/*",
     "https://*.inhubflow.com/*",
-    "https://inhubflow.com/*"
+    "https://inhubflow.com/*",
+    "https://*.inhubflow.online/*",
+    "https://inhubflow.online/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -29,11 +29,12 @@
   "content_scripts": [
     {
       "matches": [
-        "http://localhost:3001/*",
-        "http://localhost:3000/*",
-        "http://localhost:*/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*",
         "https://*.inhubflow.com/*",
-        "https://inhubflow.com/*"
+        "https://inhubflow.com/*",
+        "https://*.inhubflow.online/*",
+        "https://inhubflow.online/*"
       ],
       "js": ["content-script.js"],
       "run_at": "document_start"

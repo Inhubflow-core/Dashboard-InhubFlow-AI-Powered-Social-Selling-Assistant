@@ -16,14 +16,14 @@ Esta extensión permite a los usuarios de **InHubFlow Social Selling Suite** vin
    ```
    c:\Users\Roberto\Documents\CLIENTES\INHUBFLOW\InHubFlow - Social Selling\extension-inhubflow-connect
    ```
-5. ¡Listo! Verás el icono de **InHubFlow Connect** fijado en tu barra de extensiones con la versión `v1.1.0`.
+5. ¡Listo! Verás **InHubFlow Connect** (`v1.2.2`) instalado. Haz clic en el icono del **rompecabezas (🧩)** en la esquina superior derecha de Chrome, presiona el **pin (📌)** junto a *InHubFlow Connect* para fijarlo en la barra y haz **1 solo clic** sobre el icono fijado para abrir el panel (no hagas doble clic ni hagas clic en el logo dentro de `chrome://extensions/`).
 
 ---
 
 ## ⚡ ¿Cómo funciona la conexión en 1-Clic?
 
 1. Asegúrate de tener tu sesión abierta en [LinkedIn](https://www.linkedin.com) en este navegador.
-2. Abre tu Dashboard de **InHubFlow** (`http://localhost:3001/linkedin-accounts` o tu dominio de producción).
+2. Abre tu Dashboard de **InHubFlow** (`http://localhost:3002/linkedin-accounts` o tu dominio de producción).
 3. Haz clic en el icono de la extensión **InHubFlow Connect** en la barra superior.
 4. Verás el indicador verde: `🟢 Sesión Activa Detectada`.
 5. Presiona el botón principal:

@@ -100,6 +100,8 @@
           const cAt = await safeGetCookie(origin, "li_at");
           if (cAt && cAt.value) {
             result.liAt = cAt.value;
+            const cA = await safeGetCookie(origin, "li_a");
+            if (cA && cA.value) result.liA = cA.value;
             result.source = `activeTab:${origin}`;
             return result;
           }
@@ -129,6 +131,10 @@
           try {
             chrome.runtime.sendMessage({ type: "GET_LINKEDIN_COOKIES" }, (res) => {
               clearTimeout(timer);
+              if (chrome.runtime.lastError) {
+                resolve(null);
+                return;
+              }
               resolve(res || null);
             });
           } catch {
@@ -165,17 +171,28 @@
     try {
       const tabs = await chrome.tabs.query({
         url: [
-          "http://localhost:3001/*",
-          "http://localhost:3000/*",
-          "http://localhost:*/*",
+          "http://localhost/*",
+          "http://127.0.0.1/*",
           "https://*.inhubflow.com/*",
           "https://inhubflow.com/*",
+          "https://*.inhubflow.online/*",
+          "https://inhubflow.online/*",
         ],
       });
       return tabs || [];
     } catch {
       return [];
     }
+  }
+
+  function focusInHubFlowTab(targetTab) {
+    if (!targetTab || typeof chrome === "undefined" || !chrome.tabs) return;
+    try {
+      chrome.tabs.update(targetTab.id, { active: true });
+      if (targetTab.windowId && chrome.windows) {
+        chrome.windows.update(targetTab.windowId, { focused: true });
+      }
+    } catch {}
   }
 
   async function handleAutoConnect() {
@@ -216,7 +233,34 @@
       if (tabs.length > 0) {
         const targetTab = tabs[0];
 
-        // 2. Inyectar script directo para garantizar paso de token por sessionStorage, CustomEvent y postMessage
+        // 2. Enviar mensaje por chrome.tabs.sendMessage y esperar respuesta del Dashboard si está en /linkedin-accounts
+        const tabResponsePromise = new Promise((resolve) => {
+          const timer = setTimeout(() => resolve(null), 5000);
+          try {
+            chrome.tabs.sendMessage(
+              targetTab.id,
+              {
+                type: "INHUBFLOW_AUTOCONNECT",
+                accessToken: cachedLiAt,
+                premiumToken: cachedLiA || null,
+                userAgent: navigator.userAgent,
+              },
+              (res) => {
+                clearTimeout(timer);
+                if (chrome.runtime.lastError) {
+                  resolve(null);
+                  return;
+                }
+                resolve(res || null);
+              }
+            );
+          } catch {
+            clearTimeout(timer);
+            resolve(null);
+          }
+        });
+
+        // 3. Inyectar script directo para garantizar paso de token por sessionStorage, CustomEvent y postMessage
         if (typeof chrome !== "undefined" && chrome.scripting && chrome.scripting.executeScript) {
           try {
             await chrome.scripting.executeScript({
@@ -240,30 +284,36 @@
           }
         }
 
-        // 3. También notificar por chrome.tabs.sendMessage
-        try {
-          chrome.tabs.sendMessage(targetTab.id, {
-            type: "INHUBFLOW_AUTOCONNECT",
-            accessToken: cachedLiAt,
-            premiumToken: cachedLiA || null,
-            userAgent: navigator.userAgent,
-          });
-        } catch {}
-
-        // 4. Conmutar a la pestaña de InHubFlow
-        try {
-          await chrome.tabs.update(targetTab.id, { active: true });
-          if (targetTab.windowId) {
-            await chrome.windows.update(targetTab.windowId, { focused: true });
+        const tabRes = await tabResponsePromise;
+        if (tabRes && (tabRes.success || tabRes.checkpoint || tabRes.error)) {
+          btn.classList.remove("connecting");
+          if (btnSpinner) btnSpinner.classList.add("hidden");
+          if (tabRes.success) {
+            btn.classList.add("connected-success");
+            if (btnText) btnText.textContent = "✓ ¡Conectado con Éxito!";
+            showFeedback("¡Tu cuenta de LinkedIn quedó conectada a InHubFlow!", "success");
+            focusInHubFlowTab(targetTab);
+          } else if (tabRes.checkpoint) {
+            if (btnText) btnText.textContent = "Verificación 2FA Requerida";
+            showFeedback("LinkedIn solicita código de seguridad. Abre InHubFlow para ingresarlo.", "info");
+            btn.disabled = false;
+            focusInHubFlowTab(targetTab);
+          } else {
+            if (btnBolt) btnBolt.classList.remove("hidden");
+            if (btnText) btnText.textContent = "⚡ Reintentar Conexión";
+            showFeedback(tabRes.error || "No se pudo conectar con InHubFlow.", "error");
+            btn.disabled = false;
           }
-        } catch {}
+          return;
+        }
 
-        // 5. En paralelo, ejecutar fallback API para asegurar persistencia
-        executeDirectApiFallback(targetTab.url || "http://localhost:3001");
+        // 4. Fallback API directo antes de cambiar el foco (para no cerrar el popup antes del fetch)
+        await executeDirectApiFallback(targetTab.url || "http://localhost:3002");
+        focusInHubFlowTab(targetTab);
       } else {
-        await executeDirectApiFallback("http://localhost:3001");
+        await executeDirectApiFallback("http://localhost:3002");
         if (typeof chrome !== "undefined" && chrome.tabs) {
-          chrome.tabs.create({ url: "http://localhost:3001/linkedin-accounts" });
+          chrome.tabs.create({ url: "http://localhost:3002/linkedin-accounts" });
         }
       }
     } catch (err) {
@@ -282,11 +332,11 @@
     const btnBolt = document.getElementById("btn-bolt");
     const btnText = document.getElementById("btn-autoconnect-text");
 
-    let origin = "http://localhost:3001";
+    let origin = "http://localhost:3002";
     try {
       origin = new URL(baseUrl).origin;
     } catch {
-      origin = "http://localhost:3001";
+      origin = "http://localhost:3002";
     }
 
     try {
@@ -358,11 +408,17 @@
     lastDiagnosticInfo = queryRes;
 
     if (diagBox) {
+      const escapeHtml = (s) =>
+        String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
       diagBox.innerHTML = `
-        <div style="font-size: 10px; line-height: 1.4; color: #475467; background: #F2F4F7; padding: 6px; rounded: 4px; border: 1px solid #D0D5DD; max-height: 100px; overflow-y: auto; text-align: left;">
-          <strong>Origen:</strong> ${queryRes.source || "Ninguno"}<br/>
+        <div style="font-size: 10px; line-height: 1.4; color: #475467; background: #F2F4F7; padding: 6px; border-radius: 4px; border: 1px solid #D0D5DD; max-height: 100px; overflow-y: auto; text-align: left;">
+          <strong>Origen:</strong> ${escapeHtml(queryRes.source || "Ninguno")}<br/>
           <strong>li_at:</strong> ${liAt ? `Encontrado (${liAt.length} caracteres)` : "No detectado"}<br/>
-          ${(queryRes.diagnostics || []).map(d => `• ${d}`).join("<br/>")}
+          ${(queryRes.diagnostics || []).map(d => `• ${escapeHtml(d)}`).join("<br/>")}
         </div>
       `;
     }
