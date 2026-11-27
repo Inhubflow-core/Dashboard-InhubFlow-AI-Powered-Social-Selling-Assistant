@@ -313,35 +313,46 @@ export default function CreateViralPostView({
 
     const selected = getSelectedTemplateForModeling();
     if (!hasExplicitTabOverride && selected) {
+      let shouldAutoModel = false;
+      try {
+        shouldAutoModel = sessionStorage.getItem("inhubflow_auto_model_on_enter") === "true";
+        if (shouldAutoModel) sessionStorage.removeItem("inhubflow_auto_model_on_enter");
+      } catch {}
+
+      const targetTopic = selected.topic || "Social Selling B2B";
+      const targetHook = selected.hook || "";
+      const targetOriginal = selected.fullContent || selected.hook || "";
+
       setSourceMode("viral");
-      setFormat(selected.format || "text");
-      setTopic(selected.topic || "Social Selling B2B");
-      setReferenceHook(selected.hook || "");
-      setReferenceContent(selected.fullContent || "");
+      // Por defecto siempre comenzar en "1. Sin Imagen" ("text"), sin importar el formato de la tarjeta elegida
+      setFormat("text");
+      setPreviewImage(null);
+      setCarouselPdfUrl(null);
+      setCarouselThumbnail(null);
+      setCarouselPageCount(0);
+      setTopic(targetTopic);
+      setReferenceHook(targetHook);
+      setReferenceContent(targetOriginal);
       setReferenceAuthor(selected.author || "");
 
-      if (selected.format === "text") {
+      if (shouldAutoModel) {
+        setContent(targetOriginal);
+        void handleGenerateAi(undefined, {
+          hook: targetHook,
+          originalContent: targetOriginal,
+          topic: targetTopic,
+          format: "text",
+        });
+      } else {
         setContent(`Construir autoridad en LinkedIn requiere consistencia y un gancho probado:
 
-${selected.hook}
+${targetHook}
 
 1. Entiende el dolor del decisor antes de proponer tu oferta.
 2. Comparte frameworks accionables en cada publicación.
 3. Genera conversación genuina con preguntas directas.
 
 ¿Cuál es tu mayor desafío de prospección este mes? Comenta "${leadMagnetKeyword}" para enviarte nuestro playbook.`);
-      } else if (selected.format === "image") {
-        setContent(`La claridad en tu propuesta comercial es la mejor inversión que puedes hacer:
-
-${selected.hook}
-
-Revisa los puntos clave en la imagen adjunta y aplícalos en tu estrategia hoy.`);
-      } else if (selected.format === "carousel") {
-        setContent(`Desliza el carrusel completo para ver la guía detallada paso a paso:
-
-${selected.hook}
-
-Comenta "${leadMagnetKeyword}" para enviarte la plantilla oficial en PDF directamente por mensaje privado.`);
       }
     } else if (!content) {
       setContent(`La mayoría de líderes B2B cometen el mismo error al prospectar en LinkedIn:
@@ -389,22 +400,37 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
   };
 
   // Re-generar / Modelar con IA + RAG de la Empresa
-  const handleGenerateAi = async (overrideText?: string) => {
+  const handleGenerateAi = async (
+    overrideText?: string,
+    overrides?: {
+      hook?: string;
+      originalContent?: string;
+      topic?: string;
+      format?: PostFormat;
+    }
+  ) => {
     setIsGeneratingAi(true);
     setPublishFeedback(null);
 
     try {
       const approvedKnowledge = getStoredKnowledgeSources().filter((k) => k.status === "approved");
-      const targetOriginal = overrideText || (sourceMode === "external" ? externalText : referenceContent) || content;
+      const activeHook = overrides?.hook ?? referenceHook;
+      const activeTopic = overrides?.topic ?? topic;
+      const activeFormat = overrides?.format ?? format;
+      const targetOriginal =
+        overrideText ||
+        overrides?.originalContent ||
+        (sourceMode === "external" ? externalText : referenceContent) ||
+        content;
 
       const res = await fetch("/api/ai/model-post", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          hook: referenceHook,
+          hook: activeHook,
           originalContent: targetOriginal,
-          topic,
-          format,
+          topic: activeTopic,
+          format: activeFormat,
           leadMagnetKeyword,
           includeLeadMagnet: autoDmEnabled,
           tone,
@@ -417,7 +443,7 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
 
       const generated = data.result;
       if (generated.content) setContent(generated.content);
-      if (format === "image" && generated.imagePrompt) setImagePrompt(generated.imagePrompt);
+      if (activeFormat === "image" && generated.imagePrompt) setImagePrompt(generated.imagePrompt);
       if (Array.isArray(generated.slides) && generated.slides.length > 0) {
         setSlides(generated.slides);
       }
@@ -425,7 +451,7 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
         setSuggestedHashtags(generated.suggestedHashtags);
       }
 
-      const cleanTopic = (topic || "tu sector B2B").trim();
+      const cleanTopic = (activeTopic || "tu sector B2B").trim();
       const baseHook = (
         generated.hook ||
         (typeof generated.content === "string" ? generated.content.split("\n")[0] : "") ||
@@ -938,13 +964,21 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
                   </span>
                 </div>
 
+                {isGeneratingAi && (
+                  <div className="mb-2 flex items-center gap-2 rounded-lg border border-[#0099ff]/30 bg-blue-50/70 dark:bg-blue-950/30 px-3 py-2 text-xs font-semibold text-[#0099ff]">
+                    <RefreshCw className="size-3.5 animate-spin shrink-0" />
+                    <span>Modelando tu publicación con IA y adaptándola a tu propuesta de valor...</span>
+                  </div>
+                )}
+
                 <textarea
                   id="post-content-textarea"
                   rows={9}
                   value={content}
+                  disabled={isGeneratingAi}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Escribe o afina el texto de tu publicación..."
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3.5 text-xs text-slate-900 dark:text-white leading-relaxed focus:outline-hidden focus:border-[#0099ff] font-sans"
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3.5 text-xs text-slate-900 dark:text-white leading-relaxed focus:outline-hidden focus:border-[#0099ff] font-sans disabled:opacity-60"
                 />
 
                 {/* Indicador de corte "...ver más", Variantes de Gancho IA y Hashtags Sugeridos */}

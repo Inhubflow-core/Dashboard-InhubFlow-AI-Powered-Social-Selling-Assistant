@@ -519,6 +519,9 @@ export default function ViralRadarView({
   const handleModelWithAi = (post: ViralPostTemplate) => {
     setPostToEditInStudio(null);
     setSelectedTemplateForModeling(post);
+    try {
+      sessionStorage.setItem("inhubflow_auto_model_on_enter", "true");
+    } catch {}
     if (onTabChange) {
       onTabChange("create");
     } else {
