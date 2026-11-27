@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unipile } from '@/lib/unipile/client';
+import { invalidateAccountsCache } from '@/lib/unipile/accounts-cache';
 
 export async function GET(
   req: NextRequest,
@@ -32,11 +33,13 @@ export async function DELETE(
   try {
     const rawId = (await params).id;
     const id = rawId.startsWith('acc-li-') ? rawId.replace('acc-li-', '') : rawId;
+    invalidateAccountsCache();
     if (!unipile.isConfigured()) {
       return NextResponse.json({ success: true, mock: true });
     }
 
     const res = await unipile.deleteAccount(id);
+    invalidateAccountsCache();
     return NextResponse.json(res);
   } catch (error: unknown) {
     return NextResponse.json(

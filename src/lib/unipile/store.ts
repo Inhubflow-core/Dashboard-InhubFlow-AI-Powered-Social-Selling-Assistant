@@ -4,6 +4,43 @@ import { getStoredTeamMembers } from "../saas/store";
 
 const STORAGE_KEY = "inhubflow_linkedin_accounts";
 const ACTIVE_ACCOUNT_KEY = "inhubflow_active_linkedin_account_id";
+const DELETED_ACCOUNTS_KEY = "inhubflow_deleted_linkedin_accounts";
+
+function getDeletedAccountIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(DELETED_ACCOUNTS_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed.map(String)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDeletedAccountIds(ids: Set<string>): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(DELETED_ACCOUNTS_KEY, JSON.stringify(Array.from(ids)));
+  } catch {}
+}
+
+export function isAccountDeleted(id?: string, unipileAccountId?: string): boolean {
+  const deleted = getDeletedAccountIds();
+  if (id && deleted.has(id)) return true;
+  if (unipileAccountId && deleted.has(unipileAccountId)) return true;
+  if (id && deleted.has(id.replace(/^acc-li-/, ""))) return true;
+  return false;
+}
+
+export function clearDeletedAccountFlag(id?: string, unipileAccountId?: string): void {
+  const deleted = getDeletedAccountIds();
+  let changed = false;
+  for (const key of [id, unipileAccountId, id?.replace(/^acc-li-/, ""), unipileAccountId ? `acc-li-${unipileAccountId}` : undefined]) {
+    if (key && deleted.delete(key)) changed = true;
+  }
+  if (changed) saveDeletedAccountIds(deleted);
+}
 
 // Demo records are fixtures, not connected LinkedIn accounts. Keep them opt-in so
 // an empty sandbox cannot look like a live Unipile connection.
@@ -72,9 +109,13 @@ export function getStoredAccounts(): ConnectedLinkedInAccount[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(initialLinkedInAccounts));
-      return initialLinkedInAccounts;
+    const deletedIds = getDeletedAccountIds();
+    if (raw === null) {
+      const seed = initialLinkedInAccounts.filter(
+        (a) => !deletedIds.has(a.id) && !deletedIds.has(a.unipileAccountId)
+      );
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
+      return seed;
     }
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -106,6 +147,9 @@ export function getStoredAccounts(): ConnectedLinkedInAccount[] {
     const cleanAccounts = parsed
       .filter((a: ConnectedLinkedInAccount) => {
         if (!a || !a.id) return false;
+        if (deletedIds.has(a.id) || (a.unipileAccountId && deletedIds.has(a.unipileAccountId))) {
+          return false;
+        }
         const lowerId = a.id.toLowerCase();
         const lowerName = (a.name || "").toLowerCase();
         const lowerEmail = (a.email || "").toLowerCase();
@@ -122,8 +166,10 @@ export function getStoredAccounts(): ConnectedLinkedInAccount[] {
       });
 
     if (cleanAccounts.length === 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(initialLinkedInAccounts));
-      return initialLinkedInAccounts;
+      if (parsed.length > 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+      }
+      return [];
     }
 
     // Deduplicación inteligente por identidad (email o nombre normalizado)
@@ -177,11 +223,6 @@ export function getStoredAccounts(): ConnectedLinkedInAccount[] {
           assignedUserName: base.assignedUserName || fallback.assignedUserName,
         };
       }
-    }
-
-    const jimmyInit = initialLinkedInAccounts.find((a) => a.id === "acc-li-acc_01m87cbk01fvqa4n010bz6kak5");
-    if (jimmyInit && !deduplicated.some((d) => d.id === jimmyInit.id || d.unipileAccountId === jimmyInit.unipileAccountId)) {
-      deduplicated.push(jimmyInit);
     }
 
     if (deduplicated.length !== parsed.length) {
@@ -395,6 +436,7 @@ export function setActiveAccountId(id: string): void {
 }
 
 export function addStoredAccount(newAccount: ConnectedLinkedInAccount): ConnectedLinkedInAccount[] {
+  clearDeletedAccountFlag(newAccount.id, newAccount.unipileAccountId);
   const accounts = getStoredAccounts();
   const norm = (s?: string) => (s || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
   const newEmail = newAccount.email?.trim().toLowerCase();
@@ -491,10 +533,31 @@ export function updateStoredAccount(id: string, updates: Partial<ConnectedLinked
 
 export function removeStoredAccount(id: string): ConnectedLinkedInAccount[] {
   const accounts = getStoredAccounts();
+  const target = accounts.find((a) => a.id === id || a.unipileAccountId === id);
+  const deletedIds = getDeletedAccountIds();
+  deletedIds.add(id);
+  deletedIds.add(id.replace(/^acc-li-/, ""));
+  if (target) {
+    deletedIds.add(target.id);
+    if (target.unipileAccountId) {
+      deletedIds.add(target.unipileAccountId);
+      deletedIds.add(`acc-li-${target.unipileAccountId}`);
+    }
+  }
+  saveDeletedAccountIds(deletedIds);
+
   const filtered = accounts.filter((a) => a.id !== id && a.unipileAccountId !== id);
   saveStoredAccounts(filtered);
   const currentActive = getActiveAccountId();
-  if (currentActive === id && filtered.length > 0) setActiveAccountId(filtered[0].id);
+  if (currentActive === id || currentActive === target?.id) {
+    if (filtered.length > 0) {
+      setActiveAccountId(filtered[0].id);
+    } else if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
+      } catch {}
+    }
+  }
   return filtered;
 }
 

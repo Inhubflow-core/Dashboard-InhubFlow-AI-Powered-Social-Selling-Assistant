@@ -20,6 +20,7 @@ import {
   removeStoredAccount,
   updateStoredAccountStatus,
   accountMatchesUser,
+  isAccountDeleted,
 } from "@/lib/unipile/store";
 import { updateSubscriber } from "@/lib/saas/store";
 import type { ConnectedLinkedInAccount } from "@/lib/unipile/types";
@@ -78,7 +79,9 @@ export default function LinkedInAccountsPage() {
       .then((data) => {
         if (data?.ok && Array.isArray(data.accounts) && data.accounts.length > 0) {
           data.accounts.forEach((savedAcc: ConnectedLinkedInAccount) => {
-            addStoredAccount(savedAcc);
+            if (!isAccountDeleted(savedAcc.id, savedAcc.unipileAccountId)) {
+              addStoredAccount(savedAcc);
+            }
           });
           const refreshed = getVisibleAccountsForUser(currentUser);
           setAccounts(refreshed);
@@ -119,7 +122,9 @@ export default function LinkedInAccountsPage() {
 
         if (data.accounts && Array.isArray(data.accounts) && data.accounts.length > 0) {
           data.accounts.forEach((remoteAcc: ConnectedLinkedInAccount) => {
-            addStoredAccount(remoteAcc);
+            if (!isAccountDeleted(remoteAcc.id, remoteAcc.unipileAccountId)) {
+              addStoredAccount(remoteAcc);
+            }
           });
           const refreshed = getVisibleAccountsForUser(currentUser);
           setAccounts(refreshed);
@@ -228,17 +233,21 @@ export default function LinkedInAccountsPage() {
     if (!confirm(t("confirmDisconnect"))) return;
     const acc = accounts.find((a) => a.id === id);
     const targetRemoteId = acc?.unipileAccountId || id;
+    removeStoredAccount(id);
+    const visibleAfterRemove = getVisibleAccountsForUser(currentUser);
+    setAccounts(visibleAfterRemove);
+    setActiveId(visibleAfterRemove[0]?.id || "");
     try {
-      await fetch(`/api/unipile/accounts/${encodeURIComponent(targetRemoteId)}`, { method: "DELETE" });
+      await Promise.allSettled([
+        fetch(`/api/unipile/accounts/${encodeURIComponent(targetRemoteId)}`, { method: "DELETE" }),
+        fetch(
+          `/api/accounts?id=${encodeURIComponent(id)}&unipileAccountId=${encodeURIComponent(targetRemoteId)}`,
+          { method: "DELETE" }
+        ),
+      ]);
     } catch {
       // Ignorar error si está en demo
     }
-    fetch(`/api/accounts?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
-    removeStoredAccount(id);
-    const visible = getVisibleAccountsForUser(currentUser);
-    setAccounts(visible);
-    const newActive = getActiveAccountId();
-    setActiveId(newActive);
     refreshUserData();
     setNotice(t("noticeDisconnected"));
     setTimeout(() => setNotice(null), 3000);
@@ -254,7 +263,7 @@ export default function LinkedInAccountsPage() {
   const handleSyncAll = async () => {
     setIsSyncing(true);
     try {
-      const res = await fetch("/api/unipile/accounts");
+      const res = await fetch("/api/unipile/accounts?refresh=1");
       const data = await res.json();
       if (data.isExpired || !data.configured) {
         const visible = getVisibleAccountsForUser(currentUser);

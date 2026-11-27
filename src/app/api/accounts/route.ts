@@ -76,11 +76,18 @@ export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-    if (!id) {
-      return NextResponse.json({ ok: false, error: "Se requiere 'id'." }, { status: 400 });
+    const unipileAccountId = searchParams.get("unipileAccountId");
+    if (!id && !unipileAccountId) {
+      return NextResponse.json({ ok: false, error: "Se requiere 'id' o 'unipileAccountId'." }, { status: 400 });
     }
     const db = getSocialSellingDb();
-    db.prepare("DELETE FROM linkedin_accounts_v2 WHERE id = ?").run(id);
+    const cleanId = (id || "").trim();
+    const cleanRemoteId = (unipileAccountId || cleanId.replace(/^acc-li-/, "")).trim();
+    db.prepare("DELETE FROM linkedin_accounts_v2 WHERE id = ? OR unipile_account_id = ? OR id = ?").run(
+      cleanId,
+      cleanRemoteId,
+      `acc-li-${cleanRemoteId}`
+    );
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error al eliminar cuenta";

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unipile } from '@/lib/unipile/client';
 import type { UnipileProxyConfig } from '@/lib/unipile/types';
+import { invalidateAccountsCache } from '@/lib/unipile/accounts-cache';
 
 function parseProxyString(raw?: string): UnipileProxyConfig | undefined {
   if (!raw || !raw.trim()) return undefined;
@@ -166,6 +167,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    invalidateAccountsCache();
     return NextResponse.json({
       success: true,
       checkpoint: false,

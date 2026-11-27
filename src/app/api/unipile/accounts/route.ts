@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unipile } from '@/lib/unipile/client';
 import type { ConnectedLinkedInAccount } from '@/lib/unipile/types';
-
-// Caché corta e in-flight deduplication para evitar consultar getOwnProfile en cada navegación o recarga
-const ACCOUNTS_CACHE_TTL_MS = 2 * 60 * 1000;
-let cachedAccountsPayload: { expiresAt: number; payload: any } | null = null;
-let inFlightAccountsFetch: Promise<any> | null = null;
+import {
+  getCachedAccountsPayload,
+  setCachedAccountsPayload,
+  getInFlightAccountsFetch,
+  setInFlightAccountsFetch,
+} from '@/lib/unipile/accounts-cache';
 
 async function fetchLiveAccountsPayload() {
   const res = await unipile.listAccounts();
@@ -167,21 +168,21 @@ export async function GET(req: NextRequest) {
     }
 
     const forceRefresh = req.nextUrl.searchParams.get('refresh') === '1';
-    if (!forceRefresh && cachedAccountsPayload && cachedAccountsPayload.expiresAt > Date.now()) {
-      return NextResponse.json(cachedAccountsPayload.payload);
+    const cached = !forceRefresh ? getCachedAccountsPayload() : null;
+    if (cached) {
+      return NextResponse.json(cached);
     }
 
-    if (!inFlightAccountsFetch) {
-      inFlightAccountsFetch = fetchLiveAccountsPayload().finally(() => {
-        inFlightAccountsFetch = null;
+    let inFlight = getInFlightAccountsFetch();
+    if (!inFlight) {
+      inFlight = fetchLiveAccountsPayload().finally(() => {
+        setInFlightAccountsFetch(null);
       });
+      setInFlightAccountsFetch(inFlight);
     }
 
-    const payload = await inFlightAccountsFetch;
-    cachedAccountsPayload = {
-      expiresAt: Date.now() + ACCOUNTS_CACHE_TTL_MS,
-      payload,
-    };
+    const payload = await inFlight;
+    setCachedAccountsPayload(payload);
 
     return NextResponse.json(payload);
   } catch (error: unknown) {

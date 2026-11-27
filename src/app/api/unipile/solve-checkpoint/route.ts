@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unipile } from '@/lib/unipile/client';
+import { invalidateAccountsCache } from '@/lib/unipile/accounts-cache';
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
       accountId: remoteAccountId,
       code: code.trim(),
     });
+    invalidateAccountsCache();
 
     return NextResponse.json({
       success: true,
