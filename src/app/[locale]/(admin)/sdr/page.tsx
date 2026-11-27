@@ -1005,44 +1005,57 @@ export default function SdrAgentPage() {
           {/* Modal Agregar Documento */}
           {isAddKnowledgeOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-              <div className="w-full max-w-lg rounded-lg border border-gray-300 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
-                <h4 className="text-base font-bold text-gray-900 dark:text-white">
-                  {t("modalAddTitle")}
-                </h4>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {t("modalAddDesc")}
-                </p>
-
-                <form onSubmit={handleAddKnowledge} className="mt-4 space-y-4">
+              <div className="w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-xl border border-gray-300 bg-white p-6 sm:p-7 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex items-start justify-between gap-4 border-b border-gray-200 pb-4 dark:border-gray-800">
                   <div>
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {t("docTitleLabel")}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder={t("docTitlePlaceholder")}
-                      value={newKbTitle}
-                      onChange={(e) => setNewKbTitle(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
-                    />
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                      {t("modalAddTitle")}
+                    </h4>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      {t("modalAddDesc")}
+                    </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddKnowledgeOpen(false)}
+                    className="h-8 w-8 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 inline-flex items-center justify-center transition shrink-0 cursor-pointer"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
 
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {t("docCategoryLabel")}
-                    </label>
-                    <select
-                      value={newKbCategory}
-                      onChange={(e) => setNewKbCategory(e.target.value as KnowledgeCategory)}
-                      className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
-                    >
-                      <option value="value_prop">{t("catValueProp")}</option>
-                      <option value="pricing">{t("catPricing")}</option>
-                      <option value="objections">{t("catObjections")}</option>
-                      <option value="faqs">{t("catFaqs")}</option>
-                      <option value="company">{t("catCompany")}</option>
-                    </select>
+                <form onSubmit={handleAddKnowledge} className="mt-5 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t("docTitleLabel")}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder={t("docTitlePlaceholder")}
+                        value={newKbTitle}
+                        onChange={(e) => setNewKbTitle(e.target.value)}
+                        className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 focus:outline-hidden focus:border-[#0099ff] dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t("docCategoryLabel")}
+                      </label>
+                      <select
+                        value={newKbCategory}
+                        onChange={(e) => setNewKbCategory(e.target.value as KnowledgeCategory)}
+                        className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 focus:outline-hidden focus:border-[#0099ff] dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                      >
+                        <option value="value_prop">{t("catValueProp")}</option>
+                        <option value="pricing">{t("catPricing")}</option>
+                        <option value="objections">{t("catObjections")}</option>
+                        <option value="faqs">{t("catFaqs")}</option>
+                        <option value="company">{t("catCompany")}</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div>
@@ -1051,25 +1064,25 @@ export default function SdrAgentPage() {
                     </label>
                     <textarea
                       required
-                      rows={5}
+                      rows={12}
                       placeholder={t("docContentPlaceholder")}
                       value={newKbContent}
                       onChange={(e) => setNewKbContent(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm leading-relaxed text-gray-900 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                      className="mt-1.5 min-h-[300px] w-full resize-y rounded-lg border border-gray-300 bg-white p-3.5 text-sm leading-relaxed text-gray-900 focus:outline-hidden focus:border-[#0099ff] dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                     />
                   </div>
 
-                  <div className="flex items-center justify-end gap-2.5 pt-2">
+                  <div className="flex items-center justify-end gap-2.5 border-t border-gray-200 pt-4 dark:border-gray-800">
                     <button
                       type="button"
                       onClick={() => setIsAddKnowledgeOpen(false)}
-                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300"
+                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 cursor-pointer"
                     >
                       {t("btnCancel")}
                     </button>
                     <button
                       type="submit"
-                      className="rounded-lg bg-[#0099ff] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0088e6]"
+                      className="rounded-lg bg-[#0099ff] px-5 py-2 text-sm font-semibold text-white hover:bg-[#0088e6] cursor-pointer"
                     >
                       {t("btnSaveDocument")}
                     </button>
@@ -1082,15 +1095,26 @@ export default function SdrAgentPage() {
           {/* Modal Editar Documento */}
           {editingKnowledge && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-              <div className="w-full max-w-lg rounded-lg border border-gray-300 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
-                <h4 className="text-base font-bold text-gray-900 dark:text-white">
-                  {t("modalEditTitle")}
-                </h4>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {t("modalEditDesc")}
-                </p>
+              <div className="w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-xl border border-gray-300 bg-white p-6 sm:p-7 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex items-start justify-between gap-4 border-b border-gray-200 pb-4 dark:border-gray-800">
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                      {t("modalEditTitle")}
+                    </h4>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      {t("modalEditDesc")}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingKnowledge(null)}
+                    className="h-8 w-8 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 inline-flex items-center justify-center transition shrink-0 cursor-pointer"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
 
-                <form onSubmit={handleSaveEditKnowledge} className="mt-4 space-y-4">
+                <form onSubmit={handleSaveEditKnowledge} className="mt-5 space-y-4">
                   <div>
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       {t("docTitleLabel")}
@@ -1106,11 +1130,11 @@ export default function SdrAgentPage() {
                           title: e.target.value,
                         })
                       }
-                      className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                      className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 focus:outline-hidden focus:border-[#0099ff] dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         {t("docCategoryLabel")}
@@ -1123,7 +1147,7 @@ export default function SdrAgentPage() {
                             category: e.target.value as KnowledgeCategory,
                           })
                         }
-                        className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2.5 text-xs text-gray-900 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                        className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 focus:outline-hidden focus:border-[#0099ff] dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                       >
                         <option value="value_prop">{t("catValueProp")}</option>
                         <option value="pricing">{t("catPricing")}</option>
@@ -1145,7 +1169,7 @@ export default function SdrAgentPage() {
                             status: e.target.value as "approved" | "draft" | "retired",
                           })
                         }
-                        className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                        className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 focus:outline-hidden focus:border-[#0099ff] dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                       >
                         <option value="approved">{t("statusApproved")}</option>
                         <option value="draft">{t("statusDraft")}</option>
@@ -1160,7 +1184,7 @@ export default function SdrAgentPage() {
                     </label>
                     <textarea
                       required
-                      rows={6}
+                      rows={12}
                       placeholder={t("docContentPlaceholder")}
                       value={editingKnowledge.content}
                       onChange={(e) =>
@@ -1169,21 +1193,21 @@ export default function SdrAgentPage() {
                           content: e.target.value,
                         })
                       }
-                      className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm leading-relaxed text-gray-900 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                      className="mt-1.5 min-h-[300px] w-full resize-y rounded-lg border border-gray-300 bg-white p-3.5 text-sm leading-relaxed text-gray-900 focus:outline-hidden focus:border-[#0099ff] dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                     />
                   </div>
 
-                  <div className="flex items-center justify-end gap-2.5 pt-2">
+                  <div className="flex items-center justify-end gap-2.5 border-t border-gray-200 pt-4 dark:border-gray-800">
                     <button
                       type="button"
                       onClick={() => setEditingKnowledge(null)}
-                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300"
+                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 cursor-pointer"
                     >
                       {t("btnCancel")}
                     </button>
                     <button
                       type="submit"
-                      className="rounded-lg bg-[#0099ff] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0088e6]"
+                      className="rounded-lg bg-[#0099ff] px-5 py-2 text-sm font-semibold text-white hover:bg-[#0088e6] cursor-pointer"
                     >
                       {t("btnSaveChanges")}
                     </button>
