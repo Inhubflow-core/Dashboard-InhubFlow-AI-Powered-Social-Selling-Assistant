@@ -1802,62 +1802,35 @@ export default function ViralRadarView({
                 </div>
               )}
 
-              {/* Barra de Reacciones y Contadores de LinkedIn (Likes, Comentarios, Compartidos / Reposts) */}
-              <div className="flex items-center justify-between px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800">
-                <div className="flex items-center gap-1.5">
-                  <span className="flex items-center -space-x-1">
-                    <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#378fe9] text-white ring-1 ring-white dark:ring-gray-900">
-                      <ThumbsUp className="h-2.5 w-2.5 fill-current" />
-                    </span>
-                    <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#df704d] text-white ring-1 ring-white dark:ring-gray-900">
-                      <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24">
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                      </svg>
-                    </span>
-                    <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#6dae4f] text-white ring-1 ring-white dark:ring-gray-900">
-                      <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24">
-                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                      </svg>
-                    </span>
-                  </span>
-                  <span className="font-semibold text-gray-700 dark:text-gray-300 ml-1">
-                    {selectedPostForModal.likes.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs">
-                  <span>{t("commentsCount", { count: selectedPostForModal.comments.toLocaleString() })}</span>
-                  <span>•</span>
-                  <span className={`inline-flex items-center gap-1 ${selectedPostForModal.shares > 0 ? "font-semibold text-emerald-600 dark:text-emerald-400" : ""}`}>
-                    <Repeat2 className="w-3.5 h-3.5" />
-                    {t("sharesCount", { count: selectedPostForModal.shares.toLocaleString() })}
-                  </span>
-                </div>
-              </div>
-
-              {/* Barra de Acciones del Feed de LinkedIn */}
-              <div className="grid grid-cols-4 py-1 px-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
+              {/* Barra única de Acciones y Métricas del Feed de LinkedIn */}
+              <div className="grid grid-cols-4 border-t border-gray-200 dark:border-gray-800 py-1.5 px-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
                 <div className="flex items-center justify-center gap-1.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition">
-                  <ThumbsUp className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-                  <span className="hidden sm:inline">{t("reactAction")}</span>
+                  <ThumbsUp className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
+                  <span className="hidden sm:inline">
+                    {t("reactAction")} ({selectedPostForModal.likes.toLocaleString()})
+                  </span>
+                  <span className="sm:hidden">{selectedPostForModal.likes.toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-center gap-1.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition">
-                  <MessageSquare className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-                  <span className="hidden sm:inline">{t("commentAction")}</span>
+                  <MessageSquare className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
+                  <span className="hidden sm:inline">
+                    {t("commentsCount", { count: selectedPostForModal.comments.toLocaleString() })}
+                  </span>
+                  <span className="sm:hidden">{selectedPostForModal.comments.toLocaleString()}</span>
                 </div>
                 <div
                   className={`flex items-center justify-center gap-1.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition ${
                     selectedPostForModal.shares > 0 ? "text-emerald-600 dark:text-emerald-400" : ""
                   }`}
                 >
-                  <Repeat2 className="w-4 h-4" />
+                  <Repeat2 className="w-5 h-5 shrink-0" />
                   <span className="hidden sm:inline">
-                    {selectedPostForModal.shares > 0
-                      ? `${t("shareAction")} (${selectedPostForModal.shares})`
-                      : t("shareAction")}
+                    {t("shareAction")} ({selectedPostForModal.shares.toLocaleString()})
                   </span>
+                  <span className="sm:hidden">{selectedPostForModal.shares.toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-center gap-1.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition">
-                  <Send className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                  <Send className="w-5 h-5 shrink-0 text-gray-600 dark:text-gray-300" />
                   <span className="hidden sm:inline">{t("sendAction")}</span>
                 </div>
               </div>
