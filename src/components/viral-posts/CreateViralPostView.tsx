@@ -1498,14 +1498,6 @@ Aquí tienes el framework exacto que usamos para cerrar reuniones cualificadas:
                   )}
                 </div>
               )}
-
-              {/* Barra de Reacciones LinkedIn */}
-              <div className="p-2.5 px-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 font-semibold">
-                <span className="hover:text-slate-900 cursor-pointer">👍 Reaccionar</span>
-                <span className="hover:text-slate-900 cursor-pointer">💬 Comentar</span>
-                <span className="hover:text-slate-900 cursor-pointer">🔁 Repostear</span>
-                <span className="hover:text-slate-900 cursor-pointer">📤 Enviar</span>
-              </div>
             </div>
           </div>
         </div>
